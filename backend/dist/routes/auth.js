@@ -4,13 +4,23 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
-const bcrypt_1 = __importDefault(require("bcrypt"));
+const bcryptjs_1 = __importDefault(require("bcryptjs"));
 const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
 const client_1 = require("@prisma/client");
 const auth_1 = require("../middleware/auth");
 const router = (0, express_1.Router)();
 const prisma = new client_1.PrismaClient();
 const JWT_SECRET = process.env.JWT_SECRET || "pawn_manager_secret_key_2026";
+// Status Check
+router.get("/status", async (req, res) => {
+    try {
+        const storeCount = await prisma.store.count();
+        return res.json({ bootstrapped: storeCount > 0 });
+    }
+    catch (error) {
+        return res.status(500).json({ error: error.message });
+    }
+});
 // 1. Bootstrapping Endpoint - Creates first store & admin if system is empty
 router.post("/bootstrap", async (req, res) => {
     try {
@@ -22,7 +32,7 @@ router.post("/bootstrap", async (req, res) => {
         if (!storeName || !username || !password || !fullName) {
             return res.status(400).json({ error: "Missing required fields for bootstrap" });
         }
-        const hash = await bcrypt_1.default.hash(password, 10);
+        const hash = await bcryptjs_1.default.hash(password, 10);
         // Create store and admin employee in a transaction
         const result = await prisma.$transaction(async (tx) => {
             const store = await tx.store.create({
@@ -92,7 +102,7 @@ router.post("/login", async (req, res) => {
         if (!employee || employee.status !== "active") {
             return res.status(401).json({ error: "Invalid username or account is suspended" });
         }
-        const passwordMatch = await bcrypt_1.default.compare(password, employee.password_hash);
+        const passwordMatch = await bcryptjs_1.default.compare(password, employee.password_hash);
         if (!passwordMatch) {
             return res.status(401).json({ error: "Invalid password" });
         }

@@ -4,7 +4,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
-const bcrypt_1 = __importDefault(require("bcrypt"));
+const bcryptjs_1 = __importDefault(require("bcryptjs"));
 const client_1 = require("@prisma/client");
 const auth_1 = require("../middleware/auth");
 const permission_1 = require("../middleware/permission");
@@ -71,7 +71,7 @@ router.post("/", (0, permission_1.requirePermission)(["EMPLOYEES_MANAGE"]), asyn
         if (existingUser) {
             return res.status(400).json({ error: "Username already exists" });
         }
-        const hash = await bcrypt_1.default.hash(password, 10);
+        const hash = await bcryptjs_1.default.hash(password, 10);
         const newEmployee = await prisma.$transaction(async (tx) => {
             const emp = await tx.employee.create({
                 data: {
@@ -133,7 +133,7 @@ router.put("/:id", async (req, res) => {
                 dataToUpdate.store_id = store_id;
         }
         if (password) {
-            dataToUpdate.password_hash = await bcrypt_1.default.hash(password, 10);
+            dataToUpdate.password_hash = await bcryptjs_1.default.hash(password, 10);
         }
         const updated = await prisma.employee.update({
             where: { id: employeeId },
