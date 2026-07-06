@@ -14,7 +14,7 @@ router.get("/", async (req: AuthenticatedRequest, res: Response) => {
   try {
     const employees = await prisma.employee.findMany({
       include: {
-        store: { select: { name: true } },
+        store: { select: { id: true, name: true, address: true } },
         permissions: { include: { permission: true } },
       },
       orderBy: { full_name: "asc" },
