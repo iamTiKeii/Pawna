@@ -4,7 +4,6 @@ import { useAuth } from "../context/AuthContext";
 import { uploadImageToDrive } from "../utils/uploadHelper";
 import { 
   Settings, 
-  Store, 
   User, 
   Save, 
   Upload, 
@@ -44,14 +43,13 @@ const removeAccents = (str: string) => {
 };
 
 export const SettingsPage: React.FC = () => {
-  const { user, activeStore, hasPermission, fetchProfile } = useAuth();
+  const { user, hasPermission, fetchProfile } = useAuth();
   
   // Tab states
   const isAdmin = hasPermission("EMPLOYEES_MANAGE") || hasPermission("STORES_MANAGE") || hasPermission("EMPLOYEES_PERMISSIONS");
-  const isStoreManager = isAdmin || hasPermission("STORES_DETAIL");
   
   const [activeTab, setActiveTab] = useState(
-    isAdmin ? "system" : isStoreManager ? "store" : "profile"
+    isAdmin ? "system" : "profile"
   );
 
   // Loading and Alert states
@@ -66,13 +64,7 @@ export const SettingsPage: React.FC = () => {
   const [systemEmail, setSystemEmail] = useState("");
   const [logoUploading, setLogoUploading] = useState(false);
 
-  // Tab 2: Store Settings state
-  const [storeName, setStoreName] = useState("");
-  const [storePhone, setStorePhone] = useState("");
-  const [storeAddress, setStoreAddress] = useState("");
-  const [storeNotes, setStoreNotes] = useState("");
-
-  // Tab 3: Personal & Bank settings state
+  // Tab 2: Personal & Bank settings state
   const [fullName, setFullName] = useState("");
   const [personalPhone, setPersonalPhone] = useState("");
   const [personalEmail, setPersonalEmail] = useState("");
@@ -86,12 +78,10 @@ export const SettingsPage: React.FC = () => {
   useEffect(() => {
     if (activeTab === "system" && isAdmin) {
       fetchSystemSettings();
-    } else if (activeTab === "store" && isStoreManager) {
-      fetchStoreDetails();
     } else if (activeTab === "profile") {
       fetchPersonalProfile();
     }
-  }, [activeTab, activeStore]);
+  }, [activeTab]);
 
   const fetchSystemSettings = async () => {
     try {
@@ -104,23 +94,6 @@ export const SettingsPage: React.FC = () => {
       setSystemEmail(res.data.system_email || "");
     } catch (err: any) {
       setError("Không thể tải cấu hình hệ thống.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchStoreDetails = async () => {
-    if (!activeStore) return;
-    try {
-      setLoading(true);
-      setError("");
-      const res = await axios.get(`/api/stores/${activeStore.id}`);
-      setStoreName(res.data.name || "");
-      setStorePhone(res.data.phone || "");
-      setStoreAddress(res.data.address || "");
-      setStoreNotes(res.data.notes || "");
-    } catch (err: any) {
-      setError("Không thể tải thông tin cửa hàng chi nhánh.");
     } finally {
       setLoading(false);
     }
@@ -203,27 +176,6 @@ export const SettingsPage: React.FC = () => {
     }
   };
 
-  const handleSaveStore = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!activeStore) return;
-    try {
-      setLoading(true);
-      setError("");
-      setSuccess("");
-      await axios.put(`/api/stores/${activeStore.id}`, {
-        name: storeName,
-        phone: storePhone,
-        address: storeAddress,
-        notes: storeNotes,
-      });
-      setSuccess("Cập nhật thông tin chi nhánh cửa hàng thành công!");
-    } catch (err: any) {
-      setError(err.response?.data?.error || "Cập nhật thông tin chi nhánh thất bại.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
@@ -256,7 +208,7 @@ export const SettingsPage: React.FC = () => {
           <span>Cấu hình</span>
         </span>
         <h1 className="text-2xl font-black text-slate-800 mt-2">Cấu hình Hệ thống & Tài khoản</h1>
-        <p className="text-slate-500 text-xs mt-0.5">Quản lý cấu hình chung, thông tin chi nhánh và tài khoản ngân hàng cá nhân.</p>
+        <p className="text-slate-500 text-xs mt-0.5">Quản lý cấu hình chung và tài khoản ngân hàng cá nhân.</p>
       </div>
 
       {/* Tabs */}
@@ -271,19 +223,6 @@ export const SettingsPage: React.FC = () => {
           >
             <Settings className="w-4 h-4" />
             <span>Hệ thống</span>
-          </button>
-        )}
-        
-        {isStoreManager && (
-          <button
-            onClick={() => { setActiveTab("store"); setError(""); setSuccess(""); }}
-            className={`tab flex-1 py-3 h-auto font-bold rounded-xl gap-2 transition-all text-xs ${
-              activeTab === "store" ? "bg-amber-500 text-slate-950" : "text-slate-500 hover:bg-slate-50"
-            }`}
-            type="button"
-          >
-            <Store className="w-4 h-4" />
-            <span>Cửa hàng</span>
           </button>
         )}
 
@@ -420,82 +359,7 @@ export const SettingsPage: React.FC = () => {
           </form>
         )}
 
-        {/* Tab 2: Store Configuration */}
-        {activeTab === "store" && isStoreManager && (
-          <form onSubmit={handleSaveStore} className="space-y-6">
-            <div className="flex justify-between items-center border-b pb-2">
-              <h3 className="font-bold text-base text-slate-800">Cấu hình chi nhánh / Cửa hàng</h3>
-              {activeStore && (
-                <span className="badge badge-amber badge-sm text-slate-900 font-extrabold uppercase">
-                  ID: {activeStore.id.substring(0, 8)}...
-                </span>
-              )}
-            </div>
-
-            <div className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="label text-slate-600 text-xs font-bold py-1">Tên cửa hàng / Chi nhánh *</label>
-                  <input
-                    type="text"
-                    value={storeName}
-                    onChange={(e) => setStoreName(e.target.value)}
-                    placeholder="Tên chi nhánh..."
-                    className="input input-bordered input-sm w-full bg-white border-slate-200 focus:outline-none focus:border-amber-500 text-slate-800 rounded-lg text-xs"
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label className="label text-slate-600 text-xs font-bold py-1">Số điện thoại liên hệ *</label>
-                  <input
-                    type="text"
-                    value={storePhone}
-                    onChange={(e) => setStorePhone(e.target.value)}
-                    placeholder="Số điện thoại liên hệ..."
-                    className="input input-bordered input-sm w-full bg-white border-slate-200 focus:outline-none focus:border-amber-500 text-slate-800 rounded-lg text-xs"
-                    required
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="label text-slate-600 text-xs font-bold py-1">Địa chỉ chi tiết *</label>
-                <input
-                  type="text"
-                  value={storeAddress}
-                  onChange={(e) => setStoreAddress(e.target.value)}
-                  placeholder="Địa chỉ cửa hàng..."
-                  className="input input-bordered input-sm w-full bg-white border-slate-200 focus:outline-none focus:border-amber-500 text-slate-800 rounded-lg text-xs"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="label text-slate-600 text-xs font-bold py-1">Ghi chú vận hành</label>
-                <textarea
-                  value={storeNotes}
-                  onChange={(e) => setStoreNotes(e.target.value)}
-                  placeholder="Thông tin ghi chú cho chi nhánh này..."
-                  className="textarea textarea-bordered textarea-sm w-full bg-white border-slate-200 focus:outline-none focus:border-amber-500 text-slate-800 rounded-lg text-xs h-24"
-                />
-              </div>
-            </div>
-
-            <div className="border-t pt-4 flex justify-end">
-              <button
-                type="submit"
-                disabled={loading}
-                className="btn btn-primary text-white btn-sm gap-1.5 rounded-xl font-bold px-6 shadow-sm shadow-amber-500/20"
-              >
-                {loading ? <span className="loading loading-spinner btn-xs"></span> : <Save className="w-4 h-4" />}
-                <span>Cập nhật cửa hàng</span>
-              </button>
-            </div>
-          </form>
-        )}
-
-        {/* Tab 3: Personal & Bank settings */}
+        {/* Tab 2: Personal & Bank settings */}
         {activeTab === "profile" && (
           <form onSubmit={handleSaveProfile} className="space-y-6">
             
