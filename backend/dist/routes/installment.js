@@ -55,6 +55,9 @@ router.get("/", async (req, res) => {
         if (status) {
             whereClause.status = status;
         }
+        else {
+            whereClause.status = { not: "cancelled" };
+        }
         if (search) {
             whereClause.OR = [
                 { contract_code: { contains: search, mode: "insensitive" } },
@@ -824,9 +827,10 @@ router.delete("/:id", (0, permission_1.requirePermission)(["CONTRACTS_MANAGE"]),
             if (netCashFlow !== 0) {
                 await (0, cash_1.adjustDailyCash)(tx, contract.store_id, new Date(), -netCashFlow, "contract_deleted", employeeId, `Khấu trừ/Hoàn trả quỹ két do xóa hợp đồng trả góp ${contract.contract_code}. Lượng hoàn két: ${-netCashFlow}`);
             }
-            // Delete main contract. Cascade clean up child tables
-            await tx.installmentContract.delete({
+            // Soft delete: set status to 'cancelled'
+            await tx.installmentContract.update({
                 where: { id: contractId },
+                data: { status: "cancelled" },
             });
             return { message: "Installment contract deleted successfully and daily cash balanced" };
         });

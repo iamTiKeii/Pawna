@@ -103,4 +103,70 @@ router.post("/adjust", (0, permission_1.requirePermission)(["FUNDS_MANAGE"]), as
         return res.status(500).json({ error: error.message });
     }
 });
+// 4. Set/Update Beginning Cash for today
+router.post("/beginning", (0, permission_1.requirePermission)(["FUNDS_MANAGE"]), async (req, res) => {
+    try {
+        const storeId = req.user.store_id;
+        const employeeId = req.user.id;
+        const { beginning_cash } = req.body;
+        if (beginning_cash === undefined) {
+            return res.status(400).json({ error: "beginning_cash is required" });
+        }
+        const value = Number(beginning_cash);
+        if (isNaN(value) || value < 0) {
+            return res.status(400).json({ error: "beginning_cash must be a non-negative number" });
+        }
+        const today = (0, cash_1.normalizeToMidnight)(new Date());
+        const result = await prisma.$transaction(async (tx) => {
+            let dailyCash = await tx.dailyCash.findUnique({
+                where: {
+                    store_id_date: {
+                        store_id: storeId,
+                        date: today,
+                    },
+                },
+            });
+            let diff = value;
+            if (dailyCash) {
+                const oldBeginning = Number(dailyCash.beginning_cash);
+                diff = value - oldBeginning;
+                dailyCash = await tx.dailyCash.update({
+                    where: { id: dailyCash.id },
+                    data: {
+                        beginning_cash: value,
+                        current_cash: {
+                            increment: diff,
+                        },
+                    },
+                });
+            }
+            else {
+                dailyCash = await tx.dailyCash.create({
+                    data: {
+                        store_id: storeId,
+                        date: today,
+                        beginning_cash: value,
+                        current_cash: value,
+                    },
+                });
+            }
+            // Record in cash history
+            await tx.cashFundHistory.create({
+                data: {
+                    store_id: storeId,
+                    date: today,
+                    employee_id: employeeId,
+                    amount: diff,
+                    type: "beginning_cash_set",
+                    description: `Thiết lập/cập nhật số dư quỹ tiền mặt đầu ngày. Giá trị mới: ${value}, Chênh lệch: ${diff}`,
+                },
+            });
+            return dailyCash;
+        });
+        return res.json({ message: "Beginning cash set successfully", daily_cash: result });
+    }
+    catch (error) {
+        return res.status(500).json({ error: error.message });
+    }
+});
 exports.default = router;

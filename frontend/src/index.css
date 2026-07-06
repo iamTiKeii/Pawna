@@ -6,15 +6,15 @@
 
 body {
   font-family: 'Outfit', 'Inter', sans-serif;
-  background-color: #020617;
-  color: #f8fafc;
+  background-color: #f5f5f5;
+  color: #1f2937;
 }
 
-/* Glassmorphism utility */
+/* Glassmorphism utility for light mode */
 .glass-card {
-  background: rgba(15, 23, 42, 0.6);
+  background: rgba(255, 255, 255, 0.8);
   backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(0, 0, 0, 0.05);
 }
 
 /* Scrollbar customizations */
@@ -24,16 +24,16 @@ body {
 }
 
 ::-webkit-scrollbar-track {
-  background: #020617;
+  background: #f5f5f5;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #1e293b;
+  background: #cbd5e1;
   border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #d4af37;
+  background: #a8a29e;
 }
 
 /* Thermal Printer CSS (K80 / 80mm width) */

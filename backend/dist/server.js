@@ -21,6 +21,8 @@ const pawn_1 = __importDefault(require("./routes/pawn"));
 const unsecured_1 = __importDefault(require("./routes/unsecured"));
 const installment_1 = __importDefault(require("./routes/installment"));
 const vouchers_1 = __importDefault(require("./routes/vouchers"));
+const capital_1 = __importDefault(require("./routes/capital"));
+const reports_1 = __importDefault(require("./routes/reports"));
 const app = (0, express_1.default)();
 const PORT = process.env.PORT || 5001;
 // Middlewares
@@ -37,7 +39,9 @@ app.use("/api/cash", cash_1.default);
 app.use("/api/contracts/pawn", pawn_1.default);
 app.use("/api/contracts/unsecured", unsecured_1.default);
 app.use("/api/contracts/installment", installment_1.default);
+app.use("/api/contracts/capital", capital_1.default);
 app.use("/api/vouchers", vouchers_1.default);
+app.use("/api/reports", reports_1.default);
 // Serve Frontend static build in production
 const frontendBuildPath = path_1.default.join(__dirname, "../../frontend/dist");
 app.use(express_1.default.static(frontendBuildPath));

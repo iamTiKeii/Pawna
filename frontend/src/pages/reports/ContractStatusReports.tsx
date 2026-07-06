@@ -4,9 +4,10 @@ import { useParams, Link } from "react-router-dom";
 import { Search, ChevronRight, RefreshCw, AlertCircle } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 
-export const ContractStatusReports: React.FC = () => {
+export const ContractStatusReports: React.FC<{ overrideCategory?: string }> = ({ overrideCategory }) => {
   const { activeStore } = useAuth();
-  const { category } = useParams<{ category: string }>();
+  const { category: paramCategory } = useParams<{ category: string }>();
+  const category = overrideCategory || paramCategory;
 
   const [activeTab, setActiveTab] = useState<"pawn" | "unsecured" | "installment">("pawn");
   const [data, setData] = useState<{ pawn: any[]; unsecured: any[]; installment: any[] }>({

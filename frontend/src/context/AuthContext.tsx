@@ -27,6 +27,7 @@ interface AuthContextType {
   logout: () => void;
   switchStore: (store: StoreInfo) => void;
   hasPermission: (code: string) => boolean;
+  fetchProfile: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -50,7 +51,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const res = await axios.get("/api/auth/me");
       setUser(res.data);
       // Initialize activeStore with the employee's direct store
-      setActiveStore(res.data.store);
+      setActiveStore((prev) => prev || res.data.store);
     } catch (err) {
       console.error("Failed to load user profile:", err);
       logout();
@@ -105,6 +106,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         logout,
         switchStore,
         hasPermission,
+        fetchProfile,
       }}
     >
       {children}

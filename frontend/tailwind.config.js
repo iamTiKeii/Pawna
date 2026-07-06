@@ -15,13 +15,15 @@ export default {
   daisyui: {
     themes: [
       {
-        luxury_dark: {
-          "primary": "#d4af37", // Gold
-          "secondary": "#1e293b", // Slate
-          "accent": "#f59e0b", // Amber
-          "neutral": "#0f172a", // Dark Slate
-          "base-100": "#020617", // Very Dark Slate
-          "info": "#38bdf8",
+        pawn_light: {
+          "primary": "#d4af37",
+          "secondary": "#262D44",
+          "accent": "#f59e0b",
+          "neutral": "#1f2937",
+          "base-100": "#ffffff",
+          "base-200": "#f5f5f5",
+          "base-300": "#e5e7eb",
+          "info": "#3b82f6",
           "success": "#10b981",
           "warning": "#f59e0b",
           "error": "#ef4444",

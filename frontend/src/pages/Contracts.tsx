@@ -1,12 +1,19 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
-import { Link } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Plus, Search, FileText, ChevronRight, RefreshCw } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 
 export const Contracts: React.FC = () => {
   const { activeStore } = useAuth();
-  const [activeTab, setActiveTab] = useState<"pawn" | "unsecured" | "installment">("pawn");
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  const activeTab = location.pathname.includes("/loan")
+    ? "unsecured"
+    : location.pathname.includes("/installment")
+    ? "installment"
+    : "pawn";
   
   // Data lists
   const [pawnList, setPawnList] = useState<any[]>([]);
@@ -29,6 +36,20 @@ export const Contracts: React.FC = () => {
   const [isPawnOpen, setIsPawnOpen] = useState(false);
   const [isUnsecuredOpen, setIsUnsecuredOpen] = useState(false);
   const [isInstallmentOpen, setIsInstallmentOpen] = useState(false);
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    if (params.get("action") === "new") {
+      if (activeTab === "pawn") {
+        setIsPawnOpen(true);
+      } else if (activeTab === "unsecured") {
+        setIsUnsecuredOpen(true);
+      } else if (activeTab === "installment") {
+        setIsInstallmentOpen(true);
+      }
+      navigate(location.pathname, { replace: true });
+    }
+  }, [location.search, activeTab]);
 
   // Pawn form fields
   const [pCustomerId, setPCustomerId] = useState("");
@@ -251,22 +272,22 @@ export const Contracts: React.FC = () => {
       )}
 
       {/* Tabs */}
-      <div className="tabs tabs-boxed bg-slate-900 border border-slate-800/80 p-1.5 rounded-xl">
+      <div className="tabs tabs-boxed bg-slate-100 border border-slate-200 p-1.5 rounded-xl">
         <button
-          onClick={() => setActiveTab("pawn")}
-          className={`tab font-bold text-sm rounded-lg flex-1 py-3 ${activeTab === "pawn" ? "bg-amber-500 text-slate-950" : "text-slate-400 hover:text-slate-200"}`}
+          onClick={() => navigate("/contract/pawn")}
+          className={`tab font-bold text-sm rounded-lg flex-1 py-3 ${activeTab === "pawn" ? "bg-amber-500 text-slate-950 font-extrabold shadow-sm" : "text-slate-500 hover:text-slate-850"}`}
         >
           Hợp đồng Cầm đồ
         </button>
         <button
-          onClick={() => setActiveTab("unsecured")}
-          className={`tab font-bold text-sm rounded-lg flex-1 py-3 ${activeTab === "unsecured" ? "bg-amber-500 text-slate-950" : "text-slate-400 hover:text-slate-200"}`}
+          onClick={() => navigate("/contract/loan")}
+          className={`tab font-bold text-sm rounded-lg flex-1 py-3 ${activeTab === "unsecured" ? "bg-amber-500 text-slate-950 font-extrabold shadow-sm" : "text-slate-500 hover:text-slate-850"}`}
         >
           Hợp đồng Tín chấp
         </button>
         <button
-          onClick={() => setActiveTab("installment")}
-          className={`tab font-bold text-sm rounded-lg flex-1 py-3 ${activeTab === "installment" ? "bg-amber-500 text-slate-950" : "text-slate-400 hover:text-slate-200"}`}
+          onClick={() => navigate("/contract/installment")}
+          className={`tab font-bold text-sm rounded-lg flex-1 py-3 ${activeTab === "installment" ? "bg-amber-500 text-slate-950 font-extrabold shadow-sm" : "text-slate-500 hover:text-slate-850"}`}
         >
           Hợp đồng Trả góp
         </button>
