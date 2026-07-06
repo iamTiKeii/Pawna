@@ -151,6 +151,10 @@ router.get("/me", auth_1.authenticateToken, async (req, res) => {
             email: employee.email,
             avatar_url: employee.avatar_url,
             status: employee.status,
+            address: employee.address,
+            gender: employee.gender,
+            birthday: employee.birthday,
+            two_factor_enabled: employee.two_factor_enabled,
             store: {
                 id: employee.store.id,
                 name: employee.store.name,

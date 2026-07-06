@@ -1,0 +1,442 @@
+import { Router, Response } from "express";
+import { PrismaClient } from "@prisma/client";
+import { authenticateToken, AuthenticatedRequest } from "../middleware/auth";
+
+const router = Router();
+const prisma = new PrismaClient();
+
+// Apply auth middleware to all warning endpoints
+router.use(authenticateToken as any);
+
+// Helper to format search queries
+const getSearchFilter = (search: any): any => {
+  if (!search) return {};
+  return {
+    OR: [
+      { contract_code: { contains: String(search), mode: "insensitive" } },
+      { customer: { full_name: { contains: String(search), mode: "insensitive" } } },
+      { customer: { phone: { contains: String(search), mode: "insensitive" } } },
+    ]
+  };
+};
+
+// 1. GET Cảnh báo cầm đồ (Pawn Warnings)
+router.get("/pawn", async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { search } = req.query;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    // Find pawn contracts in active store with unpaid cycles that have passed
+    const contracts = await prisma.pawnContract.findMany({
+      where: {
+        store_id: req.user!.store_id,
+        status: "active",
+        ...getSearchFilter(search),
+        interest_payments: {
+          some: {
+            is_paid: false,
+            to_date: { lt: today },
+          }
+        }
+      },
+      include: {
+        customer: true,
+        interest_payments: {
+          where: { is_paid: false },
+        }
+      }
+    });
+
+    const result = contracts.map((c) => {
+      const debtVal = Number(c.debt_amount || 0);
+      const loanVal = Number(c.loan_amount || 0);
+      // Sum expected interest for all overdue unpaid cycles
+      const interestDue = c.interest_payments.reduce(
+        (sum: number, p: any) => sum + Number(p.expected_interest || 0), 0
+      );
+      const totalDue = loanVal + interestDue + debtVal;
+      const overdueCycles = c.interest_payments.length;
+
+      return {
+        id: c.id,
+        contract_code: c.contract_code,
+        customer: c.customer,
+        asset_name: c.asset_name,
+        asset_code: c.license_plate || c.chassis_number || "",
+        debt_amount: debtVal,
+        interest_due: interestDue,
+        loan_amount: loanVal,
+        total_due: totalDue,
+        warning_reason: `Chậm đóng tiền lãi (${overdueCycles} kỳ)`,
+        status: "Quá hạn đóng lãi",
+      };
+    });
+
+    return res.json(result);
+  } catch (error: any) {
+    return res.status(500).json({ error: error.message });
+  }
+});
+
+// 2. GET Cảnh báo tín chấp (Loan Warnings)
+router.get("/loan", async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { search } = req.query;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const contracts = await prisma.unsecuredContract.findMany({
+      where: {
+        store_id: req.user!.store_id,
+        status: "active",
+        ...getSearchFilter(search),
+        interest_payments: {
+          some: {
+            is_paid: false,
+            to_date: { lt: today },
+          }
+        }
+      },
+      include: {
+        customer: true,
+        interest_payments: {
+          where: { is_paid: false },
+        }
+      }
+    });
+
+    const result = contracts.map((c) => {
+      const debtVal = Number(c.debt_amount || 0);
+      const loanVal = Number(c.loan_amount || 0);
+      const interestDue = c.interest_payments.reduce(
+        (sum: number, p: any) => sum + Number(p.expected_interest || 0), 0
+      );
+      const totalDue = loanVal + interestDue + debtVal;
+      const overdueCycles = c.interest_payments.length;
+
+      return {
+        id: c.id,
+        contract_code: c.contract_code,
+        customer: c.customer,
+        debt_amount: debtVal,
+        interest_due: interestDue,
+        loan_amount: loanVal,
+        total_due: totalDue,
+        warning_reason: `Trễ nợ đóng lãi (${overdueCycles} kỳ)`,
+        status: "Quá hạn",
+      };
+    });
+
+    return res.json(result);
+  } catch (error: any) {
+    return res.status(500).json({ error: error.message });
+  }
+});
+
+// 3. GET Cảnh báo trả góp (Installment Warnings)
+router.get("/installment", async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { search, employeeId, status, tomorrow } = req.query;
+    const targetDate = new Date();
+    
+    if (tomorrow === "true") {
+      targetDate.setDate(targetDate.getDate() + 1);
+    }
+    
+    // Set range for the target date
+    const startOfDay = new Date(targetDate);
+    startOfDay.setHours(0, 0, 0, 0);
+    const endOfDay = new Date(targetDate);
+    endOfDay.setHours(23, 59, 59, 999);
+
+    const baseWhere: any = {
+      store_id: req.user!.store_id,
+      status: status ? String(status) : "active",
+      ...getSearchFilter(search),
+      payments: {
+        some: {
+          is_paid: false,
+          to_date: {
+            gte: startOfDay,
+            lte: endOfDay,
+          }
+        }
+      }
+    };
+
+    if (employeeId) {
+      baseWhere.collector_id = String(employeeId);
+    }
+
+    const contracts = await prisma.installmentContract.findMany({
+      where: baseWhere,
+      include: {
+        customer: true,
+        payments: {
+          where: {
+            is_paid: false,
+            to_date: {
+              gte: startOfDay,
+              lte: endOfDay,
+            }
+          }
+        }
+      }
+    });
+
+    const result = contracts.map((c) => {
+      const debtVal = Number(c.debt_amount || 0);
+      const periodAmount = c.payments.reduce(
+        (sum, p) => sum + Number(p.expected_amount || 0), 0
+      );
+
+      return {
+        id: c.id,
+        contract_code: c.contract_code,
+        customer: c.customer,
+        debt_amount: debtVal,
+        period_payment_amount: periodAmount,
+        warning_reason: tomorrow === "true" ? "Đến hạn đóng tiền ngày mai" : "Đến hạn đóng tiền hôm nay",
+        status: c.status === "active" ? "Đến hạn" : c.status,
+      };
+    });
+
+    return res.json(result);
+  } catch (error: any) {
+    return res.status(500).json({ error: error.message });
+  }
+});
+
+// 4. GET Cảnh báo nguồn vốn (Capital Warnings)
+router.get("/capital", async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { search } = req.query;
+    
+    let searchFilter = {};
+    if (search) {
+      searchFilter = {
+        OR: [
+          { investor_name: { contains: String(search), mode: "insensitive" } },
+          { investor_phone: { contains: String(search), mode: "insensitive" } },
+        ]
+      };
+    }
+
+    // Return active capital contracts that have been created more than 30 days ago
+    // representing potential monthly payout schedules
+    const targetDate = new Date();
+    targetDate.setDate(targetDate.getDate() - 30);
+
+    const contracts = await prisma.capitalContract.findMany({
+      where: {
+        store_id: req.user!.store_id,
+        status: "active",
+        ...searchFilter,
+        investment_date: {
+          lt: targetDate
+        }
+      }
+    });
+
+    const result = contracts.map((c) => {
+      const principal = Number(c.amount || 0);
+      // Simulate monthly expected profit (e.g. 1.5% profit)
+      const interestDue = principal * 0.015; 
+      const debtVal = 0; // standard capital has no debt unless overdue
+      const totalDue = principal + interestDue;
+
+      return {
+        id: c.id,
+        investor_name: c.investor_name,
+        investor_phone: c.investor_phone || "N/A",
+        investor_address: c.investor_address || "N/A",
+        capital_amount: principal,
+        interest_due: interestDue,
+        debt_amount: debtVal,
+        total_due: totalDue,
+        warning_reason: "Đến kỳ hạn trả lợi nhuận góp vốn",
+        status: "Đến kỳ hạn",
+      };
+    });
+
+    return res.json(result);
+  } catch (error: any) {
+    return res.status(500).json({ error: error.message });
+  }
+});
+
+// 5. GET Warnings Summary Counts (Totals count for Header notification bell)
+router.get("/summary", async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const storeId = req.user!.store_id;
+
+    // 1. Pawn warnings count
+    const pawnCount = await prisma.pawnContract.count({
+      where: {
+        store_id: storeId,
+        status: "active",
+        interest_payments: {
+          some: {
+            is_paid: false,
+            to_date: { lt: today }
+          }
+        }
+      }
+    });
+
+    // 2. Loan warnings count
+    const loanCount = await prisma.unsecuredContract.count({
+      where: {
+        store_id: storeId,
+        status: "active",
+        interest_payments: {
+          some: {
+            is_paid: false,
+            to_date: { lt: today }
+          }
+        }
+      }
+    });
+
+    // 3. Installment warnings count (due today)
+    const endOfDay = new Date();
+    endOfDay.setHours(23, 59, 59, 999);
+    const installmentCount = await prisma.installmentContract.count({
+      where: {
+        store_id: storeId,
+        status: "active",
+        payments: {
+          some: {
+            is_paid: false,
+            to_date: {
+              gte: today,
+              lte: endOfDay,
+            }
+          }
+        }
+      }
+    });
+
+    // 4. Capital warnings count
+    const targetDate = new Date();
+    targetDate.setDate(targetDate.getDate() - 30);
+    const capitalCount = await prisma.capitalContract.count({
+      where: {
+        store_id: storeId,
+        status: "active",
+        investment_date: {
+          lt: targetDate
+        }
+      }
+    });
+
+    const total = pawnCount + loanCount + installmentCount + capitalCount;
+
+    return res.json({
+      pawn: pawnCount,
+      loan: loanCount,
+      installment: installmentCount,
+      capital: capitalCount,
+      total,
+    });
+  } catch (error: any) {
+    return res.status(500).json({ error: error.message });
+  }
+});
+
+// 6. Alarms / Reminders API endpoints (CRUD warnings_reminders table)
+router.get("/reminders", async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { search, type } = req.query;
+
+    const whereClause: any = {
+      employee_id: req.user!.id,
+    };
+
+    if (type) {
+      whereClause.contract_type = String(type);
+    }
+
+    if (search) {
+      whereClause.OR = [
+        { contract_code: { contains: String(search), mode: "insensitive" } },
+        { customer_name: { contains: String(search), mode: "insensitive" } },
+        { content: { contains: String(search), mode: "insensitive" } },
+      ];
+    }
+
+    const reminders = await prisma.reminder.findMany({
+      where: whereClause,
+      orderBy: { appointment_date: "asc" },
+    });
+
+    return res.json(reminders);
+  } catch (error: any) {
+    return res.status(500).json({ error: error.message });
+  }
+});
+
+router.post("/reminders", async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { contractCode, customerName, contractType, loanAmount, appointmentDate, dueDate, content } = req.body;
+
+    if (!appointmentDate || !content) {
+      return res.status(400).json({ error: "Thời gian hẹn giờ và nội dung nhắc nhở là bắt buộc." });
+    }
+
+    const reminder = await prisma.reminder.create({
+      data: {
+        employee_id: req.user!.id,
+        contract_code: contractCode || null,
+        customer_name: customerName || null,
+        contract_type: contractType || "pawn",
+        loan_amount: Number(loanAmount) || 0,
+        appointment_date: new Date(appointmentDate),
+        due_date: dueDate ? new Date(dueDate) : null,
+        content,
+        status: "pending",
+      },
+    });
+
+    return res.status(201).json(reminder);
+  } catch (error: any) {
+    return res.status(500).json({ error: error.message });
+  }
+});
+
+router.put("/reminders/:id/resolve", async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+
+    const updated = await prisma.reminder.update({
+      where: { id },
+      data: {
+        status: "completed",
+      },
+    });
+
+    return res.json(updated);
+  } catch (error: any) {
+    return res.status(500).json({ error: error.message });
+  }
+});
+
+router.delete("/reminders/:id", async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+
+    await prisma.reminder.delete({
+      where: { id },
+    });
+
+    return res.json({ message: "Xóa nhắc nhở thành công" });
+  } catch (error: any) {
+    return res.status(500).json({ error: error.message });
+  }
+});
+
+export default router;
