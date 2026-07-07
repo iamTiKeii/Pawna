@@ -103,7 +103,8 @@ export const CapitalContracts: React.FC = () => {
 
   // Add/Edit Form state
   const [investorType, setInvestorType] = useState<"new" | "existing">("new");
-  const [selectedCustomerId, setSelectedCustomerId] = useState("");
+  const [customerSearchQuery, setCustomerSearchQuery] = useState("");
+  const [showSuggestions, setShowSuggestions] = useState(false);
   
   const [investorName, setInvestorName] = useState("");
   const [investorIdCard, setInvestorIdCard] = useState("");
@@ -159,7 +160,8 @@ export const CapitalContracts: React.FC = () => {
     setIsEditMode(false);
     setSelectedId("");
     setInvestorType("new");
-    setSelectedCustomerId("");
+    setCustomerSearchQuery("");
+    setShowSuggestions(false);
     setInvestorName("");
     setInvestorIdCard("");
     setInvestorPhone("");
@@ -196,11 +198,12 @@ export const CapitalContracts: React.FC = () => {
 
     if (matchedCustomer) {
       setInvestorType("existing");
-      setSelectedCustomerId(matchedCustomer.id);
+      setCustomerSearchQuery(matchedCustomer.full_name);
     } else {
       setInvestorType("new");
-      setSelectedCustomerId("");
+      setCustomerSearchQuery("");
     }
+    setShowSuggestions(false);
     
     setInvestorName(c.investor_name);
     setInvestorIdCard(c.investor_id_card || "");
@@ -220,7 +223,6 @@ export const CapitalContracts: React.FC = () => {
   };
 
   const handleSelectCustomer = (custId: string) => {
-    setSelectedCustomerId(custId);
     const selected = customers.find(c => c.id === custId);
     if (selected) {
       setInvestorName(selected.full_name);
@@ -374,6 +376,16 @@ export const CapitalContracts: React.FC = () => {
       (c.investor_phone && c.investor_phone.includes(searchQuery)) ||
       (c.investor_id_card && c.investor_id_card.includes(searchQuery));
     return matchesSearch;
+  });
+
+  // Local autocomplete filter logic for selecting existing customers
+  const filteredCustomers = customers.filter((cust) => {
+    if (!customerSearchQuery) return false;
+    const query = customerSearchQuery.toLowerCase();
+    const nameMatch = cust.full_name.toLowerCase().includes(query);
+    const phoneMatch = cust.phone ? cust.phone.includes(query) : false;
+    const cardMatch = cust.identity_card_number ? cust.identity_card_number.includes(query) : false;
+    return nameMatch || phoneMatch || cardMatch;
   });
 
   // Sorting local logic
@@ -695,6 +707,8 @@ export const CapitalContracts: React.FC = () => {
                       checked={investorType === "new"}
                       onChange={() => {
                         setInvestorType("new");
+                        setCustomerSearchQuery("");
+                        setShowSuggestions(false);
                         setInvestorName("");
                         setInvestorIdCard("");
                         setInvestorPhone("");
@@ -709,7 +723,15 @@ export const CapitalContracts: React.FC = () => {
                       type="radio"
                       name="investorType"
                       checked={investorType === "existing"}
-                      onChange={() => setInvestorType("existing")}
+                      onChange={() => {
+                        setInvestorType("existing");
+                        setCustomerSearchQuery("");
+                        setShowSuggestions(false);
+                        setInvestorName("");
+                        setInvestorIdCard("");
+                        setInvestorPhone("");
+                        setInvestorAddress("");
+                      }}
                       className="radio radio-xs checked:bg-blue-600 checked:border-blue-600"
                     />
                     <span>Khách cũ</span>
@@ -735,17 +757,53 @@ export const CapitalContracts: React.FC = () => {
                 </div>
                 <div className="col-span-9">
                   {investorType === "existing" ? (
-                    <select
-                      value={selectedCustomerId}
-                      onChange={(e) => handleSelectCustomer(e.target.value)}
-                      className="select select-bordered select-sm w-full bg-white border-slate-200 focus:outline-none focus:border-amber-500 text-slate-800 text-xs rounded-lg h-[32px] min-h-[32px]"
-                      required
-                    >
-                      <option value="">-- Chọn khách hàng cũ --</option>
-                      {customers.map((c) => (
-                        <option key={c.id} value={c.id}>{c.full_name} ({c.phone || "Không có SĐT"})</option>
-                      ))}
-                    </select>
+                    <div className="relative w-full">
+                      <input
+                        type="text"
+                        placeholder="Nhập tên, số điện thoại hoặc CCCD để tìm kiếm..."
+                        value={customerSearchQuery}
+                        onChange={(e) => {
+                          setCustomerSearchQuery(e.target.value);
+                          setShowSuggestions(true);
+                          // Reset selected values since the user is typing to search
+                          setInvestorName("");
+                          setInvestorIdCard("");
+                          setInvestorPhone("");
+                          setInvestorAddress("");
+                        }}
+                        onFocus={() => setShowSuggestions(true)}
+                        onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
+                        className="input input-bordered input-sm w-full bg-white border-slate-200 focus:outline-none focus:border-amber-500 text-slate-800 text-xs rounded-lg h-[32px] min-h-[32px]"
+                        required
+                      />
+                      {showSuggestions && customerSearchQuery && (
+                        <div className="absolute z-[999] left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-xl max-h-60 overflow-y-auto divide-y divide-slate-100">
+                          {filteredCustomers.length === 0 ? (
+                            <div className="p-3 text-center text-xs text-slate-400">
+                              Không tìm thấy khách hàng
+                            </div>
+                          ) : (
+                            filteredCustomers.slice(0, 10).map((c) => (
+                              <div
+                                key={c.id}
+                                onClick={() => {
+                                  handleSelectCustomer(c.id);
+                                  setCustomerSearchQuery(c.full_name);
+                                  setShowSuggestions(false);
+                                }}
+                                className="p-2.5 hover:bg-amber-50/50 cursor-pointer transition-colors text-left"
+                              >
+                                <div className="font-semibold text-slate-800 text-xs">{c.full_name}</div>
+                                <div className="flex flex-wrap gap-x-4 gap-y-0.5 mt-1 text-[10px] text-slate-500 font-medium">
+                                  {c.identity_card_number && <span>CCCD: {c.identity_card_number}</span>}
+                                  {c.phone && <span>SĐT: {c.phone}</span>}
+                                </div>
+                              </div>
+                            ))
+                          )}
+                        </div>
+                      )}
+                    </div>
                   ) : (
                     <input
                       type="text"
