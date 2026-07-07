@@ -50,7 +50,7 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
             <button
               onClick={onClose}
               disabled={loading}
-              className="btn btn-outline border-slate-200 hover:bg-slate-50 text-slate-500 rounded-xl flex-1 btn-sm font-semibold"
+              className="btn btn-outline border-slate-200 hover:bg-slate-50 text-slate-500 rounded-xl flex-1 btn-sm font-semibold text-sm"
               type="button"
             >
               {cancelLabel}
@@ -58,7 +58,7 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
             <button
               onClick={onConfirm}
               disabled={loading}
-              className="btn btn-error text-white rounded-xl flex-1 btn-sm font-bold shadow-sm shadow-red-500/15"
+              className="btn btn-error text-white rounded-xl flex-1 btn-sm font-bold shadow-sm shadow-red-500/15 text-sm"
               type="button"
             >
               {loading ? <span className="loading loading-spinner btn-xs"></span> : confirmLabel}

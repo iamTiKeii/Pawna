@@ -473,7 +473,7 @@ export const StaffPermission: React.FC = () => {
                 <button
                   type="submit"
                   disabled={saveLoading || !selectedEmpId}
-                  className="btn btn-primary bg-[#10b981] hover:bg-emerald-600 border-none text-white btn-sm rounded-lg font-medium px-6 shadow-sm shadow-emerald-500/10 text-xs gap-1.5"
+                  className="btn btn-primary bg-[#10b981] hover:bg-emerald-600 border-none text-white btn-sm rounded-lg font-medium px-6 shadow-sm shadow-emerald-500/10 text-sm gap-1.5"
                 >
                   {saveLoading ? (
                     <span className="loading loading-spinner btn-xs"></span>

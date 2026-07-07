@@ -366,7 +366,7 @@ export const Commodities: React.FC = () => {
         {/* Add Button */}
         <button
           onClick={handleOpenCreate}
-          className="btn btn-primary bg-emerald-500 hover:bg-emerald-600 border-none text-white btn-sm rounded-lg font-medium px-4 text-xs shadow-sm flex items-center justify-center gap-1 shrink-0"
+          className="btn btn-primary bg-emerald-500 hover:bg-emerald-600 border-none text-white btn-sm rounded-lg font-medium px-4 text-sm shadow-sm flex items-center justify-center gap-1 shrink-0"
           type="button"
         >
           <Plus className="w-4 h-4" />
@@ -809,7 +809,7 @@ export const Commodities: React.FC = () => {
                           <button
                             type="button"
                             onClick={() => handleRemoveAttribute(idx)}
-                            className="btn btn-outline border-red-200 text-red-500 hover:bg-red-50 btn-sm rounded-lg text-xs font-black min-h-[32px] h-[32px] w-[32px] p-0 flex items-center justify-center"
+                            className="btn btn-outline border-red-200 text-red-500 hover:bg-red-50 btn-sm rounded-lg text-sm font-black min-h-[32px] h-[32px] w-[32px] p-0 flex items-center justify-center"
                           >
                             -
                           </button>
@@ -824,7 +824,7 @@ export const Commodities: React.FC = () => {
                 <div className="col-span-9 pt-4 border-t border-slate-100 mt-4">
                   <button 
                     type="submit" 
-                    className="btn btn-primary bg-emerald-500 hover:bg-emerald-600 border-none text-white btn-sm rounded-lg font-medium px-8 text-xs shadow-sm shadow-emerald-500/10"
+                    className="btn btn-primary bg-emerald-500 hover:bg-emerald-600 border-none text-white btn-sm rounded-lg font-medium px-8 text-sm shadow-sm shadow-emerald-500/10"
                   >
                     {isEditMode ? "Cập nhật" : "Thêm mới"}
                   </button>

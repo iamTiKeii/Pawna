@@ -275,7 +275,7 @@ export const Employees: React.FC = () => {
             setError("");
             setSuccess("");
           }}
-          className="btn btn-primary bg-emerald-500 hover:bg-emerald-600 border-none text-white btn-sm rounded-lg font-medium px-4 text-xs shadow-sm flex items-center justify-center gap-1 shrink-0"
+          className="btn btn-primary bg-emerald-500 hover:bg-emerald-600 border-none text-white btn-sm rounded-lg font-medium px-4 text-sm shadow-sm flex items-center justify-center gap-1 shrink-0"
           type="button"
         >
           <Plus className="w-4 h-4" />
@@ -456,7 +456,7 @@ export const Employees: React.FC = () => {
                 <button 
                   disabled={page === 1}
                   onClick={() => setPage(page - 1)}
-                  className="btn btn-outline border-slate-200 hover:bg-slate-50 btn-xs rounded-lg px-2 text-slate-600 disabled:bg-slate-50 disabled:text-slate-300"
+                  className="btn btn-outline border-slate-200 hover:bg-slate-50 btn-xs text-xs rounded-lg px-2 text-slate-600 disabled:bg-slate-50 disabled:text-slate-300"
                   type="button"
                 >
                   Trước
@@ -465,7 +465,7 @@ export const Employees: React.FC = () => {
                   <button
                     key={i}
                     onClick={() => setPage(i + 1)}
-                    className={`btn btn-xs rounded-lg px-2.5 ${
+                    className={`btn btn-xs text-xs rounded-lg px-2.5 ${
                       page === i + 1 
                         ? "btn-primary bg-emerald-500 border-none text-white hover:bg-emerald-600" 
                         : "btn-outline border-slate-200 hover:bg-slate-50 text-slate-600 bg-white"
@@ -478,7 +478,7 @@ export const Employees: React.FC = () => {
                 <button 
                   disabled={page === totalPages}
                   onClick={() => setPage(page + 1)}
-                  className="btn btn-outline border-slate-200 hover:bg-slate-50 btn-xs rounded-lg px-2 text-slate-600 disabled:bg-slate-50 disabled:text-slate-300"
+                  className="btn btn-outline border-slate-200 hover:bg-slate-50 btn-xs text-xs rounded-lg px-2 text-slate-600 disabled:bg-slate-50 disabled:text-slate-300"
                   type="button"
                 >
                   Sau
@@ -617,7 +617,7 @@ export const Employees: React.FC = () => {
                 <div className="col-span-9 pt-4">
                   <button 
                     type="submit" 
-                    className="btn btn-primary bg-[#10b981] hover:bg-emerald-600 border-none text-white btn-sm rounded-lg font-medium px-6 shadow-sm shadow-emerald-500/10 text-xs"
+                    className="btn btn-primary bg-[#10b981] hover:bg-emerald-600 border-none text-white btn-sm rounded-lg font-medium px-6 shadow-sm shadow-emerald-500/10 text-sm"
                   >
                     Thêm mới
                   </button>

@@ -349,7 +349,7 @@ export const CapitalContracts: React.FC = () => {
           {/* Filter button */}
           <button
             onClick={fetchContracts}
-            className="btn btn-outline border-blue-200 hover:border-blue-300 hover:bg-blue-50 text-blue-600 btn-sm rounded-lg text-xs gap-1"
+            className="btn btn-outline border-blue-200 hover:border-blue-300 hover:bg-blue-50 text-blue-600 btn-sm rounded-lg text-sm gap-1"
             type="button"
           >
             <Filter className="w-3.5 h-3.5" />
@@ -364,7 +364,7 @@ export const CapitalContracts: React.FC = () => {
               setError("");
               setSuccess("");
             }}
-            className="btn btn-primary bg-emerald-500 hover:bg-emerald-600 border-none text-white btn-sm rounded-lg font-medium px-4 text-xs shadow-sm flex items-center justify-center gap-1 shrink-0"
+            className="btn btn-primary bg-emerald-500 hover:bg-emerald-600 border-none text-white btn-sm rounded-lg font-medium px-4 text-sm shadow-sm flex items-center justify-center gap-1 shrink-0"
             type="button"
           >
             <Plus className="w-4 h-4" />
@@ -374,7 +374,7 @@ export const CapitalContracts: React.FC = () => {
           {/* Excel Export Button */}
           <button
             onClick={handleExportExcel}
-            className="btn btn-primary bg-blue-700 hover:bg-blue-800 border-none text-white btn-sm rounded-lg font-medium px-4 text-xs shadow-sm flex items-center justify-center gap-1 shrink-0"
+            className="btn btn-primary bg-blue-700 hover:bg-blue-800 border-none text-white btn-sm rounded-lg font-medium px-4 text-sm shadow-sm flex items-center justify-center gap-1 shrink-0"
             type="button"
           >
             <FileSpreadsheet className="w-4 h-4" />
@@ -813,7 +813,7 @@ export const CapitalContracts: React.FC = () => {
                 <div className="col-span-9 pt-4 border-t border-slate-100 mt-4 flex items-center justify-end gap-2">
                   <button 
                     type="submit" 
-                    className="btn btn-primary bg-emerald-500 hover:bg-emerald-600 border-none text-white btn-sm rounded-lg font-medium px-5 text-xs shadow-sm shadow-emerald-500/10"
+                    className="btn btn-primary bg-emerald-500 hover:bg-emerald-600 border-none text-white btn-sm rounded-lg font-medium px-5 text-sm shadow-sm shadow-emerald-500/10"
                   >
                     {isEditOpen ? "Cập nhật" : "Thêm mới"}
                   </button>
@@ -823,7 +823,7 @@ export const CapitalContracts: React.FC = () => {
                       setIsCreateOpen(false);
                       setIsEditOpen(false);
                     }}
-                    className="btn btn-outline border-slate-200 hover:bg-slate-50 text-slate-600 btn-sm rounded-lg px-4 text-xs"
+                    className="btn btn-outline border-slate-200 hover:bg-slate-50 text-slate-600 btn-sm rounded-lg px-4 text-sm"
                   >
                     Đóng
                   </button>
@@ -964,7 +964,7 @@ export const CapitalContracts: React.FC = () => {
               <button 
                 type="button" 
                 onClick={() => setIsCustomerListOpen(false)}
-                className="btn btn-outline border-slate-200 hover:bg-slate-50 text-slate-600 btn-sm rounded-lg px-6 text-xs"
+                className="btn btn-outline border-slate-200 hover:bg-slate-50 text-slate-600 btn-sm rounded-lg px-6 text-sm"
               >
                 Đóng
               </button>
