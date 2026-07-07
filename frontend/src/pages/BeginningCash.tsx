@@ -1,26 +1,67 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
-import { Coins, CheckCircle, AlertCircle, RefreshCw } from "lucide-react";
+import { CheckCircle, AlertCircle, Wrench, X, ArrowUpDown, ChevronLeft, ChevronRight } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
+
+interface CashHistoryItem {
+  id: string;
+  date: string;
+  amount: string;
+  type: string;
+  description: string;
+  created_at: string;
+  employee?: {
+    full_name: string;
+  };
+}
 
 export const BeginningCash: React.FC = () => {
   const { activeStore } = useAuth();
-  const [beginningCashInput, setBeginningCashInput] = useState("");
   const [currentSummary, setCurrentSummary] = useState<any>(null);
+  const [histories, setHistories] = useState<CashHistoryItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
-  const fetchSummary = async () => {
+  // Modal states
+  const [isAdjustModalOpen, setIsAdjustModalOpen] = useState(false);
+  const [isBeginningModalOpen, setIsBeginningModalOpen] = useState(false);
+  const [modalAmount, setModalAmount] = useState("");
+
+  // Table Sort and Pagination states
+  const [sortField, setSortField] = useState<string>("created_at");
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(50);
+
+  // Auto-dismiss logic for alerts after 5 seconds
+  useEffect(() => {
+    if (success) {
+      const timer = setTimeout(() => setSuccess(""), 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [success]);
+
+  useEffect(() => {
+    if (error) {
+      const timer = setTimeout(() => setError(""), 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [error]);
+
+  const fetchData = async () => {
     if (!activeStore) return;
     try {
       setLoading(true);
       setError("");
-      const res = await axios.get("/api/cash/summary");
-      setCurrentSummary(res.data);
-      if (res.data) {
-        setBeginningCashInput(Number(res.data.beginning_cash).toString());
-      }
+      
+      // Fetch summary
+      const summaryRes = await axios.get("/api/cash/summary");
+      setCurrentSummary(summaryRes.data);
+
+      // Fetch logs
+      const logsRes = await axios.get("/api/cash/history");
+      setHistories(logsRes.data);
     } catch (err: any) {
       setError(err.response?.data?.error || "Không thể tải thông tin quỹ đầu ngày.");
     } finally {
@@ -29,152 +70,436 @@ export const BeginningCash: React.FC = () => {
   };
 
   useEffect(() => {
-    fetchSummary();
+    fetchData();
   }, [activeStore]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  // Form input formatter
+  const handleAmountChange = (val: string) => {
+    const clean = val.replace(/\D/g, "");
+    if (!clean) {
+      setModalAmount("");
+      return;
+    }
+    setModalAmount(Number(clean).toLocaleString("vi-VN"));
+  };
+
+  const parseFormattedNumber = (val: string) => {
+    return Number(val.replace(/\D/g, ""));
+  };
+
+  // Open modals prefilled
+  const handleOpenAdjustModal = () => {
+    setError("");
+    setSuccess("");
+    const current = currentSummary ? Math.round(Number(currentSummary.current_cash)) : 0;
+    setModalAmount(current.toLocaleString("vi-VN"));
+    setIsAdjustModalOpen(true);
+  };
+
+  const handleOpenBeginningModal = () => {
+    setError("");
+    setSuccess("");
+    const beg = currentSummary ? Math.round(Number(currentSummary.beginning_cash)) : 0;
+    setModalAmount(beg.toLocaleString("vi-VN"));
+    setIsBeginningModalOpen(true);
+  };
+
+  // Submit handers
+  const handleAdjustSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
     setSuccess("");
 
-    if (!beginningCashInput || Number(beginningCashInput) < 0) {
-      setError("Số tiền đầu ngày không hợp lệ.");
+    const newCashVal = parseFormattedNumber(modalAmount);
+    const currentCashVal = currentSummary ? Number(currentSummary.current_cash) : 0;
+    const diff = newCashVal - currentCashVal;
+
+    if (diff === 0) {
+      setIsAdjustModalOpen(false);
       return;
     }
 
     try {
       setLoading(true);
-      const res = await axios.post("/api/cash/beginning", {
-        beginning_cash: Number(beginningCashInput),
-      });
-      setSuccess("Thiết lập số dư quỹ đầu ngày thành công!");
-      setCurrentSummary(res.data.daily_cash);
-      fetchSummary();
+      const payload = {
+        amount: Math.abs(diff),
+        type: diff > 0 ? "deposit" : "withdraw",
+        description: "Nhập lại quỹ tiền mặt",
+      };
+
+      await axios.post("/api/cash/adjust", payload);
+      setSuccess("Nhập lại quỹ tiền mặt thành công!");
+      setIsAdjustModalOpen(false);
+      await fetchData();
     } catch (err: any) {
-      setError(err.response?.data?.error || "Lỗi khi lưu số dư đầu ngày.");
+      setError(err.response?.data?.error || "Lỗi khi nhập lại quỹ tiền mặt.");
     } finally {
       setLoading(false);
     }
   };
 
-  const formatCurrency = (val: any) => {
-    if (val === undefined || val === null) return "0";
-    return Number(val).toLocaleString("vi-VN") + " VNĐ";
+  const handleBeginningSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+    setSuccess("");
+
+    const newBegVal = parseFormattedNumber(modalAmount);
+
+    try {
+      setLoading(true);
+      await axios.post("/api/cash/beginning", {
+        beginning_cash: newBegVal,
+      });
+      setSuccess("Cập nhật tiền đầu ngày thành công!");
+      setIsBeginningModalOpen(false);
+      await fetchData();
+    } catch (err: any) {
+      setError(err.response?.data?.error || "Lỗi khi cập nhật tiền đầu ngày.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Table sorting
+  const handleSort = (field: string) => {
+    if (sortField === field) {
+      setSortOrder(sortOrder === "asc" ? "desc" : "asc");
+    } else {
+      setSortField(field);
+      setSortOrder("desc");
+    }
+  };
+
+  const sortedHistories = [...histories].sort((a, b) => {
+    let valA: any = a[sortField as keyof typeof a];
+    let valB: any = b[sortField as keyof typeof b];
+
+    if (sortField === "employee") {
+      valA = a.employee?.full_name || "";
+      valB = b.employee?.full_name || "";
+    } else if (sortField === "amount") {
+      valA = Number(a.amount);
+      valB = Number(b.amount);
+    } else if (sortField === "created_at") {
+      valA = new Date(a.created_at).getTime();
+      valB = new Date(b.created_at).getTime();
+    }
+
+    if (valA < valB) return sortOrder === "asc" ? -1 : 1;
+    if (valA > valB) return sortOrder === "asc" ? 1 : -1;
+    return 0;
+  });
+
+  // Table pagination
+  const totalItems = sortedHistories.length;
+  const totalPages = Math.ceil(totalItems / itemsPerPage) || 1;
+  const indexOfLastItem = currentPage * itemsPerPage;
+  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+  const currentItems = sortedHistories.slice(indexOfFirstItem, indexOfLastItem);
+
+  const getAmountColorAndSign = (item: CashHistoryItem) => {
+    const amt = Number(item.amount);
+    const sign = amt >= 0 ? "+" : "";
+    const formatted = sign + amt.toLocaleString("vi-VN");
+
+    if (amt < 0) {
+      return { className: "text-red-500 font-bold", text: formatted };
+    }
+
+    if (item.type === "beginning_cash_set" || item.description?.includes("đầu ngày")) {
+      return { className: "text-[#0fbc98] font-bold", text: formatted };
+    }
+
+    return { className: "text-blue-600 font-bold", text: formatted };
   };
 
   return (
-    <div className="max-w-4xl mx-auto space-y-8 animate-fade-in p-2">
-      {/* Title */}
-      <div>
-        <h1 className="text-3xl font-extrabold tracking-tight bg-gradient-to-r from-amber-400 to-orange-500 bg-clip-text text-transparent">
-          Nhập Tiền Quỹ Đầu Ngày
-        </h1>
-        <p className="text-slate-500 text-sm mt-1">
-          Thiết lập số tiền quỹ két ban đầu khi bắt đầu ca làm việc của chi nhánh ngày hôm nay.
-        </p>
+    <div className="space-y-6">
+      {/* Title Header */}
+      <div className="flex justify-between items-center py-2">
+        <h2 className="text-lg font-bold text-slate-800 uppercase tracking-tight">
+          Nhập tiền quỹ đầu ngày
+        </h2>
       </div>
 
-      {error && (
-        <div className="alert alert-error bg-red-500/10 border-red-500/20 text-red-200 shadow-lg rounded-2xl flex gap-3">
-          <AlertCircle className="w-6 h-6 text-red-400 shrink-0" />
-          <span>{error}</span>
-        </div>
-      )}
-
-      {success && (
-        <div className="alert alert-success bg-emerald-500/10 border-emerald-500/20 text-emerald-200 shadow-lg rounded-2xl flex gap-3">
-          <CheckCircle className="w-6 h-6 text-emerald-400 shrink-0" />
-          <span>{success}</span>
-        </div>
-      )}
-
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {/* Info Card 1 */}
-        <div className="bg-white/65 border border-slate-200/80 rounded-3xl p-6 backdrop-blur-md relative overflow-hidden group">
-          <div className="absolute top-0 right-0 w-24 h-24 bg-amber-500/5 rounded-bl-full transition-all duration-300 group-hover:scale-110" />
-          <div className="p-3 bg-amber-500/10 rounded-2xl w-fit text-amber-500 mb-4">
-            <Coins className="w-6 h-6" />
-          </div>
-          <p className="text-slate-500 text-xs font-semibold uppercase tracking-wider">Tiền Đầu Ngày Hôm Nay</p>
-          <h2 className="text-2xl font-bold text-slate-800 mt-2">
-            {currentSummary ? formatCurrency(currentSummary.beginning_cash) : "Chưa thiết lập"}
-          </h2>
-          <p className="text-slate-500 text-xs mt-1">Sử dụng để bàn giao ca chốt số liệu</p>
-        </div>
-
-        {/* Info Card 2 */}
-        <div className="bg-white/65 border border-slate-200/80 rounded-3xl p-6 backdrop-blur-md relative overflow-hidden group">
-          <div className="absolute top-0 right-0 w-24 h-24 bg-orange-500/5 rounded-bl-full transition-all duration-300 group-hover:scale-110" />
-          <div className="p-3 bg-orange-500/10 rounded-2xl w-fit text-orange-500 mb-4">
-            <Coins className="w-6 h-6" />
-          </div>
-          <p className="text-slate-500 text-xs font-semibold uppercase tracking-wider">Số Dư Quỹ Hiện Tại</p>
-          <h2 className="text-2xl font-bold text-slate-800 mt-2">
-            {currentSummary ? formatCurrency(currentSummary.current_cash) : "0 VNĐ"}
-          </h2>
-          <p className="text-slate-500 text-xs mt-1">Biến động thời gian thực theo thu chi</p>
-        </div>
-
-        {/* Info Card 3 */}
-        <div className="bg-white/65 border border-slate-200/80 rounded-3xl p-6 backdrop-blur-md relative overflow-hidden group">
-          <div className="absolute top-0 right-0 w-24 h-24 bg-blue-500/5 rounded-bl-full transition-all duration-300 group-hover:scale-110" />
-          <div className="p-3 bg-blue-500/10 rounded-2xl w-fit text-blue-500 mb-4">
-            <RefreshCw className="w-6 h-6" />
-          </div>
-          <p className="text-slate-500 text-xs font-semibold uppercase tracking-wider">Ngày Ghi Nhận</p>
-          <h2 className="text-2xl font-bold text-slate-800 mt-2">
-            {new Date().toLocaleDateString("vi-VN")}
-          </h2>
-          <p className="text-slate-500 text-xs mt-1">Mỗi ngày cần cập nhật một lần</p>
-        </div>
-      </div>
-
-      {/* Main Set Form */}
-      <div className="bg-slate-50 border border-slate-200/60 rounded-3xl p-8 backdrop-blur-lg">
-        <h3 className="text-lg font-bold text-slate-800 mb-6 flex items-center gap-2">
-          <Coins className="w-5 h-5 text-amber-500" />
-          Thiết lập Số Dư Đầu Ngày
-        </h3>
-
-        <form onSubmit={handleSubmit} className="space-y-6 max-w-lg">
-          <div className="form-control w-full">
-            <label className="label">
-              <span className="label-text text-slate-500 font-semibold">Nhập Số Tiền (VNĐ):</span>
-            </label>
-            <div className="relative">
-              <input
-                type="number"
-                value={beginningCashInput}
-                onChange={(e) => setBeginningCashInput(e.target.value)}
-                placeholder="Nhập số tiền mặt đầu ngày"
-                className="input input-bordered w-full rounded-2xl bg-slate-50 border-slate-200/80 focus:border-amber-500 focus:ring-1 focus:ring-amber-500 pl-4 text-slate-800 font-bold"
-                disabled={loading}
-              />
+      {/* Toast notifications in top right corner */}
+      {(error || success) && (
+        <div className="toast toast-top toast-end z-[9999] mt-16 mr-4 space-y-2">
+          {success && (
+            <div className="alert alert-success bg-[#0fbc98] text-white shadow-lg text-xs rounded-xl py-3 border-none flex items-center gap-2.5 min-w-[280px]">
+              <CheckCircle className="w-4 h-4 text-white shrink-0" />
+              <span>{success}</span>
             </div>
-            <span className="text-xs text-slate-500 mt-2">
-              Lưu ý: Nếu thay đổi tiền đầu ngày, tiền quỹ két cuối ngày sẽ tự động tăng/giảm một khoảng chênh lệch tương ứng.
-            </span>
-          </div>
+          )}
+          {error && (
+            <div className="alert alert-error bg-red-500 text-white shadow-lg text-xs rounded-xl py-3 border-none flex items-center gap-2.5 min-w-[280px]">
+              <AlertCircle className="w-4 h-4 text-white shrink-0" />
+              <span>{error}</span>
+            </div>
+          )}
+        </div>
+      )}
 
-          <div className="flex gap-3 pt-2">
-            <button
-              type="submit"
-              className="btn btn-warning bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold border-none px-8 rounded-2xl shadow-lg shadow-amber-500/20"
-              disabled={loading}
-            >
-              {loading ? "Đang xử lý..." : "Xác Nhận Thiết Lập"}
-            </button>
-            <button
-              type="button"
-              onClick={fetchSummary}
-              className="btn btn-outline border-slate-200/80 hover:bg-white rounded-2xl text-slate-600 font-semibold"
-              disabled={loading}
-            >
-              Làm Mới
-            </button>
-          </div>
-        </form>
+      {/* Two cards side-by-side layout */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* Card 1: Quỹ tiền mặt */}
+        <div className="bg-white border border-slate-150 rounded-2xl p-6 shadow-sm flex flex-col items-center justify-between min-h-[160px]">
+          <span className="text-slate-500 text-sm font-medium">Quỹ tiền mặt</span>
+          <span className="text-3xl font-extrabold text-[#7c3aed] my-3">
+            {currentSummary ? Number(currentSummary.current_cash).toLocaleString("vi-VN") : "0"}
+          </span>
+          <button
+            onClick={handleOpenAdjustModal}
+            className="btn btn-sm bg-[#7c3aed] hover:bg-[#6d28d9] text-white border-none font-semibold px-6 rounded-lg text-xs flex items-center gap-1.5 h-[34px]"
+          >
+            <Wrench className="w-3.5 h-3.5" />
+            Điều chỉnh
+          </button>
+        </div>
+
+        {/* Card 2: Tiền đầu ngày */}
+        <div className="bg-white border border-slate-150 rounded-2xl p-6 shadow-sm flex flex-col items-center justify-between min-h-[160px]">
+          <span className="text-slate-500 text-sm font-medium">Tiền đầu ngày</span>
+          <span className="text-3xl font-extrabold text-[#0fbc98] my-3">
+            {currentSummary ? Number(currentSummary.beginning_cash).toLocaleString("vi-VN") : "0"}
+          </span>
+          <button
+            onClick={handleOpenBeginningModal}
+            className="btn btn-sm bg-[#0fbc98] hover:bg-[#0da989] text-white border-none font-semibold px-6 rounded-lg text-xs flex items-center gap-1.5 h-[34px]"
+          >
+            <Wrench className="w-3.5 h-3.5" />
+            Điều chỉnh
+          </button>
+        </div>
       </div>
+
+      {/* Cash history list table */}
+      <div className="bg-white border border-slate-150 rounded-2xl shadow-sm overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="table w-full text-slate-800">
+            <thead>
+              <tr className="bg-slate-50 border-b border-slate-150 text-slate-600 text-xs font-semibold">
+                <th className="w-16 text-center">#</th>
+                <th className="cursor-pointer hover:bg-slate-100/60" onClick={() => handleSort("created_at")}>
+                  <div className="flex items-center gap-1">
+                    Ngày
+                    <ArrowUpDown className="w-3 h-3 text-slate-400" />
+                  </div>
+                </th>
+                <th className="cursor-pointer hover:bg-slate-100/60" onClick={() => handleSort("employee")}>
+                  <div className="flex items-center gap-1">
+                    Người giao dịch
+                    <ArrowUpDown className="w-3 h-3 text-slate-400" />
+                  </div>
+                </th>
+                <th className="text-right cursor-pointer hover:bg-slate-100/60" onClick={() => handleSort("amount")}>
+                  <div className="flex items-center gap-1 justify-end">
+                    Số tiền
+                    <ArrowUpDown className="w-3 h-3 text-slate-400" />
+                  </div>
+                </th>
+                <th>Diễn giải</th>
+              </tr>
+            </thead>
+            <tbody className="text-xs">
+              {currentItems.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="text-center py-8 text-slate-400">
+                    Không có lịch sử biến động quỹ nào.
+                  </td>
+                </tr>
+              ) : (
+                currentItems.map((item, index) => {
+                  const num = getAmountColorAndSign(item);
+                  return (
+                    <tr key={item.id} className="border-b border-slate-100 hover:bg-slate-50/40">
+                      <td className="text-center font-medium text-slate-400">
+                        {indexOfFirstItem + index + 1}
+                      </td>
+                      <td className="text-slate-650">
+                        {new Date(item.created_at).toLocaleDateString("vi-VN")}
+                      </td>
+                      <td className="font-medium text-slate-700">
+                        {item.employee?.full_name || "Hệ thống"}
+                      </td>
+                      <td className={`text-right ${num.className}`}>
+                        {num.text}
+                      </td>
+                      <td className="text-slate-500 max-w-xs truncate" title={item.description}>
+                        {item.description}
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Footer pagination bar */}
+        {totalItems > 0 && (
+          <div className="px-6 py-4 bg-slate-50 border-t border-slate-150 flex flex-col sm:flex-row justify-between items-center gap-4">
+            <div className="flex items-center gap-6">
+              <span className="text-xs text-slate-500">
+                Hiển thị <span className="font-semibold text-slate-700">{indexOfFirstItem + 1} - {Math.min(indexOfLastItem, totalItems)}</span> của <span className="font-semibold text-slate-700">{totalItems}</span> bản ghi
+              </span>
+
+              <div className="flex items-center gap-2 text-xs text-slate-500">
+                <span>Mỗi trang:</span>
+                <select
+                  value={itemsPerPage}
+                  onChange={(e) => {
+                    setItemsPerPage(Number(e.target.value));
+                    setCurrentPage(1);
+                  }}
+                  className="select select-bordered select-xs bg-white text-slate-800 text-xs border-slate-200 focus:outline-none"
+                >
+                  <option value={10}>10</option>
+                  <option value={20}>20</option>
+                  <option value={50}>50</option>
+                  <option value={100}>100</option>
+                </select>
+              </div>
+            </div>
+
+            {totalPages > 1 && (
+              <div className="flex items-center gap-1.5">
+                <button
+                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                  disabled={currentPage === 1}
+                  className="btn btn-xs btn-outline border-slate-200 bg-white hover:bg-slate-50 text-slate-600 disabled:opacity-50"
+                >
+                  <ChevronLeft className="w-3.5 h-3.5" />
+                </button>
+                {Array.from({ length: totalPages }).map((_, i) => (
+                  <button
+                    key={i}
+                    onClick={() => setCurrentPage(i + 1)}
+                    className={`btn btn-xs rounded min-w-[24px] ${
+                      currentPage === i + 1
+                        ? "bg-amber-500 text-slate-950 font-bold border-none"
+                        : "btn-outline border-slate-200 bg-white hover:bg-slate-50 text-slate-600"
+                    }`}
+                  >
+                    {i + 1}
+                  </button>
+                ))}
+                <button
+                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                  disabled={currentPage === totalPages}
+                  className="btn btn-xs btn-outline border-slate-200 bg-white hover:bg-slate-50 text-slate-600 disabled:opacity-50"
+                >
+                  <ChevronRight className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Modal 1: Nhập lại quỹ tiền mặt */}
+      {isAdjustModalOpen && (
+        <div className="modal modal-open">
+          <div className="modal-box bg-white max-w-md p-6 rounded-2xl relative shadow-xl">
+            <button
+              onClick={() => setIsAdjustModalOpen(false)}
+              className="btn btn-sm btn-circle btn-ghost absolute right-4 top-4 text-slate-400 hover:text-slate-600 focus:outline-none"
+            >
+              <X className="w-4 h-4" />
+            </button>
+
+            <h3 className="text-base font-bold text-slate-800 mb-6">
+              Nhập lại quỹ tiền mặt
+            </h3>
+
+            <form onSubmit={handleAdjustSubmit} className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-slate-500 mb-1.5">
+                  Số tiền <span className="text-red-500">*</span>
+                </label>
+                <div className="join w-full border border-slate-200 rounded-lg overflow-hidden focus-within:border-amber-500 transition-all duration-200">
+                  <input
+                    type="text"
+                    value={modalAmount}
+                    onChange={(e) => handleAmountChange(e.target.value)}
+                    placeholder="Nhập số tiền"
+                    className="input input-sm join-item flex-1 bg-white text-slate-800 font-bold focus:outline-none h-[38px] px-3"
+                    required
+                  />
+                  <span className="join-item bg-slate-50 border-l border-slate-200 px-3 flex items-center text-xs font-semibold text-slate-500 h-[38px]">
+                    VNĐ
+                  </span>
+                </div>
+                <p className="text-[10px] text-slate-400 mt-2 leading-relaxed">
+                  Diễn giải: Chức năng <span className="font-semibold text-blue-600">Nhập lại quỹ tiền mặt</span> cho phép bạn cập nhật mới quỹ tiền mặt hiện có
+                </p>
+              </div>
+
+              <div className="flex justify-center pt-2">
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="btn btn-sm bg-blue-600 hover:bg-blue-700 text-white border-none font-semibold px-8 rounded-lg h-[36px]"
+                >
+                  {loading ? "Đang xử lý..." : "Điều chỉnh"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal 2: Cập nhật tiền đầu ngày */}
+      {isBeginningModalOpen && (
+        <div className="modal modal-open">
+          <div className="modal-box bg-white max-w-md p-6 rounded-2xl relative shadow-xl">
+            <button
+              onClick={() => setIsBeginningModalOpen(false)}
+              className="btn btn-sm btn-circle btn-ghost absolute right-4 top-4 text-slate-400 hover:text-slate-600 focus:outline-none"
+            >
+              <X className="w-4 h-4" />
+            </button>
+
+            <h3 className="text-base font-bold text-slate-800 mb-6">
+              Cập nhật tiền đầu ngày
+            </h3>
+
+            <form onSubmit={handleBeginningSubmit} className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-slate-500 mb-1.5">
+                  Số tiền <span className="text-red-500">*</span>
+                </label>
+                <div className="join w-full border border-slate-200 rounded-lg overflow-hidden focus-within:border-amber-500 transition-all duration-200">
+                  <input
+                    type="text"
+                    value={modalAmount}
+                    onChange={(e) => handleAmountChange(e.target.value)}
+                    placeholder="Nhập số tiền"
+                    className="input input-sm join-item flex-1 bg-white text-slate-800 font-bold focus:outline-none h-[38px] px-3"
+                    required
+                  />
+                  <span className="join-item bg-slate-50 border-l border-slate-200 px-3 flex items-center text-xs font-semibold text-slate-500 h-[38px]">
+                    VNĐ
+                  </span>
+                </div>
+                <p className="text-[10px] text-slate-400 mt-2 leading-relaxed">
+                  Diễn giải: Chức năng <span className="font-semibold text-emerald-600">Cập nhật tiền đầu ngày</span> cho phép bạn thay đổi số tiền quỹ đầu ngày của cửa hàng
+                </p>
+              </div>
+
+              <div className="flex justify-center pt-2">
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="btn btn-sm bg-[#0fbc98] hover:bg-[#0da989] text-white border-none font-semibold px-8 rounded-lg h-[36px]"
+                >
+                  {loading ? "Đang xử lý..." : "Điều chỉnh"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
