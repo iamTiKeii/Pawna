@@ -8,10 +8,38 @@ const prisma = new PrismaClient();
 
 router.use(authenticateToken as any);
 
-// 1. Get all customers
+// 1. Get all customers (with search & store filtering)
 router.get("/", async (req: AuthenticatedRequest, res: Response) => {
   try {
+    const { search, store_id, status } = req.query;
+
+    const whereClause: any = {};
+
+    // Filter by store_id if provided; otherwise default to employee's store_id
+    if (store_id) {
+      whereClause.store_id = store_id as string;
+    } else {
+      whereClause.store_id = req.user!.store_id;
+    }
+
+    // Filter by status if provided (active, inactive, blacklist); otherwise exclude blacklisted customers by default
+    if (status) {
+      whereClause.status = status as string;
+    } else {
+      whereClause.status = { not: "blacklist" };
+    }
+
+    if (search) {
+      const searchStr = (search as string).trim();
+      whereClause.OR = [
+        { full_name: { contains: searchStr, mode: "insensitive" } },
+        { phone: { contains: searchStr, mode: "insensitive" } },
+        { identity_card_number: { contains: searchStr, mode: "insensitive" } },
+      ];
+    }
+
     const customers = await prisma.customer.findMany({
+      where: whereClause,
       include: {
         store: { select: { name: true } },
       },

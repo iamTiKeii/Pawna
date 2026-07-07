@@ -106,6 +106,8 @@ export const CapitalContracts: React.FC = () => {
   const [selectedCustomerId, setSelectedCustomerId] = useState("");
   const [customerSearchQuery, setCustomerSearchQuery] = useState("");
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const [searchResults, setSearchResults] = useState<Customer[]>([]);
+  const [searchingCustomers, setSearchingCustomers] = useState(false);
   
   const [investorName, setInvestorName] = useState("");
   const [investorIdCard, setInvestorIdCard] = useState("");
@@ -156,6 +158,27 @@ export const CapitalContracts: React.FC = () => {
   useEffect(() => {
     fetchHelpers();
   }, []);
+
+  useEffect(() => {
+    if (!customerSearchQuery.trim()) {
+      setSearchResults([]);
+      return;
+    }
+
+    const delayDebounceFn = setTimeout(async () => {
+      try {
+        setSearchingCustomers(true);
+        const res = await axios.get(`/api/customers?search=${encodeURIComponent(customerSearchQuery)}`);
+        setSearchResults(res.data);
+      } catch (err) {
+        console.error("Error searching customers:", err);
+      } finally {
+        setSearchingCustomers(false);
+      }
+    }, 300);
+
+    return () => clearTimeout(delayDebounceFn);
+  }, [customerSearchQuery]);
 
   const handleOpenCreate = () => {
     setIsEditMode(false);
@@ -384,15 +407,7 @@ export const CapitalContracts: React.FC = () => {
     return matchesSearch;
   });
 
-  // Local autocomplete filter logic for selecting existing customers
-  const filteredCustomers = customers.filter((cust) => {
-    if (!customerSearchQuery) return false;
-    const query = customerSearchQuery.toLowerCase();
-    const nameMatch = cust.full_name.toLowerCase().includes(query);
-    const phoneMatch = cust.phone ? cust.phone.includes(query) : false;
-    const cardMatch = cust.identity_card_number ? cust.identity_card_number.includes(query) : false;
-    return nameMatch || phoneMatch || cardMatch;
-  });
+
 
   // Sorting local logic
   const sorted = [...filtered].sort((a, b) => {
@@ -774,12 +789,16 @@ export const CapitalContracts: React.FC = () => {
                       />
                       {showSuggestions && customerSearchQuery && (
                         <div className="absolute z-[999] left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-xl max-h-60 overflow-y-auto divide-y divide-slate-100">
-                          {filteredCustomers.length === 0 ? (
+                          {searchingCustomers ? (
+                            <div className="p-3 text-center text-xs text-slate-400">
+                              Đang tìm kiếm...
+                            </div>
+                          ) : searchResults.length === 0 ? (
                             <div className="p-3 text-center text-xs text-slate-400">
                               Không tìm thấy khách hàng
                             </div>
                           ) : (
-                            filteredCustomers.slice(0, 10).map((c) => (
+                            searchResults.slice(0, 10).map((c) => (
                               <div
                                 key={c.id}
                                 onClick={() => {
