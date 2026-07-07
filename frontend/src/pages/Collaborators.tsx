@@ -236,9 +236,9 @@ export const Collaborators: React.FC = () => {
         </h2>
       </div>
 
-      {/* Toast notifications in bottom left corner */}
+      {/* Toast notifications in top right corner */}
       {(error || success) && (
-        <div className="toast toast-bottom toast-start z-[9999] mb-4 ml-4 space-y-2">
+        <div className="toast toast-top toast-end z-[9999] mt-16 mr-4 space-y-2">
           {success && (
             <div className="alert alert-success bg-[#0fbc98] text-white shadow-lg text-xs rounded-xl py-3 border-none flex items-center gap-2.5 min-w-[280px]">
               <CheckCircle className="w-4 h-4 text-white shrink-0" />
