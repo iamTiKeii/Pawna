@@ -3,32 +3,15 @@
 @tailwind utilities;
 
 body {
-  background-color: #f8f9fa;
-  color: #212529;
-  font-family: 'Poppins', sans-serif;
-  font-size: 13px;
-  line-height: 19.5px;
-  font-weight: 400;
+  background-color: #f8fafc;
+  color: #334155;
 }
 
-/* Custom tokenized content-first borders */
-.border-token-default {
-  border-width: 1px;
-  border-style: solid;
-  border-color: rgb(33, 37, 41) rgb(239, 242, 247) rgb(239, 242, 247) rgb(33, 37, 41);
-}
-
-.border-token-strong {
-  border-width: 1px;
-  border-style: solid;
-  border-color: rgb(0, 0, 0) rgb(239, 242, 247) rgb(239, 242, 247) rgb(0, 0, 0);
-}
-
-/* DaisyUI general component adjustments to fit new radiuses and shadows */
-.modal-box {
-  box-shadow: rgba(18, 38, 63, 0.03) 0px 12px 24px 0px !important;
-  border-radius: 4px !important;
-  /* radius.sm */
+/* Glassmorphism utility for light mode */
+.glass-card {
+  background: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(0, 0, 0, 0.05);
 }
 
 /* Scrollbar customizations */
@@ -43,7 +26,7 @@ body {
 
 ::-webkit-scrollbar-thumb {
   background: #cbd5e1;
-  border-radius: 4.0px;
+  border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
@@ -56,11 +39,9 @@ body {
     background: white !important;
     color: black !important;
   }
-
   .no-print {
     display: none !important;
   }
-
   .print-area {
     width: 80mm !important;
     max-width: 80mm !important;
@@ -71,28 +52,22 @@ body {
     color: black !important;
     background: white !important;
   }
-
   .print-header {
     text-align: center;
     margin-bottom: 5px;
   }
-
   .print-divider {
     border-top: 1px dashed black;
     margin: 5px 0;
   }
-
   .print-table {
     width: 100%;
     border-collapse: collapse;
   }
-
-  .print-table th,
-  .print-table td {
+  .print-table th, .print-table td {
     padding: 2px 0;
     text-align: left;
   }
-
   .print-text-right {
     text-align: right !important;
   }
