@@ -10,7 +10,8 @@ import {
   Filter,
   Eye,
   BookOpen,
-  ChevronsUpDown
+  ChevronsUpDown,
+  Coins
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 
@@ -21,6 +22,16 @@ interface InterestType {
   calculation_method: string;
   is_principal_included: boolean;
   notes?: string;
+}
+
+interface CapitalTransaction {
+  id: string;
+  contract_id: string;
+  type: string;
+  amount: number;
+  transaction_date: string;
+  notes?: string;
+  created_at: string;
 }
 
 interface CapitalContract {
@@ -38,6 +49,7 @@ interface CapitalContract {
   status: string;
   notes?: string;
   created_at: string;
+  transactions?: CapitalTransaction[];
 }
 
 interface Customer {
@@ -79,6 +91,15 @@ export const CapitalContracts: React.FC = () => {
   // Customer contract list modal (Image 3)
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [selectedInvestorName, setSelectedInvestorName] = useState("");
+
+  // Capital transactions detail ledger modal (Images 4 & 5)
+  const [isDetailLedgerOpen, setIsDetailLedgerOpen] = useState(false);
+  const [selectedContractDetail, setSelectedContractDetail] = useState<CapitalContract | null>(null);
+  const [activeDetailTab, setActiveDetailTab] = useState<string>("interest");
+  const [txDate, setTxDate] = useState("");
+  const [txAmount, setTxAmount] = useState("0");
+  const [txNotes, setTxNotes] = useState("");
+  const [txExtendToDate, setTxExtendToDate] = useState("");
 
   // Add/Edit Form state
   const [investorType, setInvestorType] = useState<"new" | "existing">("new");
@@ -251,6 +272,50 @@ export const CapitalContracts: React.FC = () => {
     setIsHistoryOpen(true);
   };
 
+  const handleOpenDetailLedger = async (c: CapitalContract) => {
+    try {
+      setError("");
+      const res = await axios.get(`/api/contracts/capital/${c.id}`);
+      setSelectedContractDetail(res.data);
+      setActiveDetailTab("interest");
+      setTxDate(new Date().toISOString().split("T")[0]);
+      setTxAmount("0");
+      setTxNotes("");
+      setTxExtendToDate(new Date().toISOString().split("T")[0]);
+      setIsDetailLedgerOpen(true);
+    } catch (err: any) {
+      window.alert(err.response?.data?.error || "Không thể tải chi tiết hợp đồng nguồn vốn.");
+    }
+  };
+
+  const handleSubmitTransaction = async (e: React.FormEvent, type: string) => {
+    e.preventDefault();
+    if (!selectedContractDetail) return;
+    try {
+      setError("");
+      setSuccess("");
+      const amountVal = type === "withdraw_all" ? Number(selectedContractDetail.amount) : Number(txAmount) || 0;
+      
+      await axios.post(`/api/contracts/capital/${selectedContractDetail.id}/transactions`, {
+        type,
+        amount: amountVal,
+        transaction_date: txDate,
+        notes: txNotes
+      });
+
+      window.alert("Giao dịch nguồn vốn thành công!");
+      // Re-fetch detail ledger info
+      const res = await axios.get(`/api/contracts/capital/${selectedContractDetail.id}`);
+      setSelectedContractDetail(res.data);
+      fetchContracts();
+      // Reset input fields
+      setTxAmount("0");
+      setTxNotes("");
+    } catch (err: any) {
+      window.alert(err.response?.data?.error || "Giao dịch không thành công.");
+    }
+  };
+
   const formatNumber = (val: number) => {
     return Number(val || 0).toLocaleString("vi-VN");
   };
@@ -261,6 +326,16 @@ export const CapitalContracts: React.FC = () => {
     const dd = String(date.getDate()).padStart(2, '0');
     const mm = String(date.getMonth() + 1).padStart(2, '0');
     const yyyy = date.getFullYear();
+    return `${dd}/${mm}/${yyyy}`;
+  };
+
+  const getEndDate = (dateStr: string) => {
+    if (!dateStr) return "";
+    const d = new Date(dateStr);
+    d.setFullYear(d.getFullYear() + 10);
+    const dd = String(d.getDate()).padStart(2, '0');
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const yyyy = d.getFullYear();
     return `${dd}/${mm}/${yyyy}`;
   };
 
@@ -384,7 +459,7 @@ export const CapitalContracts: React.FC = () => {
             onClick={() => window.alert("Tính năng Xuất Excel đang được thiết lập!")}
           >
             <FileSpreadsheet className="w-3.5 h-3.5" />
-            <span>Xuất Excel</span>
+            <span>Export Excel</span>
           </button>
         </div>
       </div>
@@ -479,6 +554,7 @@ export const CapitalContracts: React.FC = () => {
                               onClick={() => handleOpenHistory(c.investor_name)}
                               className="text-blue-600 hover:underline hover:text-blue-800 font-semibold text-left"
                               type="button"
+                              title="Xem hợp đồng của khách"
                             >
                               {c.investor_name}
                             </button>
@@ -520,12 +596,12 @@ export const CapitalContracts: React.FC = () => {
                                 <Edit2 className="w-3.5 h-3.5" />
                               </button>
 
-                              {/* Customer's History details button */}
+                              {/* Ledger details and transaction actions modal */}
                               <button
-                                onClick={() => handleOpenHistory(c.investor_name)}
+                                onClick={() => handleOpenDetailLedger(c)}
                                 className="btn btn-outline border-amber-200 hover:border-amber-400 hover:bg-amber-50 text-amber-600 btn-xs rounded p-1"
                                 type="button"
-                                title="Danh sách hợp đồng góp vốn"
+                                title="Đóng tiền lãi"
                               >
                                 <BookOpen className="w-3.5 h-3.5" />
                               </button>
@@ -722,7 +798,7 @@ export const CapitalContracts: React.FC = () => {
                 </div>
 
                 {/* Date of investment */}
-                <div className="col-span-3 text-right pr-4 text-xs font-semibold text-slate-650">
+                <div className="col-span-3 text-right pr-4 text-xs font-semibold text-slate-655">
                   Ngày góp <span className="text-red-500">*</span>
                 </div>
                 <div className="col-span-9">
@@ -779,7 +855,7 @@ export const CapitalContracts: React.FC = () => {
                 {/* Edit Mode Status input */}
                 {isEditMode && (
                   <>
-                    <div className="col-span-3 text-right pr-4 text-xs font-semibold text-slate-655">
+                    <div className="col-span-3 text-right pr-4 text-xs font-semibold text-slate-650">
                       Trạng thái
                     </div>
                     <div className="col-span-9">
@@ -974,6 +1050,566 @@ export const CapitalContracts: React.FC = () => {
                 Đóng
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* LEDGER DETAILS MODAL (Bảng chi tiết hợp đồng nguồn vốn - Images 4 & 5) */}
+      {isDetailLedgerOpen && selectedContractDetail && (
+        <div className="modal modal-open">
+          <div className="modal-box bg-white border border-slate-200 text-slate-800 rounded-3xl max-w-4xl shadow-2xl p-6 relative">
+            <button 
+              onClick={() => setIsDetailLedgerOpen(false)}
+              className="absolute top-4 right-4 text-slate-400 hover:text-slate-600"
+              type="button"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            {/* Modal Title */}
+            <h3 className="font-semibold text-slate-850 border-b pb-3 text-sm flex items-center gap-1.5">
+              <span className="p-1 bg-slate-100 rounded text-slate-650">
+                <BookOpen className="w-4 h-4" />
+              </span>
+              <span>Bảng chi tiết hợp đồng nguồn vốn</span>
+            </h3>
+
+            {/* Header info layout */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-2 mt-4 pb-4 border-b border-slate-100 text-xs">
+              
+              {/* Left Column */}
+              <div className="space-y-1.5">
+                <div className="flex justify-between py-1">
+                  <span className="text-slate-450 font-medium">Tên khách</span>
+                  <span className="font-bold text-red-500 text-right">{selectedContractDetail.investor_name}</span>
+                </div>
+                <div className="flex justify-between py-1 border-t border-slate-50">
+                  <span className="text-slate-450 font-medium">Tiền đầu tư</span>
+                  <span className="font-extrabold text-slate-850 text-right">{formatNumber(selectedContractDetail.amount)} VNĐ</span>
+                </div>
+                <div className="flex justify-between py-1 border-t border-slate-50">
+                  <span className="text-slate-450 font-medium">Lãi suất</span>
+                  <span className="text-slate-700 font-semibold text-right">
+                    {selectedContractDetail.interest_type ? selectedContractDetail.interest_type.name : "Không tính lãi"}
+                  </span>
+                </div>
+                <div className="flex justify-between py-1 border-t border-slate-50">
+                  <span className="text-slate-450 font-medium">Vay từ ngày</span>
+                  <span className="text-slate-600 font-medium text-right">
+                    {formatDate(selectedContractDetail.investment_date)} &rarr; {getEndDate(selectedContractDetail.investment_date)}
+                  </span>
+                </div>
+              </div>
+
+              {/* Right Column */}
+              <div className="space-y-1.5">
+                <div className="flex justify-between py-1">
+                  <span className="text-slate-450 font-medium">Tổng lãi</span>
+                  <span className="font-bold text-slate-800 text-right">0 VNĐ</span>
+                </div>
+                <div className="flex justify-between py-1 border-t border-slate-50">
+                  <span className="text-slate-450 font-medium">Đã thanh toán</span>
+                  <span className="font-bold text-slate-800 text-right">0 VNĐ</span>
+                </div>
+                <div className="flex justify-between py-1 border-t border-slate-50">
+                  <span className="text-slate-450 font-medium">
+                    Nợ cũ KH: <span className="text-red-500 font-bold ml-1">0 VNĐ</span>
+                  </span>
+                  <span className="text-slate-450 font-medium">
+                    Nợ cũ HĐ: <span className="text-red-500 font-bold ml-1">0 VNĐ</span>
+                  </span>
+                </div>
+                <div className="flex justify-between py-1 border-t border-slate-50 items-center">
+                  <span className="text-slate-450 font-medium">Trạng thái</span>
+                  <span className="badge font-semibold badge-xs py-2.5 px-3 border-none bg-blue-500 text-white rounded-lg uppercase text-[9px] text-right">
+                    {selectedContractDetail.status === "active" ? "Đang đầu tư" : selectedContractDetail.status === "completed" ? "Đã trả xong" : "Đã hủy"}
+                  </span>
+                </div>
+              </div>
+
+            </div>
+
+            {/* Navigation Tabs (Images 4 & 5) */}
+            <div className="flex flex-wrap gap-1.5 border-b border-slate-200 mt-6 pb-px">
+              {[
+                { id: "interest", label: "Trả tiền lãi", icon: <Coins className="w-3.5 h-3.5" /> },
+                { id: "withdraw_principal", label: "Rút bớt gốc", icon: <ChevronsUpDown className="w-3.5 h-3.5" /> }, 
+                { id: "add_principal", label: "Vay thêm", icon: <Plus className="w-3.5 h-3.5" /> },
+                { id: "extend", label: "Gia hạn", icon: <BookOpen className="w-3.5 h-3.5" /> },
+                { id: "withdraw_all", label: "Rút vốn", icon: <X className="w-3.5 h-3.5" /> },
+                { id: "history", label: "Lịch sử", icon: <BookOpen className="w-3.5 h-3.5" /> }
+              ].map(t => (
+                <button
+                  key={t.id}
+                  type="button"
+                  onClick={() => {
+                    setActiveDetailTab(t.id);
+                    setTxAmount("0");
+                    setTxNotes("");
+                  }}
+                  className={`flex items-center gap-1.5 px-4 py-2 text-xs font-semibold border-b-2 -mb-px transition-all ${
+                    activeDetailTab === t.id
+                      ? "border-blue-600 text-blue-600 font-bold"
+                      : "border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300"
+                  }`}
+                >
+                  {t.icon}
+                  <span>{t.label}</span>
+                </button>
+              ))}
+            </div>
+
+            {/* Tab content area */}
+            <div className="py-6 min-h-[260px]">
+              
+              {/* Interest payment view */}
+              {activeDetailTab === "interest" && (
+                <div>
+                  {!selectedContractDetail.interest_type ? (
+                    <div className="text-center py-10 text-red-550 font-bold space-y-1.5 border border-dashed border-red-200 rounded-2xl bg-red-50/20 max-w-lg mx-auto">
+                      <p className="text-sm">Hợp đồng này là hợp đồng đầu tư không tính lãi</p>
+                      <p className="text-xs text-red-400 font-medium">Bạn không cần đóng lãi cho hợp đồng này</p>
+                    </div>
+                  ) : (
+                    <form onSubmit={(e) => handleSubmitTransaction(e, "interest")} className="space-y-4 max-w-xl">
+                      <div className="grid grid-cols-12 gap-y-4 items-center">
+                        <div className="col-span-3 text-right pr-4 text-xs font-semibold text-slate-600">Ngày đóng lãi *</div>
+                        <div className="col-span-9">
+                          <input
+                            type="date"
+                            value={txDate}
+                            onChange={(e) => setTxDate(e.target.value)}
+                            className="input input-bordered input-sm w-full bg-white border-slate-200 text-slate-800 text-xs rounded-lg"
+                            required
+                          />
+                        </div>
+                        <div className="col-span-3 text-right pr-4 text-xs font-semibold text-slate-600">Số tiền đóng *</div>
+                        <div className="col-span-9 relative">
+                          <input
+                            type="number"
+                            value={txAmount}
+                            onChange={(e) => setTxAmount(e.target.value)}
+                            className="input input-bordered input-sm w-full bg-white border-slate-200 text-slate-850 font-bold text-xs rounded-lg"
+                            required
+                          />
+                          <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[10px] text-slate-400 font-bold">VNĐ</span>
+                        </div>
+                        <div className="col-span-3 text-right pr-4 text-xs font-semibold text-slate-600">Ghi chú</div>
+                        <div className="col-span-9">
+                          <input
+                            type="text"
+                            placeholder="Nhập ghi chú đóng lãi"
+                            value={txNotes}
+                            onChange={(e) => setTxNotes(e.target.value)}
+                            className="input input-bordered input-sm w-full bg-white border-slate-200 text-slate-800 text-xs rounded-lg"
+                          />
+                        </div>
+                        <div className="col-span-3"></div>
+                        <div className="col-span-9 pt-2">
+                          <button
+                            type="submit"
+                            className="btn btn-primary bg-blue-600 hover:bg-blue-700 border-none text-white btn-sm rounded-lg text-xs font-semibold px-6"
+                          >
+                            Đồng ý
+                          </button>
+                        </div>
+                      </div>
+                    </form>
+                  )}
+                </div>
+              )}
+
+              {/* Withdraw principal view (Image 5) */}
+              {activeDetailTab === "withdraw_principal" && (
+                <div className="space-y-6">
+                  <form onSubmit={(e) => handleSubmitTransaction(e, "withdraw_principal")} className="space-y-4 max-w-xl">
+                    <div className="grid grid-cols-12 gap-y-4 items-center">
+                      <div className="col-span-3 text-right pr-4 text-xs font-semibold text-slate-605">Ngày trả bớt gốc *</div>
+                      <div className="col-span-9">
+                        <input
+                          type="date"
+                          value={txDate}
+                          onChange={(e) => setTxDate(e.target.value)}
+                          className="input input-bordered input-sm w-full bg-white border-slate-200 text-slate-800 text-xs rounded-lg"
+                          required
+                        />
+                      </div>
+                      <div className="col-span-3 text-right pr-4 text-xs font-semibold text-slate-605">Số tiền gốc trả trước *</div>
+                      <div className="col-span-9 relative">
+                        <input
+                          type="number"
+                          value={txAmount}
+                          onChange={(e) => setTxAmount(e.target.value)}
+                          className="input input-bordered input-sm w-full bg-white border-slate-200 text-slate-850 font-bold text-xs rounded-lg"
+                          required
+                        />
+                        <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[10px] text-slate-400 font-bold">VNĐ</span>
+                      </div>
+                      <div className="col-span-3 text-right pr-4 text-xs font-semibold text-slate-605">Ghi chú</div>
+                      <div className="col-span-9">
+                        <input
+                          type="text"
+                          placeholder="Nhập ghi chú rút bớt gốc"
+                          value={txNotes}
+                          onChange={(e) => setTxNotes(e.target.value)}
+                          className="input input-bordered input-sm w-full bg-white border-slate-200 text-slate-800 text-xs rounded-lg"
+                        />
+                      </div>
+                      <div className="col-span-3"></div>
+                      <div className="col-span-9 pt-2">
+                        <button
+                          type="submit"
+                          className="btn btn-primary bg-blue-600 hover:bg-blue-700 border-none text-white btn-sm rounded-lg text-xs font-semibold px-6"
+                        >
+                          Đồng ý
+                        </button>
+                      </div>
+                    </div>
+                  </form>
+
+                  <div>
+                    <h4 className="text-xs font-bold text-slate-800 uppercase flex items-center gap-1 mb-3">
+                      <span>💰</span>
+                      <span>Danh sách tiền gốc</span>
+                    </h4>
+                    <div className="border border-slate-150 rounded-xl overflow-hidden">
+                      <table className="table w-full text-slate-700 text-xs">
+                        <thead>
+                          <tr className="bg-slate-50 border-b border-slate-200/85 text-slate-500 text-[10px] font-semibold">
+                            <th className="w-12 text-center">STT</th>
+                            <th>Thời gian</th>
+                            <th>Loại hình</th>
+                            <th>Ghi chú</th>
+                            <th className="text-right">Số tiền</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {selectedContractDetail.transactions?.filter((t: any) => t.type === "withdraw_principal").length === 0 ? (
+                            <tr>
+                              <td colSpan={5} className="text-center py-10 bg-white">
+                                <div className="flex flex-col items-center justify-center text-slate-400 text-xs space-y-1">
+                                  <span>✉</span>
+                                  <span>Không có dữ liệu</span>
+                                </div>
+                              </td>
+                            </tr>
+                          ) : (
+                            selectedContractDetail.transactions?.filter((t: any) => t.type === "withdraw_principal").map((t: any, idx: number) => (
+                              <tr key={t.id} className="border-b border-slate-100">
+                                <td className="text-center">{idx + 1}</td>
+                                <td>{formatDate(t.transaction_date)}</td>
+                                <td className="font-medium text-slate-700">Rút bớt gốc</td>
+                                <td className="text-slate-500">{t.notes || "---"}</td>
+                                <td className="font-bold text-red-500 text-right">-{formatNumber(t.amount)}</td>
+                              </tr>
+                            ))
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Vay thêm principal view */}
+              {activeDetailTab === "add_principal" && (
+                <div className="space-y-6">
+                  <form onSubmit={(e) => handleSubmitTransaction(e, "add_principal")} className="space-y-4 max-w-xl">
+                    <div className="grid grid-cols-12 gap-y-4 items-center">
+                      <div className="col-span-3 text-right pr-4 text-xs font-semibold text-slate-600">Ngày vay thêm *</div>
+                      <div className="col-span-9">
+                        <input
+                          type="date"
+                          value={txDate}
+                          onChange={(e) => setTxDate(e.target.value)}
+                          className="input input-bordered input-sm w-full bg-white border-slate-200 text-slate-800 text-xs rounded-lg"
+                          required
+                        />
+                      </div>
+                      <div className="col-span-3 text-right pr-4 text-xs font-semibold text-slate-600">Số tiền vay thêm *</div>
+                      <div className="col-span-9 relative">
+                        <input
+                          type="number"
+                          value={txAmount}
+                          onChange={(e) => setTxAmount(e.target.value)}
+                          className="input input-bordered input-sm w-full bg-white border-slate-200 text-slate-850 font-bold text-xs rounded-lg"
+                          required
+                        />
+                        <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[10px] text-slate-400 font-bold">VNĐ</span>
+                      </div>
+                      <div className="col-span-3 text-right pr-4 text-xs font-semibold text-slate-600">Ghi chú</div>
+                      <div className="col-span-9">
+                        <input
+                          type="text"
+                          placeholder="Nhập ghi chú góp/vay thêm"
+                          value={txNotes}
+                          onChange={(e) => setTxNotes(e.target.value)}
+                          className="input input-bordered input-sm w-full bg-white border-slate-200 text-slate-800 text-xs rounded-lg"
+                        />
+                      </div>
+                      <div className="col-span-3"></div>
+                      <div className="col-span-9 pt-2">
+                        <button
+                          type="submit"
+                          className="btn btn-primary bg-blue-600 hover:bg-blue-700 border-none text-white btn-sm rounded-lg text-xs font-semibold px-6"
+                        >
+                          Đồng ý
+                        </button>
+                      </div>
+                    </div>
+                  </form>
+
+                  <div>
+                    <h4 className="text-xs font-bold text-slate-800 uppercase flex items-center gap-1 mb-3">
+                      <span>💰</span>
+                      <span>Danh sách tiền gốc</span>
+                    </h4>
+                    <div className="border border-slate-150 rounded-xl overflow-hidden">
+                      <table className="table w-full text-slate-700 text-xs">
+                        <thead>
+                          <tr className="bg-slate-50 border-b border-slate-200/85 text-slate-500 text-[10px] font-semibold">
+                            <th className="w-12 text-center">STT</th>
+                            <th>Thời gian</th>
+                            <th>Loại hình</th>
+                            <th>Ghi chú</th>
+                            <th className="text-right">Số tiền</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {selectedContractDetail.transactions?.filter((t: any) => t.type === "add_principal").length === 0 ? (
+                            <tr>
+                              <td colSpan={5} className="text-center py-10 bg-white">
+                                <div className="flex flex-col items-center justify-center text-slate-400 text-xs space-y-1">
+                                  <span>✉</span>
+                                  <span>Không có dữ liệu</span>
+                                </div>
+                              </td>
+                            </tr>
+                          ) : (
+                            selectedContractDetail.transactions?.filter((t: any) => t.type === "add_principal").map((t: any, idx: number) => (
+                              <tr key={t.id} className="border-b border-slate-100">
+                                <td className="text-center">{idx + 1}</td>
+                                <td>{formatDate(t.transaction_date)}</td>
+                                <td className="font-medium text-slate-700">Góp/Vay thêm</td>
+                                <td className="text-slate-500">{t.notes || "---"}</td>
+                                <td className="font-bold text-emerald-600 text-right">+{formatNumber(t.amount)}</td>
+                              </tr>
+                            ))
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Extend view */}
+              {activeDetailTab === "extend" && (
+                <div className="space-y-6">
+                  <form onSubmit={(e) => handleSubmitTransaction(e, "extend")} className="space-y-4 max-w-xl">
+                    <div className="grid grid-cols-12 gap-y-4 items-center">
+                      <div className="col-span-3 text-right pr-4 text-xs font-semibold text-slate-600">Ngày gia hạn *</div>
+                      <div className="col-span-9">
+                        <input
+                          type="date"
+                          value={txDate}
+                          onChange={(e) => setTxDate(e.target.value)}
+                          className="input input-bordered input-sm w-full bg-white border-slate-200 text-slate-800 text-xs rounded-lg"
+                          required
+                        />
+                      </div>
+                      <div className="col-span-3 text-right pr-4 text-xs font-semibold text-slate-600">Gia hạn đến ngày *</div>
+                      <div className="col-span-9">
+                        <input
+                          type="date"
+                          value={txExtendToDate}
+                          onChange={(e) => setTxExtendToDate(e.target.value)}
+                          className="input input-bordered input-sm w-full bg-white border-slate-200 text-slate-800 text-xs rounded-lg"
+                          required
+                        />
+                      </div>
+                      <div className="col-span-3 text-right pr-4 text-xs font-semibold text-slate-600">Ghi chú</div>
+                      <div className="col-span-9">
+                        <input
+                          type="text"
+                          placeholder="Nhập ghi chú gia hạn"
+                          value={txNotes}
+                          onChange={(e) => setTxNotes(e.target.value)}
+                          className="input input-bordered input-sm w-full bg-white border-slate-200 text-slate-800 text-xs rounded-lg"
+                        />
+                      </div>
+                      <div className="col-span-3"></div>
+                      <div className="col-span-9 pt-2">
+                        <button
+                          type="submit"
+                          className="btn btn-primary bg-blue-600 hover:bg-blue-700 border-none text-white btn-sm rounded-lg text-xs font-semibold px-6"
+                        >
+                          Đồng ý
+                        </button>
+                      </div>
+                    </div>
+                  </form>
+
+                  <div>
+                    <h4 className="text-xs font-bold text-slate-800 uppercase flex items-center gap-1 mb-3">
+                      <span>📅</span>
+                      <span>Lịch sử gia hạn</span>
+                    </h4>
+                    <div className="border border-slate-150 rounded-xl overflow-hidden">
+                      <table className="table w-full text-slate-700 text-xs">
+                        <thead>
+                          <tr className="bg-slate-50 border-b border-slate-200/85 text-slate-500 text-[10px] font-semibold">
+                            <th className="w-12 text-center">STT</th>
+                            <th>Thời gian</th>
+                            <th>Loại hình</th>
+                            <th>Ghi chú</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {selectedContractDetail.transactions?.filter((t: any) => t.type === "extend").length === 0 ? (
+                            <tr>
+                              <td colSpan={4} className="text-center py-10 bg-white">
+                                <div className="flex flex-col items-center justify-center text-slate-400 text-xs space-y-1">
+                                  <span>✉</span>
+                                  <span>Không có dữ liệu</span>
+                                </div>
+                              </td>
+                            </tr>
+                          ) : (
+                            selectedContractDetail.transactions?.filter((t: any) => t.type === "extend").map((t: any, idx: number) => (
+                              <tr key={t.id} className="border-b border-slate-100">
+                                <td className="text-center">{idx + 1}</td>
+                                <td>{formatDate(t.transaction_date)}</td>
+                                <td className="font-medium text-slate-700">Gia hạn hợp đồng</td>
+                                <td className="text-slate-500">{t.notes || "---"}</td>
+                              </tr>
+                            ))
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Withdraw All view */}
+              {activeDetailTab === "withdraw_all" && (
+                <div>
+                  <form onSubmit={(e) => handleSubmitTransaction(e, "withdraw_all")} className="space-y-4 max-w-xl">
+                    <div className="text-amber-700 bg-amber-50 border border-amber-200 p-3 rounded-lg text-xs font-semibold mb-4">
+                      ⚠️ Bạn có chắc chắn muốn rút toàn bộ tiền gốc còn lại ({formatNumber(selectedContractDetail.amount)} VNĐ) và tất toán hợp đồng này? Hành động này sẽ thay đổi trạng thái hợp đồng thành Đã trả xong.
+                    </div>
+                    <div className="grid grid-cols-12 gap-y-4 items-center">
+                      <div className="col-span-3 text-right pr-4 text-xs font-semibold text-slate-600">Ngày rút vốn *</div>
+                      <div className="col-span-9">
+                        <input
+                          type="date"
+                          value={txDate}
+                          onChange={(e) => setTxDate(e.target.value)}
+                          className="input input-bordered input-sm w-full bg-white border-slate-200 text-slate-800 text-xs rounded-lg"
+                          required
+                        />
+                      </div>
+                      <div className="col-span-3 text-right pr-4 text-xs font-semibold text-slate-600">Số tiền gốc *</div>
+                      <div className="col-span-9 relative">
+                        <input
+                          type="text"
+                          value={formatNumber(selectedContractDetail.amount)}
+                          className="input input-bordered input-sm w-full bg-slate-50 border-slate-200 text-slate-855 font-bold text-xs rounded-lg"
+                          disabled
+                        />
+                        <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[10px] text-slate-400 font-bold">VNĐ</span>
+                      </div>
+                      <div className="col-span-3 text-right pr-4 text-xs font-semibold text-slate-600">Ghi chú</div>
+                      <div className="col-span-9">
+                        <input
+                          type="text"
+                          placeholder="Nhập ghi chú tất toán"
+                          value={txNotes}
+                          onChange={(e) => setTxNotes(e.target.value)}
+                          className="input input-bordered input-sm w-full bg-white border-slate-200 text-slate-800 text-xs rounded-lg"
+                        />
+                      </div>
+                      <div className="col-span-3"></div>
+                      <div className="col-span-9 pt-2">
+                        <button
+                          type="submit"
+                          className="btn btn-error bg-red-600 hover:bg-red-700 border-none text-white btn-sm rounded-lg text-xs font-semibold px-6"
+                        >
+                          Đồng ý tất toán
+                        </button>
+                      </div>
+                    </div>
+                  </form>
+                </div>
+              )}
+
+              {/* Full history ledger view */}
+              {activeDetailTab === "history" && (
+                <div>
+                  <div className="border border-slate-150 rounded-xl overflow-hidden">
+                    <table className="table w-full text-slate-700 text-xs">
+                      <thead>
+                        <tr className="bg-slate-50 border-b border-slate-200/85 text-slate-500 text-[10px] font-semibold">
+                          <th className="w-12 text-center">STT</th>
+                          <th>Thời gian</th>
+                          <th>Giao dịch</th>
+                          <th>Ghi chú</th>
+                          <th className="text-right">Số tiền</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {!selectedContractDetail.transactions || selectedContractDetail.transactions.length === 0 ? (
+                          <tr>
+                            <td colSpan={5} className="text-center py-16 bg-white">
+                              <div className="text-slate-400 text-xs">Chưa có lịch sử giao dịch</div>
+                            </td>
+                          </tr>
+                        ) : (
+                          selectedContractDetail.transactions.map((t: any, idx: number) => {
+                            const getTxLabel = (typeStr: string) => {
+                              switch (typeStr) {
+                                case "interest": return "Đóng tiền lãi";
+                                case "withdraw_principal": return "Rút bớt gốc";
+                                case "add_principal": return "Vay thêm";
+                                case "extend": return "Gia hạn hợp đồng";
+                                case "withdraw_all": return "Tất toán rút hết vốn";
+                                default: return typeStr;
+                              }
+                            };
+                            const isNeg = t.type === "withdraw_principal" || t.type === "interest" || t.type === "withdraw_all";
+                            return (
+                              <tr key={t.id} className="border-b border-slate-100">
+                                <td className="text-center">{idx + 1}</td>
+                                <td>{formatDate(t.transaction_date)}</td>
+                                <td className="font-semibold text-slate-700">{getTxLabel(t.type)}</td>
+                                <td className="text-slate-500">{t.notes || "---"}</td>
+                                <td className={`font-bold text-right ${isNeg ? "text-red-500" : "text-emerald-600"}`}>
+                                  {isNeg ? "-" : "+"}{formatNumber(t.amount)}
+                                </td>
+                              </tr>
+                            );
+                          })
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+            </div>
+
+            {/* Modal Actions Footer */}
+            <div className="modal-action border-t pt-4 mt-2">
+              <button
+                type="button"
+                onClick={() => setIsDetailLedgerOpen(false)}
+                className="btn btn-outline border-slate-200 text-slate-550 btn-sm rounded-lg text-xs"
+              >
+                Đóng
+              </button>
+            </div>
+
           </div>
         </div>
       )}

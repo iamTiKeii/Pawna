@@ -51,6 +51,9 @@ router.get("/:id", async (req: AuthenticatedRequest, res: Response) => {
       },
       include: {
         interest_type: true,
+        transactions: {
+          orderBy: { created_at: "desc" },
+        },
       },
     });
 
@@ -280,6 +283,142 @@ router.delete("/:id", requirePermission(["FUNDS_MANAGE"]) as any, async (req: Au
     });
 
     return res.json({ message: "Capital contract cancelled successfully", contract: result });
+  } catch (error: any) {
+    return res.status(500).json({ error: error.message });
+  }
+});
+
+// 6. Post transaction for a capital contract
+router.post("/:id/transactions", requirePermission(["FUNDS_MANAGE"]) as any, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const storeId = req.user!.store_id;
+    const employeeId = req.user!.id;
+    const contractId = req.params.id;
+
+    const { type, amount, transaction_date, notes } = req.body;
+
+    if (!type || !transaction_date) {
+      return res.status(400).json({ error: "Missing required fields" });
+    }
+
+    const txAmount = Number(amount) || 0;
+
+    const result = await prisma.$transaction(async (tx) => {
+      const contract = await tx.capitalContract.findFirst({
+        where: { id: contractId, store_id: storeId },
+      });
+
+      if (!contract) {
+        throw new Error("Capital contract not found");
+      }
+
+      // Create transaction
+      const transaction = await tx.capitalTransaction.create({
+        data: {
+          contract_id: contractId,
+          type,
+          amount: txAmount,
+          transaction_date: normalizeToMidnight(transaction_date),
+          notes,
+        },
+      });
+
+      // Business logic depending on type
+      if (type === "withdraw_principal") {
+        if (txAmount <= 0) {
+          throw new Error("Amount must be greater than 0");
+        }
+        const currentAmount = Number(contract.amount);
+        if (txAmount > currentAmount) {
+          throw new Error("Amount to withdraw exceeds current contract capital amount");
+        }
+        
+        // Update contract amount
+        await tx.capitalContract.update({
+          where: { id: contractId },
+          data: { amount: currentAmount - txAmount },
+        });
+
+        // Revert cash (reduce store cash)
+        await adjustDailyCash(
+          tx,
+          storeId,
+          transaction_date,
+          -txAmount,
+          "capital_withdraw_principal",
+          employeeId,
+          `Rút bớt gốc từ hợp đồng của ${contract.investor_name}. Số tiền: ${txAmount}`
+        );
+
+      } else if (type === "add_principal") {
+        if (txAmount <= 0) {
+          throw new Error("Amount must be greater than 0");
+        }
+        const currentAmount = Number(contract.amount);
+        
+        // Update contract amount
+        await tx.capitalContract.update({
+          where: { id: contractId },
+          data: { amount: currentAmount + txAmount },
+        });
+
+        // Add to store cash
+        await adjustDailyCash(
+          tx,
+          storeId,
+          transaction_date,
+          txAmount,
+          "capital_add_principal",
+          employeeId,
+          `Vay/Góp thêm vào hợp đồng của ${contract.investor_name}. Số tiền: ${txAmount}`
+        );
+
+      } else if (type === "interest") {
+        if (txAmount <= 0) {
+          throw new Error("Amount must be greater than 0");
+        }
+        
+        // Revert cash (pay out interest)
+        await adjustDailyCash(
+          tx,
+          storeId,
+          transaction_date,
+          -txAmount,
+          "capital_interest_payment",
+          employeeId,
+          `Trả tiền lãi hợp đồng góp vốn cho ${contract.investor_name}. Số tiền: ${txAmount}`
+        );
+
+      } else if (type === "withdraw_all") {
+        const currentAmount = Number(contract.amount);
+        
+        // Mark completed
+        await tx.capitalContract.update({
+          where: { id: contractId },
+          data: { 
+            amount: 0, 
+            status: "completed" 
+          },
+        });
+
+        // Revert all remaining cash
+        if (currentAmount > 0) {
+          await adjustDailyCash(
+            tx,
+            storeId,
+            transaction_date,
+            -currentAmount,
+            "capital_withdraw_all",
+            employeeId,
+            `Rút toàn bộ gốc tất toán hợp đồng của ${contract.investor_name}. Số tiền: ${currentAmount}`
+          );
+        }
+      }
+
+      return transaction;
+    });
+
+    return res.status(201).json(result);
   } catch (error: any) {
     return res.status(500).json({ error: error.message });
   }
