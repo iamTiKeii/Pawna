@@ -30,6 +30,33 @@ body {
   border-radius: 4px !important; /* radius.sm */
 }
 
+/* Align button font sizes with design system typography scale */
+.btn-xs {
+  font-size: 11px !important;
+  line-height: 16.5px !important;
+}
+
+.btn-sm {
+  font-size: 11.38px !important;
+  line-height: 17.07px !important;
+}
+
+.btn {
+  font-size: 12px !important;
+  line-height: 18px !important;
+  text-transform: none !important; /* prevent uppercase overrides */
+}
+
+.btn-md {
+  font-size: 12px !important;
+  line-height: 18px !important;
+}
+
+.btn-lg {
+  font-size: 13px !important;
+  line-height: 19.5px !important;
+}
+
 /* Scrollbar customizations */
 ::-webkit-scrollbar {
   width: 6px;
