@@ -147,6 +147,7 @@ router.get("/", async (req: AuthenticatedRequest, res: Response) => {
         commodity: true,
         interest_type: true,
         collector: { select: { full_name: true } },
+        interest_payments: { orderBy: { cycle_number: "asc" } },
       },
       orderBy: { created_at: "desc" },
     });
@@ -231,6 +232,7 @@ router.post("/", requirePermission(["CONTRACTS_MANAGE"]) as any, async (req: Aut
       chassis_number,
       engine_number,
       notes,
+      contract_code,
     } = req.body;
 
     if (!customer_id || !commodity_id || !asset_name || !loan_amount || !interest_type_id || !loan_days || !period_value || !collector_id) {
@@ -249,7 +251,7 @@ router.post("/", requirePermission(["CONTRACTS_MANAGE"]) as any, async (req: Aut
     }
 
     const result = await prisma.$transaction(async (tx) => {
-      const contractCode = await generateContractCode(tx, "pawn");
+      const contractCode = contract_code || await generateContractCode(tx, "pawn");
       const normalizedLoanDate = normalizeToMidnight(loan_date || new Date());
 
       const interestType = await tx.interestType.findUnique({
