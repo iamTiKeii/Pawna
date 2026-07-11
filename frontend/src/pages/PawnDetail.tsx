@@ -94,6 +94,18 @@ export const PawnDetail: React.FC<PawnDetailProps> = ({ idProp, onClose, isModal
       setPayAmounts(initialAmounts);
       setPayOthers(initialOthers);
       setPayChecked(initialChecked);
+
+      // Initialize redeem fields
+      if (res.data.status === "closed" && res.data.redemptions?.[0]) {
+        const rDateObj = new Date(res.data.redemptions[0].redeem_date);
+        setRedeemDate(rDateObj.toISOString().split("T")[0]);
+        setRedeemOther(String(Number(res.data.redemptions[0].other_amount || 0)));
+        setRedeemNotes(res.data.redemptions[0].notes || "");
+      } else {
+        setRedeemDate(new Date().toISOString().split("T")[0]);
+        setRedeemOther("");
+        setRedeemNotes("");
+      }
     } catch (err: any) {
       setError(err.response?.data?.error || "Không thể tải chi tiết hợp đồng.");
     } finally {
@@ -381,6 +393,105 @@ export const PawnDetail: React.FC<PawnDetailProps> = ({ idProp, onClose, isModal
   };
 
   // Standard modal content structure
+  const calculateRedeemData = () => {
+    if (!contract) {
+      return { principal: 0, outstandingDebt: 0, interestAmount: 0, daysAccrued: 0, totalRedeemAmount: 0 };
+    }
+
+    if (contract.status === "closed" && contract.redemptions?.[0]) {
+      const red = contract.redemptions[0];
+      const principal = Number(red.loan_amount || 0);
+      const outstandingDebt = Number(red.outstanding_debt || 0);
+      const interestAmount = Number(red.interest_amount || 0);
+      const totalRedeemAmount = Number(red.total_amount || 0);
+
+      // Estimate days accrued for display
+      const lastPaid = contract.interest_payments?.filter((p: any) => p.is_paid && p.paid_date !== red.redeem_date).pop();
+      const accrualStart = lastPaid ? lastPaid.to_date : contract.loan_date;
+      const start = new Date(accrualStart);
+      const end = new Date(red.redeem_date);
+      const startMid = new Date(start.getFullYear(), start.getMonth(), start.getDate());
+      const endMid = new Date(end.getFullYear(), end.getMonth(), end.getDate());
+      const diffMs = endMid.getTime() - startMid.getTime();
+      const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24));
+      const daysAccrued = diffDays > 0 ? (lastPaid ? diffDays : diffDays + 1) : (lastPaid ? 0 : 1);
+
+      return { principal, outstandingDebt, interestAmount, daysAccrued, totalRedeemAmount };
+    }
+
+    const principal = Number(contract.loan_amount || 0);
+    const outstandingDebt = Number(contract.debt_amount || 0);
+
+    const parseDateOnly = (dateStr: string | Date): Date => {
+      const d = new Date(dateStr);
+      return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    };
+
+    const lastPaid = contract.interest_payments?.filter((p: any) => p.is_paid).pop();
+    const accrualStart = lastPaid ? lastPaid.to_date : contract.loan_date;
+
+    const start = parseDateOnly(accrualStart);
+    const end = parseDateOnly(redeemDate || new Date());
+
+    const diffTime = end.getTime() - start.getTime();
+    const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
+
+    let daysAccrued = 0;
+    if (diffDays > 0) {
+      daysAccrued = lastPaid ? diffDays : diffDays + 1;
+    } else if (diffDays === 0) {
+      daysAccrued = lastPaid ? 0 : 1;
+    }
+
+    const rate = Number(contract.interest_rate || 0);
+    const periodValue = Number(contract.period_value) || 1;
+    const typeCode = contract.interest_type?.code || "daily_k_million";
+
+    let dailyRate = 0;
+    switch (typeCode) {
+      case "daily_k_million":
+        dailyRate = (principal / 1000000) * rate;
+        break;
+      case "daily_k_day":
+        dailyRate = rate;
+        break;
+      case "monthly_percent_30":
+        dailyRate = principal * ((rate / 100) / 30);
+        break;
+      case "monthly_percent_periodic":
+        dailyRate = (principal * (rate / 100)) / periodValue;
+        break;
+      case "monthly_amount_periodic":
+        dailyRate = rate / periodValue;
+        break;
+      case "weekly_percent":
+        dailyRate = (principal * (rate / 100)) / 7;
+        break;
+      case "weekly_amount":
+        dailyRate = rate / 7;
+        break;
+      case "flat_rate_monthly":
+        dailyRate = (principal * (rate / 100)) / 30;
+        break;
+      default:
+        dailyRate = 0;
+        break;
+    }
+
+    const interestAmount = Math.round(dailyRate * daysAccrued);
+    const otherVal = Number(redeemOther) || 0;
+    const totalRedeemAmount = principal + outstandingDebt + interestAmount + otherVal;
+
+    return { principal, outstandingDebt, interestAmount, daysAccrued, totalRedeemAmount };
+  };
+
+  const { principal, outstandingDebt, interestAmount, daysAccrued, totalRedeemAmount } = calculateRedeemData();
+
+  const formatVND = (val: number | string) => {
+    const rounded = Math.round(Number(val) || 0);
+    return new Intl.NumberFormat("en-US").format(rounded) + " VNĐ";
+  };
+
   const contentJSX = (
     <div className="space-y-5 text-sm">
       {/* Alert Banner */}
@@ -704,55 +815,98 @@ export const PawnDetail: React.FC<PawnDetailProps> = ({ idProp, onClose, isModal
 
         {/* TAB 5: Chuộc đồ */}
         {activeTab === "redeem" && (
-          <form onSubmit={handleRedeem} className="max-w-md space-y-4">
-            <h3 className="font-bold text-slate-800 border-b border-slate-100 pb-2">Tất toán chuộc tài sản thế chấp</h3>
-            <div>
-              <label className="label font-semibold text-slate-600">Ngày chuộc đồ *</label>
-              <input
-                type="date"
-                value={redeemDate}
-                onChange={(e) => setRedeemDate(e.target.value)}
-                className="input input-bordered w-full bg-white border-slate-200 text-slate-800 focus:border-amber-500 focus:outline-none rounded-lg"
-              />
-            </div>
-            <div>
-              <label className="label font-semibold text-slate-600">Chi phí khác phát sinh</label>
-              <div className="relative">
-                <input
-                  type="number"
-                  placeholder="0"
-                  value={redeemOther}
-                  onChange={(e) => setRedeemOther(e.target.value)}
-                  className="input input-bordered w-full bg-white border-slate-200 text-slate-800 focus:border-amber-500 focus:outline-none rounded-lg"
-                />
-                <span className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 font-bold">VNĐ</span>
+          <form onSubmit={handleRedeem} className="w-full max-w-xl space-y-4 text-slate-800">
+            <h3 className="font-bold text-slate-800 border-b border-slate-100 pb-2 hidden">Tất toán chuộc tài sản thế chấp</h3>
+            
+            <div className="space-y-4 font-sans text-xs">
+              {/* Row 1: Ngày chuộc đồ */}
+              <div className="grid grid-cols-12 gap-4 items-center">
+                <div className="col-span-4 text-right font-bold text-slate-600">Ngày Chuộc đồ <span className="text-red-500">*</span></div>
+                <div className="col-span-8">
+                  <input
+                    type="date"
+                    value={redeemDate}
+                    onChange={(e) => setRedeemDate(e.target.value)}
+                    disabled={contract.status !== "active"}
+                    className="input input-bordered w-full max-w-md bg-white border-slate-200 text-slate-800 focus:border-amber-500 focus:outline-none rounded-lg text-xs h-9"
+                  />
+                </div>
+              </div>
+
+              {/* Row 2: Tiền cầm */}
+              <div className="grid grid-cols-12 gap-4 items-center">
+                <div className="col-span-4 text-right font-bold text-slate-600">Tiền cầm</div>
+                <div className="col-span-8 font-bold text-emerald-600 text-sm">
+                  {formatVND(principal)}
+                </div>
+              </div>
+
+              {/* Row 3: Nợ cũ */}
+              <div className="grid grid-cols-12 gap-4 items-center">
+                <div className="col-span-4 text-right font-bold text-slate-600">Nợ cũ</div>
+                <div className="col-span-8 font-bold text-red-500 text-sm">
+                  {formatVND(outstandingDebt)}
+                </div>
+              </div>
+
+              {/* Row 4: Tiền lãi */}
+              <div className="grid grid-cols-12 gap-4 items-center">
+                <div className="col-span-4 text-right font-bold text-slate-600">Tiền lãi</div>
+                <div className="col-span-8 font-bold text-emerald-600 text-sm flex items-center gap-1.5">
+                  <span>{formatVND(interestAmount)}</span>
+                  <span className="text-slate-500 font-normal text-xs">({daysAccrued} ngày)</span>
+                </div>
+              </div>
+
+              {/* Row 5: Tiền khác */}
+              <div className="grid grid-cols-12 gap-4 items-center">
+                <div className="col-span-4 text-right font-bold text-slate-600">Tiền khác <span className="text-red-500">*</span></div>
+                <div className="col-span-8">
+                  <div className="relative w-full max-w-md flex items-center">
+                    <input
+                      type="number"
+                      placeholder="0"
+                      value={redeemOther}
+                      onChange={(e) => setRedeemOther(e.target.value)}
+                      disabled={contract.status !== "active"}
+                      className="input input-bordered w-full bg-white border-slate-200 text-slate-800 focus:border-amber-500 focus:outline-none rounded-lg text-xs h-9 pr-14"
+                    />
+                    <span className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 font-bold bg-slate-50 border-l border-slate-200 rounded-r-lg px-2 text-[10px]">VNĐ</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Row 6: Tổng tiền chuộc */}
+              <div className="grid grid-cols-12 gap-4 items-center">
+                <div className="col-span-4 text-right font-bold text-slate-600">Tổng tiền chuộc</div>
+                <div className="col-span-8 font-bold text-red-500 text-sm">
+                  {formatVND(totalRedeemAmount)}
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="grid grid-cols-12 gap-4 items-center pt-2">
+                <div className="col-span-4"></div>
+                <div className="col-span-8">
+                  {contract.status === "active" ? (
+                    <button
+                      type="submit"
+                      className="btn btn-primary bg-blue-600 hover:bg-blue-700 border-none text-white w-28 font-bold rounded-lg text-xs h-9 min-h-[36px]"
+                    >
+                      Chuộc đồ
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={handleCancelRedeem}
+                      className="btn btn-neutral border-slate-200 text-red-500 hover:bg-red-500/10 w-48 font-bold rounded-lg text-xs h-9 min-h-[36px]"
+                    >
+                      Hủy tất toán (Mở lại HĐ)
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
-            <div>
-              <label className="label font-semibold text-slate-600">Ghi chú tất toán</label>
-              <textarea
-                placeholder="Nhập tình trạng tài sản khi bàn giao trả khách..."
-                value={redeemNotes}
-                onChange={(e) => setRedeemNotes(e.target.value)}
-                className="textarea textarea-bordered w-full bg-white border-slate-200 text-slate-800 rounded-lg h-20 focus:outline-none"
-              />
-            </div>
-            {contract.status === "active" ? (
-              <button
-                type="submit"
-                className="btn btn-primary bg-blue-600 hover:bg-blue-700 border-none text-white w-full font-bold rounded-lg"
-              >
-                Xác nhận tất toán chuộc đồ
-              </button>
-            ) : (
-              <button
-                type="button"
-                onClick={handleCancelRedeem}
-                className="btn btn-neutral border-slate-200 text-red-500 hover:bg-red-500/10 w-full font-bold rounded-lg"
-              >
-                Hủy tất toán (Mở lại HĐ)
-              </button>
-            )}
           </form>
         )}
 

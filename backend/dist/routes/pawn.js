@@ -121,6 +121,7 @@ router.get("/", async (req, res) => {
                 commodity: true,
                 interest_type: true,
                 collector: { select: { full_name: true } },
+                interest_payments: { orderBy: { cycle_number: "asc" } },
             },
             orderBy: { created_at: "desc" },
         });
@@ -184,7 +185,7 @@ router.post("/", (0, permission_1.requirePermission)(["CONTRACTS_MANAGE"]), asyn
     try {
         const storeId = req.user.store_id;
         const employeeId = req.user.id;
-        const { customer_id, commodity_id, asset_name, loan_amount, interest_type_id, is_upfront_interest, loan_days, period_value, interest_rate, loan_date, collector_id, collaborator_id, license_plate, chassis_number, engine_number, notes, } = req.body;
+        const { customer_id, commodity_id, asset_name, loan_amount, interest_type_id, is_upfront_interest, loan_days, period_value, interest_rate, loan_date, collector_id, collaborator_id, license_plate, chassis_number, engine_number, notes, contract_code, } = req.body;
         if (!customer_id || !commodity_id || !asset_name || !loan_amount || !interest_type_id || !loan_days || !period_value || !collector_id) {
             return res.status(400).json({ error: "Missing required fields" });
         }
@@ -198,7 +199,7 @@ router.post("/", (0, permission_1.requirePermission)(["CONTRACTS_MANAGE"]), asyn
             return res.status(400).json({ error: "Customer is blacklisted. Cannot create contract." });
         }
         const result = await prisma.$transaction(async (tx) => {
-            const contractCode = await (0, codeGen_1.generateContractCode)(tx, "pawn");
+            const contractCode = contract_code || await (0, codeGen_1.generateContractCode)(tx, "pawn");
             const normalizedLoanDate = (0, cash_1.normalizeToMidnight)(loan_date || new Date());
             const interestType = await tx.interestType.findUnique({
                 where: { id: interest_type_id },
@@ -740,8 +741,18 @@ router.post("/:id/redeem", (0, permission_1.requirePermission)(["CONTRACTS_OPERA
                 .filter((p) => p.is_paid)
                 .pop();
             const accrualStart = lastPaid ? new Date(lastPaid.to_date) : new Date(contract.loan_date);
-            // Calculate accrued interest up to redeem date
-            const daysAccrued = Math.max(0, Math.round((rDate.getTime() - accrualStart.getTime()) / (1000 * 60 * 60 * 24)));
+            // Normalize dates to midnight to compute absolute difference in days
+            const startMidnight = new Date(accrualStart.getFullYear(), accrualStart.getMonth(), accrualStart.getDate());
+            const endMidnight = new Date(rDate.getFullYear(), rDate.getMonth(), rDate.getDate());
+            const diffMs = endMidnight.getTime() - startMidnight.getTime();
+            const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24));
+            let daysAccrued = 0;
+            if (diffDays > 0) {
+                daysAccrued = lastPaid ? diffDays : diffDays + 1;
+            }
+            else if (diffDays === 0) {
+                daysAccrued = lastPaid ? 0 : 1;
+            }
             const dailyRate = calculateDailyInterestRate(principal, Number(contract.interest_rate), contract.period_value, contract.interest_type.code);
             const interestAmount = Math.round(dailyRate * daysAccrued);
             const otherVal = Number(otherAmount) || 0;
@@ -763,7 +774,41 @@ router.post("/:id/redeem", (0, permission_1.requirePermission)(["CONTRACTS_OPERA
                 where: { id: contractId },
                 data: { status: "closed" },
             });
-            // Mark all cycles <= redeem date as paid, delete ones after
+            // 1. Delete future cycles starting on or after redeem date
+            await tx.pawnInterestPayment.deleteMany({
+                where: {
+                    contract_id: contractId,
+                    from_date: { gte: (0, cash_1.normalizeToMidnight)(rDate) },
+                },
+            });
+            // 2. Find and pro-rate the active cycle that covers the redeem date
+            const activeCycle = await tx.pawnInterestPayment.findFirst({
+                where: {
+                    contract_id: contractId,
+                    from_date: { lt: (0, cash_1.normalizeToMidnight)(rDate) },
+                    to_date: { gt: (0, cash_1.normalizeToMidnight)(rDate) },
+                },
+            });
+            if (activeCycle) {
+                const cycleStartMid = new Date(activeCycle.from_date);
+                const cycleEndMid = (0, cash_1.normalizeToMidnight)(rDate);
+                const cycleDiffMs = cycleEndMid.getTime() - cycleStartMid.getTime();
+                const cycleDiffDays = Math.round(cycleDiffMs / (1000 * 60 * 60 * 24));
+                const elapsedDays = Math.max(1, lastPaid ? cycleDiffDays : cycleDiffDays + 1);
+                const cycleInterest = Math.round(dailyRate * elapsedDays);
+                await tx.pawnInterestPayment.update({
+                    where: { id: activeCycle.id },
+                    data: {
+                        to_date: cycleEndMid,
+                        expected_days: elapsedDays,
+                        expected_interest: cycleInterest,
+                        is_paid: true,
+                        actual_paid: 0, // consolidated in total redeem
+                        paid_date: cycleEndMid,
+                    },
+                });
+            }
+            // 3. Mark all remaining unpaid cycles ending before or on redeem date as paid
             await tx.pawnInterestPayment.updateMany({
                 where: {
                     contract_id: contractId,
@@ -772,15 +817,8 @@ router.post("/:id/redeem", (0, permission_1.requirePermission)(["CONTRACTS_OPERA
                 },
                 data: {
                     is_paid: true,
-                    actual_paid: 0, // already consolidated in total redeem
+                    actual_paid: 0, // consolidated in total redeem
                     paid_date: (0, cash_1.normalizeToMidnight)(rDate),
-                },
-            });
-            // Delete future cycles starting after redeem date
-            await tx.pawnInterestPayment.deleteMany({
-                where: {
-                    contract_id: contractId,
-                    from_date: { gt: (0, cash_1.normalizeToMidnight)(rDate) },
                 },
             });
             // Adjust cash fund (+ totalRedeem)
@@ -790,8 +828,8 @@ router.post("/:id/redeem", (0, permission_1.requirePermission)(["CONTRACTS_OPERA
                 data: {
                     contract_id: contractId,
                     employee_id: employeeId,
-                    debit_amount: 0,
-                    credit_amount: totalRedeem,
+                    debit_amount: totalRedeem < 0 ? Math.abs(totalRedeem) : 0,
+                    credit_amount: totalRedeem >= 0 ? totalRedeem : 0,
                     action_type: "redeem_contract",
                     content: `Chuộc đồ tất toán hợp đồng. Nhận tổng tiền: ${totalRedeem}. Trong đó gốc: ${principal}, nợ: ${outstandingDebt}, lãi dồn: ${interestAmount}, phụ phí: ${otherVal}. Ghi chú: ${notes || ""}`,
                 },

@@ -961,11 +961,18 @@ router.post("/:id/redeem", requirePermission(["CONTRACTS_OPERATE"]) as any, asyn
         .pop();
       const accrualStart = lastPaid ? new Date(lastPaid.to_date) : new Date(contract.loan_date);
 
-      // Calculate accrued interest up to redeem date
-      const daysAccrued = Math.max(
-        0,
-        Math.round((rDate.getTime() - accrualStart.getTime()) / (1000 * 60 * 60 * 24))
-      );
+      // Normalize dates to midnight to compute absolute difference in days
+      const startMidnight = new Date(accrualStart.getFullYear(), accrualStart.getMonth(), accrualStart.getDate());
+      const endMidnight = new Date(rDate.getFullYear(), rDate.getMonth(), rDate.getDate());
+      const diffMs = endMidnight.getTime() - startMidnight.getTime();
+      const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24));
+
+      let daysAccrued = 0;
+      if (diffDays > 0) {
+        daysAccrued = lastPaid ? diffDays : diffDays + 1;
+      } else if (diffDays === 0) {
+        daysAccrued = lastPaid ? 0 : 1;
+      }
 
       const dailyRate = calculateDailyInterestRate(
         principal,
@@ -997,7 +1004,46 @@ router.post("/:id/redeem", requirePermission(["CONTRACTS_OPERATE"]) as any, asyn
         data: { status: "closed" },
       });
 
-      // Mark all cycles <= redeem date as paid, delete ones after
+      // 1. Delete future cycles starting on or after redeem date
+      await tx.pawnInterestPayment.deleteMany({
+        where: {
+          contract_id: contractId,
+          from_date: { gte: normalizeToMidnight(rDate) },
+        },
+      });
+
+      // 2. Find and pro-rate the active cycle that covers the redeem date
+      const activeCycle = await tx.pawnInterestPayment.findFirst({
+        where: {
+          contract_id: contractId,
+          from_date: { lt: normalizeToMidnight(rDate) },
+          to_date: { gt: normalizeToMidnight(rDate) },
+        },
+      });
+
+      if (activeCycle) {
+        const cycleStartMid = new Date(activeCycle.from_date);
+        const cycleEndMid = normalizeToMidnight(rDate);
+        const cycleDiffMs = cycleEndMid.getTime() - cycleStartMid.getTime();
+        const cycleDiffDays = Math.round(cycleDiffMs / (1000 * 60 * 60 * 24));
+        const elapsedDays = Math.max(1, lastPaid ? cycleDiffDays : cycleDiffDays + 1);
+
+        const cycleInterest = Math.round(dailyRate * elapsedDays);
+
+        await tx.pawnInterestPayment.update({
+          where: { id: activeCycle.id },
+          data: {
+            to_date: cycleEndMid,
+            expected_days: elapsedDays,
+            expected_interest: cycleInterest,
+            is_paid: true,
+            actual_paid: 0, // consolidated in total redeem
+            paid_date: cycleEndMid,
+          },
+        });
+      }
+
+      // 3. Mark all remaining unpaid cycles ending before or on redeem date as paid
       await tx.pawnInterestPayment.updateMany({
         where: {
           contract_id: contractId,
@@ -1006,16 +1052,8 @@ router.post("/:id/redeem", requirePermission(["CONTRACTS_OPERATE"]) as any, asyn
         },
         data: {
           is_paid: true,
-          actual_paid: 0, // already consolidated in total redeem
+          actual_paid: 0, // consolidated in total redeem
           paid_date: normalizeToMidnight(rDate),
-        },
-      });
-
-      // Delete future cycles starting after redeem date
-      await tx.pawnInterestPayment.deleteMany({
-        where: {
-          contract_id: contractId,
-          from_date: { gt: normalizeToMidnight(rDate) },
         },
       });
 
@@ -1035,8 +1073,8 @@ router.post("/:id/redeem", requirePermission(["CONTRACTS_OPERATE"]) as any, asyn
         data: {
           contract_id: contractId,
           employee_id: employeeId,
-          debit_amount: 0,
-          credit_amount: totalRedeem,
+          debit_amount: totalRedeem < 0 ? Math.abs(totalRedeem) : 0,
+          credit_amount: totalRedeem >= 0 ? totalRedeem : 0,
           action_type: "redeem_contract",
           content: `Chuộc đồ tất toán hợp đồng. Nhận tổng tiền: ${totalRedeem}. Trong đó gốc: ${principal}, nợ: ${outstandingDebt}, lãi dồn: ${interestAmount}, phụ phí: ${otherVal}. Ghi chú: ${notes || ""}`,
         },
