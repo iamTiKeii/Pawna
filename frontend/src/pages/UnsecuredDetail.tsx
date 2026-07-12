@@ -82,10 +82,7 @@ export const UnsecuredDetail: React.FC<UnsecuredDetailProps> = ({ idProp, onClos
   const [blacklistReason, setBlacklistReason] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
-  // Document upload state
-  const [docType, setDocType] = useState("id_card");
-  const [docUrl, setDocUrl] = useState("");
-  const [docFileName, setDocFileName] = useState("");
+
 
   const fetchContractDetails = async () => {
     try {
@@ -188,21 +185,7 @@ export const UnsecuredDetail: React.FC<UnsecuredDetailProps> = ({ idProp, onClos
     }
   };
 
-  const handleDeletePrincipalTx = (txId: string, e: React.MouseEvent) => {
-    confirm({
-      title: "Hủy giao dịch gốc",
-      message: "Hủy bỏ giao dịch gốc này và khôi phục quỹ két chi nhánh?",
-      type: "danger",
-      event: e,
-      onConfirm: async () => {
-        setError("");
-        setSuccess("");
-        await axios.delete(`/api/contracts/unsecured/${id}/principal-transaction/${txId}`);
-        fetchContractDetails();
-      },
-      successMessage: "Đã hủy bỏ giao dịch nợ gốc thành công.",
-    });
-  };
+
 
   const handleExtend = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -226,21 +209,7 @@ export const UnsecuredDetail: React.FC<UnsecuredDetailProps> = ({ idProp, onClos
     }
   };
 
-  const handleDeleteExtension = (extendId: string, e: React.MouseEvent) => {
-    confirm({
-      title: "Hủy gia hạn hợp đồng",
-      message: "Hủy bỏ lượt gia hạn này? Hệ thống sẽ rút ngắn thời hạn và xóa các kỳ lãi phát sinh.",
-      type: "danger",
-      event: e,
-      onConfirm: async () => {
-        setError("");
-        setSuccess("");
-        await axios.delete(`/api/contracts/unsecured/${id}/extend/${extendId}`);
-        fetchContractDetails();
-      },
-      successMessage: "Đã hủy gia hạn hợp đồng thành công.",
-    });
-  };
+
 
   const handleRedeem = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -330,22 +299,7 @@ export const UnsecuredDetail: React.FC<UnsecuredDetailProps> = ({ idProp, onClos
     }
   };
 
-  const handleUploadDoc = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!docUrl) return;
-    try {
-      await axios.post(`/api/contracts/unsecured/${id}/documents`, {
-        document_type: docType,
-        image_url: docUrl,
-        file_name: docFileName || "Tài liệu hợp đồng",
-      });
-      setDocUrl("");
-      setDocFileName("");
-      fetchContractDetails();
-    } catch (err) {
-      console.error(err);
-    }
-  };
+
 
   const handleDeleteDoc = (docId: string, e: React.MouseEvent) => {
     confirm({
@@ -358,6 +312,56 @@ export const UnsecuredDetail: React.FC<UnsecuredDetailProps> = ({ idProp, onClos
         fetchContractDetails();
       },
     });
+  };
+
+  const handleLocalDocUpload = async (file: File, documentType: string) => {
+    try {
+      setSubmitting(true);
+      setError("");
+      setSuccess("");
+      const reader = new FileReader();
+      reader.onloadend = async () => {
+        const base64Url = reader.result as string;
+        try {
+          await axios.post(`/api/contracts/unsecured/${id}/documents`, {
+            document_type: documentType,
+            image_url: base64Url,
+            file_name: file.name,
+          });
+          setSuccess(`Upload ảnh đính kèm thành công!`);
+          fetchContractDetails();
+        } catch (err: any) {
+          setError(err.response?.data?.error || "Lỗi tải tài liệu lên.");
+        } finally {
+          setSubmitting(false);
+        }
+      };
+      reader.readAsDataURL(file);
+    } catch (err) {
+      console.error(err);
+      setError("Không thể đọc tệp tin.");
+      setSubmitting(false);
+    }
+  };
+
+  const handleAddReminderLog = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!reminderContent) return;
+    try {
+      setSubmitting(true);
+      setError("");
+      setSuccess("");
+      await axios.post(`/api/contracts/unsecured/${id}/reminders/log`, {
+        content: reminderContent,
+      });
+      setSuccess("Lưu lịch sử nhắc nợ thành công!");
+      setReminderContent("");
+      fetchContractDetails();
+    } catch (err: any) {
+      setError(err.response?.data?.error || "Lỗi lưu lịch sử nhắc nợ.");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const handleBlacklist = async (e: React.FormEvent) => {
@@ -763,56 +767,79 @@ export const UnsecuredDetail: React.FC<UnsecuredDetailProps> = ({ idProp, onClos
         )}
 
         {activeTab === "docs" && (
-          <div className="space-y-4">
-            <h4 className="font-bold text-slate-800 text-xs flex items-center gap-1 border-b border-slate-100 pb-2">
-              <FileText className="w-4 h-4 text-slate-500" />
-              Tài liệu & Chứng từ đính kèm
-            </h4>
-            <form onSubmit={handleUploadDoc} className="grid grid-cols-3 gap-2 max-w-xl">
-              <select
-                value={docType}
-                onChange={(e) => setDocType(e.target.value)}
-                className="select select-bordered select-sm bg-white border-slate-200 text-slate-800 rounded focus:outline-none"
-              >
-                <option value="id_card">Chứng minh nhân dân/CCCD</option>
-                <option value="vehicle_reg">Đăng ký xe/Cà vẹt</option>
-                <option value="household_reg">Sổ hộ khẩu</option>
-                <option value="job_contract">Hợp đồng lao động</option>
-                <option value="other">Tài liệu khác</option>
-              </select>
-              <input
-                type="text"
-                placeholder="Đường dẫn ảnh/file..."
-                value={docUrl}
-                onChange={(e) => setDocUrl(e.target.value)}
-                className="input input-bordered input-sm bg-white border-slate-200 text-slate-800 rounded focus:outline-none"
-                required
-              />
-              <button type="submit" className="btn btn-sm btn-primary bg-blue-500 border-none text-white font-bold flex items-center gap-1">
-                <Upload className="w-4 h-4" />
-                Tải lên
-              </button>
-            </form>
+          <div className="space-y-6">
+            <h3 className="font-bold text-slate-800 border-b border-slate-100 pb-2 text-xs uppercase tracking-wider">Hồ sơ ảnh chứng từ đính kèm</h3>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Box 1: Upload ảnh khách hàng */}
+              <div>
+                <h4 className="font-bold text-slate-700 text-xs mb-2 flex items-center gap-1.5">
+                  <Upload className="w-3.5 h-3.5 text-blue-500" />
+                  Upload ảnh khách hàng
+                </h4>
+                <label className="border-2 border-dashed border-slate-200 hover:border-blue-400 rounded-2xl p-6 flex flex-col items-center justify-center cursor-pointer bg-slate-50/50 hover:bg-slate-50 transition-colors min-h-[140px]">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => {
+                      if (e.target.files?.[0]) {
+                        handleLocalDocUpload(e.target.files[0], "id_card");
+                      }
+                    }}
+                  />
+                  <div className="bg-slate-100 p-2.5 rounded-full text-slate-500 mb-2">
+                    <Upload className="w-5 h-5 text-slate-400" />
+                  </div>
+                  <span className="font-bold text-slate-700 text-[11px]">Thả tệp vào đây hoặc nhấp để tải lên.</span>
+                  <span className="text-slate-400 text-[10px] mt-0.5">Chỉ cho phép ảnh</span>
+                </label>
+              </div>
 
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-2">
-              {contract.documents?.map((doc: any) => (
-                <div key={doc.id} className="border border-slate-200 p-2.5 rounded-xl text-xs bg-slate-50 flex flex-col justify-between">
-                  <div>
-                    <p className="font-bold text-slate-700 capitalize">{doc.document_type}</p>
-                    <p className="text-slate-400 mt-0.5 break-all">{doc.file_name}</p>
+              {/* Box 2: Upload ảnh chứng từ hợp đồng */}
+              <div>
+                <h4 className="font-bold text-slate-700 text-xs mb-2 flex items-center gap-1.5">
+                  <Upload className="w-3.5 h-3.5 text-blue-500" />
+                  Upload ảnh chứng từ hợp đồng
+                </h4>
+                <label className="border-2 border-dashed border-slate-200 hover:border-blue-400 rounded-2xl p-6 flex flex-col items-center justify-center cursor-pointer bg-slate-50/50 hover:bg-slate-50 transition-colors min-h-[140px]">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => {
+                      if (e.target.files?.[0]) {
+                        handleLocalDocUpload(e.target.files[0], "contract_photo");
+                      }
+                    }}
+                  />
+                  <div className="bg-slate-100 p-2.5 rounded-full text-slate-500 mb-2">
+                    <Upload className="w-5 h-5 text-slate-400" />
                   </div>
-                  <div className="flex justify-between items-center mt-3 pt-2 border-t border-slate-200/50">
-                    <a href={doc.image_url} target="_blank" rel="noopener noreferrer" className="text-blue-500 font-bold hover:underline">
-                      Xem file
-                    </a>
-                    <button
-                      type="button"
-                      onClick={(e) => handleDeleteDoc(doc.id, e)}
-                      className="text-red-500 font-bold hover:underline"
-                    >
-                      Xóa
-                    </button>
+                  <span className="font-bold text-slate-700 text-[11px]">Thả tệp vào đây hoặc nhấp để tải lên.</span>
+                  <span className="text-slate-400 text-[10px] mt-0.5">Chỉ cho phép ảnh</span>
+                </label>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-4 border-t border-slate-100">
+              {contract.documents?.map((doc) => (
+                <div key={doc.id} className="border border-slate-200 rounded-xl overflow-hidden shadow-sm relative group bg-white">
+                  <img src={doc.image_url} alt={doc.file_name} className="w-full h-32 object-cover" />
+                  <div className="p-2 bg-slate-50/50 border-t border-slate-100">
+                    <p className="font-bold text-xs truncate text-slate-700">{doc.file_name}</p>
+                    <p className="text-[10px] text-slate-500 uppercase mt-0.5 font-semibold">
+                      {doc.document_type === "id_card" ? "CCCD/Hộ chiếu" : doc.document_type === "contract_photo" ? "Ảnh chứng từ HĐ" : "Tài liệu khác"}
+                    </p>
                   </div>
+                  <button
+                    onClick={(e) => handleDeleteDoc(doc.id, e)}
+                    className="btn btn-error btn-circle btn-xs absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity"
+                    title="Xóa tài liệu"
+                    type="button"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
                 </div>
               ))}
             </div>
@@ -820,157 +847,255 @@ export const UnsecuredDetail: React.FC<UnsecuredDetailProps> = ({ idProp, onClos
         )}
 
         {activeTab === "history" && (
-          <div className="space-y-4">
-            <h4 className="font-bold text-slate-800 text-xs flex items-center gap-1 border-b border-slate-100 pb-2">
-              <History className="w-4 h-4 text-slate-500" />
-              Nhật ký lịch sử giao dịch nợ gốc & gia hạn
-            </h4>
-            <div className="space-y-4">
-              {/* Extensions list */}
-              <div>
-                <h5 className="font-bold text-slate-700 text-xs mb-2">Lịch sử gia hạn:</h5>
-                {contract.extensions?.length === 0 ? (
-                  <p className="text-slate-400 text-xs">Chưa có lượt gia hạn nào.</p>
-                ) : (
-                  <table className="table table-compact w-full text-xs">
-                    <thead>
-                      <tr className="border-b border-slate-200/60 text-slate-400">
-                        <th>Ngày gia hạn</th>
-                        <th>Số ngày</th>
-                        <th>Ghi chú</th>
-                        <th>Hành động</th>
+          <div className="space-y-6">
+            {/* Lịch sử nhắc nợ */}
+            <div className="bg-slate-50/50 border border-slate-200/60 p-4 rounded-xl space-y-4">
+              <h4 className="font-bold text-slate-800 text-xs uppercase tracking-wider">Lịch sử nhắc nợ</h4>
+              <form onSubmit={handleAddReminderLog} className="space-y-3 max-w-xl">
+                <div className="grid grid-cols-12 gap-3 items-start">
+                  <div className="col-span-3 text-right font-bold text-slate-600 pt-1 text-xs">Nội dung nhắc nợ <span className="text-red-500">*</span></div>
+                  <div className="col-span-9 space-y-2">
+                    <textarea
+                      placeholder="Nhập nội dung nhắc nợ"
+                      value={reminderContent}
+                      onChange={(e) => setReminderContent(e.target.value)}
+                      className="textarea textarea-bordered w-full bg-white border-slate-200 text-slate-800 rounded-lg h-16 focus:outline-none text-xs"
+                      required
+                    />
+                    <button
+                      type="submit"
+                      className="btn btn-primary bg-blue-600 hover:bg-blue-700 border-none text-white font-bold rounded-lg text-xs h-8 min-h-[32px] px-6"
+                      disabled={submitting}
+                    >
+                      {submitting ? <span className="loading loading-spinner loading-xs mr-1"></span> : null}
+                      Lưu lại
+                    </button>
+                  </div>
+                </div>
+              </form>
+
+              <div className="overflow-x-auto pt-2">
+                <table className="table w-full text-slate-600 text-xs">
+                  <thead>
+                    <tr className="border-b border-slate-200 text-slate-500">
+                      <th className="w-12 text-center">STT</th>
+                      <th>Thời gian</th>
+                      <th>Người thao tác</th>
+                      <th>Nội dung</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {!contract.debt_reminders || contract.debt_reminders.length === 0 ? (
+                      <tr>
+                        <td colSpan={4} className="text-center py-6 text-slate-400">
+                          <div className="flex flex-col items-center gap-1">
+                            <span className="text-xs">Không có dữ liệu</span>
+                          </div>
+                        </td>
                       </tr>
-                    </thead>
-                    <tbody>
-                      {contract.extensions?.map((ext: any) => (
-                        <tr key={ext.id} className="border-b border-slate-100">
-                          <td>{new Date(ext.created_at).toLocaleDateString("vi-VN")}</td>
-                          <td className="font-bold">{ext.extended_days} ngày</td>
-                          <td className="text-slate-500">{ext.notes}</td>
-                          <td>
-                            <button
-                              type="button"
-                              onClick={(e) => handleDeleteExtension(ext.id, e)}
-                              className="text-red-500 font-bold hover:underline"
-                            >
-                              Hủy gia hạn
-                            </button>
-                          </td>
+                    ) : (
+                      contract.debt_reminders.map((rem, idx) => (
+                        <tr key={rem.id} className="border-b border-slate-100 hover:bg-slate-50/50">
+                          <td className="text-center">{idx + 1}</td>
+                          <td>{new Date(rem.created_at).toLocaleString("vi-VN")}</td>
+                          <td className="font-semibold text-slate-700">{rem.employee?.full_name || "Giao dịch viên"}</td>
+                          <td>{rem.content}</td>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                )}
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* Lịch sử thao tác */}
+            <div className="bg-slate-50/50 border border-slate-200/60 p-4 rounded-xl space-y-4">
+              <div className="flex flex-wrap justify-between items-center border-b border-slate-100 pb-2">
+                <h4 className="font-bold text-slate-800 text-xs uppercase tracking-wider">Lịch sử thao tác</h4>
+                <span className="text-[10px] text-red-500 font-semibold italic">
+                  * Lưu ý : Tiền khác đã được cộng vào tiền ghi có / ghi nợ
+                </span>
               </div>
 
-              {/* Principal transactions list */}
-              <div className="pt-2">
-                <h5 className="font-bold text-slate-700 text-xs mb-2">Lịch sử giao dịch nợ gốc:</h5>
-                {contract.principal_transactions?.length === 0 ? (
-                  <p className="text-slate-400 text-xs">Chưa có giao dịch biến động nợ gốc nào.</p>
-                ) : (
-                  <table className="table table-compact w-full text-xs">
-                    <thead>
-                      <tr className="border-b border-slate-200/60 text-slate-400">
-                        <th>Thời gian</th>
-                        <th>Loại giao dịch</th>
-                        <th>Số tiền</th>
-                        <th>Ghi chú</th>
-                        <th>Hành động</th>
+              <div className="overflow-x-auto">
+                <table className="table w-full text-slate-600 text-xs">
+                  <thead>
+                    <tr className="border-b border-slate-200 text-slate-500">
+                      <th className="w-12 text-center">STT</th>
+                      <th>Thời gian</th>
+                      <th>Giao dịch viên</th>
+                      <th className="text-right">Số tiền ghi nợ</th>
+                      <th className="text-right">Số tiền ghi có</th>
+                      <th>Nội dung</th>
+                      <th>Ghi chú</th>
+                      <th className="text-right">Tiền khác</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {!contract.transaction_ledgers || contract.transaction_ledgers.length === 0 ? (
+                      <tr>
+                        <td colSpan={8} className="text-center py-6 text-slate-400">
+                          Không có dữ liệu thao tác
+                        </td>
                       </tr>
-                    </thead>
-                    <tbody>
-                      {contract.principal_transactions?.map((tx: any) => (
-                        <tr key={tx.id} className="border-b border-slate-100">
-                          <td>{new Date(tx.created_at).toLocaleDateString("vi-VN")}</td>
-                          <td className="font-bold">
-                            {tx.transaction_type === "borrow_more" ? (
-                              <span className="text-red-500">Vay thêm gốc</span>
-                            ) : (
-                              <span className="text-emerald-600">Trả bớt gốc</span>
-                            )}
+                    ) : (
+                      <>
+                        {contract.transaction_ledgers.map((led, idx) => (
+                          <tr key={led.id} className="border-b border-slate-100 hover:bg-slate-50/50">
+                            <td className="text-center">{idx + 1}</td>
+                            <td>{new Date(led.created_at).toLocaleString("vi-VN")}</td>
+                            <td>{led.employee?.full_name || "Hệ thống"}</td>
+                            <td className="text-right font-bold text-red-500">
+                              {Number(led.debit_amount) > 0 ? formatCurrency(Number(led.debit_amount)) : "-"}
+                            </td>
+                            <td className="text-right font-bold text-blue-600">
+                              {Number(led.credit_amount) > 0 ? formatCurrency(Number(led.credit_amount)) : "-"}
+                            </td>
+                            <td className="font-bold text-slate-700">{led.content || led.action_type}</td>
+                            <td>{led.notes || "-"}</td>
+                            <td className="text-right text-slate-500">
+                              {Number(led.other_amount) > 0 ? formatCurrency(Number(led.other_amount)) : "-"}
+                            </td>
+                          </tr>
+                        ))}
+                        {/* Summary Row */}
+                        <tr className="bg-slate-100/50 font-bold border-t-2 border-slate-300">
+                          <td colSpan={3} className="text-right text-slate-700 uppercase text-[10px] tracking-wider">Tổng tiền</td>
+                          <td className="text-right text-red-500">
+                            {formatCurrency(contract.transaction_ledgers.reduce((sum, led) => sum + Number(led.debit_amount || 0), 0))}
                           </td>
-                          <td className="font-black text-slate-700">{formatCurrency(tx.amount)}</td>
-                          <td className="text-slate-500">{tx.notes}</td>
-                          <td>
-                            <button
-                              type="button"
-                              onClick={(e) => handleDeletePrincipalTx(tx.id, e)}
-                              className="text-red-500 font-bold hover:underline"
-                            >
-                              Hủy giao dịch
-                            </button>
+                          <td className="text-right text-blue-600">
+                            {formatCurrency(contract.transaction_ledgers.reduce((sum, led) => sum + Number(led.credit_amount || 0), 0))}
+                          </td>
+                          <td colSpan={2}></td>
+                          <td className="text-right text-slate-700">
+                            {formatCurrency(contract.transaction_ledgers.reduce((sum, led) => sum + Number(led.other_amount || 0), 0))}
                           </td>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                )}
+                        {/* Difference Row */}
+                        <tr className="bg-slate-100/50 font-bold">
+                          <td colSpan={3} className="text-right text-slate-700 uppercase text-[10px] tracking-wider">Chênh lệch</td>
+                          <td colSpan={2} className="text-center text-red-500">
+                            {formatCurrency(
+                              contract.transaction_ledgers.reduce((sum, led) => sum + Number(led.credit_amount || 0), 0) -
+                              contract.transaction_ledgers.reduce((sum, led) => sum + Number(led.debit_amount || 0), 0)
+                            )}
+                          </td>
+                          <td colSpan={3}></td>
+                        </tr>
+                      </>
+                    )}
+                  </tbody>
+                </table>
               </div>
             </div>
           </div>
         )}
 
         {activeTab === "timer" && (
-          <form onSubmit={handleSetTimer} className="space-y-4">
-            <h4 className="font-bold text-slate-800 text-xs flex items-center gap-1 border-b border-slate-100 pb-2">
-              <Bell className="w-4 h-4 text-[#f59e0b]" />
-              Hẹn giờ đóng lãi / Nhắc nợ khách hàng
-            </h4>
-            <div className="grid grid-cols-2 gap-4 max-w-md">
-              <div>
-                <label className="label text-slate-500 font-bold text-xs py-1">Ngày hẹn thu nợ *</label>
-                <input
-                  type="date"
-                  value={timerDate}
-                  onChange={(e) => setTimerDate(e.target.value)}
-                  className="input input-bordered input-sm w-full bg-white border-slate-200 text-slate-800"
-                  required
-                />
-              </div>
-              <div className="flex items-end">
-                <button type="submit" className="btn btn-sm btn-primary bg-[#f59e0b] border-none text-white font-bold w-full">
-                  Đặt lịch hẹn
-                </button>
-              </div>
-            </div>
-            <div>
-              <label className="label text-slate-500 font-bold text-xs py-1">Ghi chú nhắc nợ</label>
-              <input
-                type="text"
-                placeholder="Nhắc đóng lãi kỳ tiếp theo..."
-                value={timerNotes}
-                onChange={(e) => setTimerNotes(e.target.value)}
-                className="input input-bordered input-sm w-full bg-white border-slate-200 text-slate-800 max-w-md"
-              />
-            </div>
+          <div className="space-y-6">
+            <form onSubmit={handleSetTimer} className="max-w-xl space-y-4 border-b border-slate-100 pb-6 text-slate-800">
+              <h4 className="font-bold text-slate-800 text-xs flex items-center gap-1.5 uppercase tracking-wider">
+                <Bell className="w-4 h-4 text-rose-500" />
+                Hẹn ngày khách đóng tiền
+              </h4>
 
-            {/* List of active reminders */}
-            <div className="pt-4 border-t border-slate-100">
-              <h5 className="font-bold text-slate-700 text-xs mb-2">Danh sách lịch hẹn hiện tại:</h5>
-              {contract.reminders?.filter((r: any) => r.status === "active").length === 0 ? (
-                <p className="text-slate-400 text-xs">Hiện tại không có lịch hẹn đóng nợ nào đang chạy.</p>
-              ) : (
-                <div className="space-y-2">
-                  {contract.reminders?.filter((r: any) => r.status === "active").map((rem: any) => (
-                    <div key={rem.id} className="flex justify-between items-center p-3 border border-amber-200 bg-amber-500/5 rounded-xl text-xs">
-                      <div>
-                        <p className="font-bold text-slate-700">Ngày hẹn: {new Date(rem.reminder_date).toLocaleDateString("vi-VN")}</p>
-                        <p className="text-slate-500 mt-0.5">{rem.content || "Nhắc nợ đóng lãi"}</p>
-                      </div>
+              <div className="grid grid-cols-12 gap-4 items-center">
+                <div className="col-span-3 text-right font-bold text-slate-600 text-xs">Ngày hẹn <span className="text-red-500">*</span></div>
+                <div className="col-span-9">
+                  <input
+                    type="date"
+                    value={timerDate}
+                    onChange={(e) => setTimerDate(e.target.value)}
+                    className="input input-bordered w-full max-w-xs bg-white border-slate-200 text-slate-800 focus:border-amber-500 focus:outline-none rounded-lg text-xs h-9"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-12 gap-4 items-start">
+                <div className="col-span-3 text-right font-bold text-slate-600 pt-1.5 text-xs">Ghi chú</div>
+                <div className="col-span-9">
+                  <textarea
+                    placeholder="Nhập ghi chú hẹn giờ"
+                    value={timerNotes}
+                    onChange={(e) => setTimerNotes(e.target.value)}
+                    className="textarea textarea-bordered w-full max-w-md bg-white border-slate-200 text-slate-800 focus:border-amber-500 focus:outline-none rounded-lg text-xs h-16"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-12 gap-4 items-center">
+                <div className="col-span-3"></div>
+                <div className="col-span-9 flex gap-3">
+                  <button
+                    type="submit"
+                    className="btn btn-primary bg-blue-600 hover:bg-blue-700 border-none text-white font-bold rounded-lg text-xs h-9 min-h-[36px] px-6"
+                    disabled={submitting}
+                  >
+                    {submitting ? <span className="loading loading-spinner loading-xs mr-1"></span> : null}
+                    Tạo hẹn giờ
+                  </button>
+                  {(() => {
+                    const activeTimer = contract.reminders?.find((r) => r.status === "active");
+                    return (
                       <button
                         type="button"
-                        onClick={() => handleStopTimer(rem.id)}
-                        className="text-red-500 font-bold hover:underline"
+                        onClick={() => activeTimer && handleStopTimer(activeTimer.id)}
+                        className={`btn btn-outline border-slate-200 text-slate-500 hover:bg-slate-100 hover:text-slate-700 font-bold rounded-lg text-xs h-9 min-h-[36px] px-6`}
+                        disabled={submitting || !activeTimer}
                       >
-                        Hủy lịch hẹn
+                        {submitting ? <span className="loading loading-spinner loading-xs mr-1"></span> : null}
+                        Dừng hẹn giờ
                       </button>
-                    </div>
-                  ))}
+                    );
+                  })()}
                 </div>
-              )}
+              </div>
+            </form>
+
+            <div>
+              <h4 className="font-bold text-slate-800 mb-3 text-xs uppercase tracking-wider">Lịch sử hẹn giờ</h4>
+              <div className="overflow-x-auto">
+                <table className="table w-full text-slate-600 text-xs">
+                  <thead>
+                    <tr className="border-b border-slate-200 text-slate-500">
+                      <th className="w-12 text-center">STT</th>
+                      <th>Trạng thái</th>
+                      <th>Hẹn đến ngày</th>
+                      <th>Nội dung hẹn giờ</th>
+                      <th>Ngày tạo</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {!contract.reminders || contract.reminders.length === 0 ? (
+                      <tr>
+                        <td colSpan={5} className="text-center py-6 text-slate-400">
+                          <div className="flex flex-col items-center gap-1">
+                            <span className="text-xs">Không có dữ liệu</span>
+                          </div>
+                        </td>
+                      </tr>
+                    ) : (
+                      contract.reminders.map((rem, idx) => (
+                        <tr key={rem.id} className="border-b border-slate-100 hover:bg-slate-50/50">
+                          <td className="text-center">{idx + 1}</td>
+                          <td>
+                            <span className={`badge badge-xs font-bold text-[9px] px-1.5 py-0.5 rounded ${rem.status === "active" ? "bg-amber-400 text-slate-950" : "bg-slate-200 text-slate-500"}`}>
+                              {rem.status === "active" ? "Đang chờ" : "Đã hủy/Xong"}
+                            </span>
+                          </td>
+                          <td className="font-bold text-slate-700">{new Date(rem.reminder_date).toLocaleDateString("vi-VN")}</td>
+                          <td>{rem.content || "-"}</td>
+                          <td>{new Date(rem.created_at).toLocaleDateString("vi-VN")}</td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </div>
-          </form>
+          </div>
         )}
 
         {activeTab === "blacklist" && (

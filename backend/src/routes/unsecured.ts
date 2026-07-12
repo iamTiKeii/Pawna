@@ -149,6 +149,9 @@ router.get("/:id", async (req: AuthenticatedRequest, res: Response) => {
           include: { employee: { select: { full_name: true } } },
           orderBy: { created_at: "desc" },
         },
+        reminders: {
+          orderBy: { created_at: "desc" },
+        },
       },
     });
 
@@ -1579,6 +1582,55 @@ router.delete("/:id", requirePermission(["CONTRACTS_MANAGE"]) as any, async (req
     });
 
     return res.json(result);
+  } catch (error: any) {
+    return res.status(500).json({ error: error.message });
+  }
+});
+
+// 21. Set/Update Appointment Timers
+router.post("/:id/timers", async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const contractId = req.params.id;
+    const { reminder_date, content } = req.body;
+
+    if (!reminder_date) {
+      return res.status(400).json({ error: "Reminder date is required" });
+    }
+
+    const result = await prisma.$transaction(async (tx) => {
+      // Mark all existing timers for this contract as completed/stopped first
+      await tx.unsecuredContractReminder.updateMany({
+        where: { contract_id: contractId, status: "active" },
+        data: { status: "completed" },
+      });
+
+      const timer = await tx.unsecuredContractReminder.create({
+        data: {
+          contract_id: contractId,
+          reminder_date: normalizeToMidnight(reminder_date),
+          content,
+          status: "active",
+        },
+      });
+
+      return timer;
+    });
+
+    return res.status(201).json(result);
+  } catch (error: any) {
+    return res.status(500).json({ error: error.message });
+  }
+});
+
+// 22. Stop Timer
+router.put("/:id/timers/:timerId/stop", async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const timerId = req.params.timerId;
+    const updated = await prisma.unsecuredContractReminder.update({
+      where: { id: timerId },
+      data: { status: "stopped" },
+    });
+    return res.json(updated);
   } catch (error: any) {
     return res.status(500).json({ error: error.message });
   }
