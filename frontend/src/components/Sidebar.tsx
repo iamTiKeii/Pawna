@@ -518,7 +518,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen }) => {
       </div>
 
       {/* Bottom Support Widget */}
-      {isOpen ? (
+      {/* {isOpen ? (
         <div className="p-4 mx-3 mb-4 bg-slate-50 rounded-2xl border border-slate-200/60 text-xs flex flex-col gap-2.5">
           <div className="flex items-center justify-between text-slate-500 font-medium">
             <span>Hỗ trợ hệ thống:</span>
@@ -566,7 +566,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen }) => {
             <Shield className="w-5 h-5 text-slate-500" />
           </div>
         </div>
-      )}
+      )}  */}
     </aside>
   );
 };
