@@ -1,6 +1,6 @@
-Dưới đây là toàn bộ hệ thống Quy tắc nghiệp vụ (Business Rules) của HungTin V2 được viết lại hoàn chỉnh theo định dạng **Machine-Readable** (YAML Metadata kết hợp với Acceptance Criteria và Technical Specs chặt chẽ). 
+Dưới đây là toàn bộ hệ thống Quy tắc nghiệp vụ (Business Rules) của HungTin V2 được viết lại hoàn chỉnh theo định dạng **Machine-Readable** (YAML Metadata kết hợp với Acceptance Criteria và Technical Specs chặt chẽ).
 
-Cấu trúc này được tối ưu hóa đặc biệt để AI Coding Agent (Cursor, Windsurf, v.v.) có thể đọc hiểu trực tiếp, phân tích cấu trúc cơ sở dữ liệu, thiết kế API, viết test case và cài đặt logic nghiệp vụ mà không cần phỏng đoán.
+Cấu trúc này được tối ưu hóa đặc biệt để d OOI Coding Agent (Cursor, Windsurf, v.v.) có thể đọc hiểu trực tiếp, phân tích cấu trúc cơ sở dữ liệu, thiết kế API, viết test case và cài đặt logic nghiệp vụ mà không cần phỏng đoán.
 
 ---
 

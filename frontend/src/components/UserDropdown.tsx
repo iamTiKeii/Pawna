@@ -6,8 +6,6 @@ import {
   KeyRound, 
   QrCode, 
   FileText, 
-  CalendarDays, 
-  PlusCircle, 
   Settings,
   LogOut,
   ChevronDown
@@ -89,28 +87,6 @@ export const UserDropdown: React.FC<UserDropdownProps> = ({
           >
             <FileText className="w-4 h-4 text-slate-500" />
             <span>Điều khoản sử dụng</span>
-          </Link>
-        </li>
-
-        {/* 5. Gia hạn tài khoản */}
-        <li>
-          <Link 
-            to="/subscription"
-            className="flex items-center gap-2 py-2 text-slate-600 hover:text-slate-900"
-          >
-            <CalendarDays className="w-4 h-4 text-slate-500" />
-            <span>Gia hạn tài khoản</span>
-          </Link>
-        </li>
-
-        {/* 6. Mua thêm cửa hàng */}
-        <li>
-          <Link 
-            to="/store-addon"
-            className="flex items-center gap-2 py-2 text-slate-600 hover:text-slate-900"
-          >
-            <PlusCircle className="w-4 h-4 text-slate-500" />
-            <span>Mua thêm cửa hàng</span>
           </Link>
         </li>
 

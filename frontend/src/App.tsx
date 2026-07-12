@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import React, { useState, useEffect } from "react";
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { ConfirmProvider } from "./context/ConfirmContext";
 import { Header } from "./components/Header";
@@ -38,8 +38,6 @@ import { CollaboratorReport } from "./pages/reports/CollaboratorReport";
 import { ShopDetail } from "./pages/ShopDetail";
 import { StaffPermission } from "./pages/StaffPermission";
 import { TermsPage } from "./pages/settings/TermsPage";
-import { SubscriptionPage } from "./pages/settings/SubscriptionPage";
-import { StoreAddonPage } from "./pages/settings/StoreAddonPage";
 import { SettingsPage } from "./pages/SettingsPage";
 import { Home } from "./pages/Home";
 
@@ -115,12 +113,74 @@ const PublicRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   return <>{children}</>;
 };
 
+const TitleUpdater: React.FC = () => {
+  const location = useLocation();
+
+  useEffect(() => {
+    const path = location.pathname;
+    let title = "Hưng Tín - Quản lý cầm đồ";
+
+    if (path.startsWith("/home")) {
+      title = "Trang chủ | Hưng Tín";
+    } else if (path.startsWith("/dashboard")) {
+      title = "Bảng điều khiển | Hưng Tín";
+    } else if (path.startsWith("/contract/pawn")) {
+      title = "Hợp đồng cầm đồ | Hưng Tín";
+    } else if (path.startsWith("/contract/loan")) {
+      title = "Hợp đồng trả góp | Hưng Tín";
+    } else if (path.startsWith("/contract/installment")) {
+      title = "Hợp đồng tín chấp | Hưng Tín";
+    } else if (path.startsWith("/contracts/pawn/")) {
+      title = "Chi tiết Hợp đồng cầm đồ | Hưng Tín";
+    } else if (path.startsWith("/contracts/unsecured/")) {
+      title = "Chi tiết Hợp đồng tín chấp | Hưng Tín";
+    } else if (path.startsWith("/contracts/installment/")) {
+      title = "Chi tiết Hợp đồng trả góp | Hưng Tín";
+    } else if (path.startsWith("/customer-list")) {
+      title = "Danh sách khách hàng | Hưng Tín";
+    } else if (path.startsWith("/collaborator")) {
+      title = "Cộng tác viên | Hưng Tín";
+    } else if (path.startsWith("/cash-fund")) {
+      title = "Quỹ tiền mặt | Hưng Tín";
+    } else if (path.startsWith("/beginning-cash")) {
+      title = "Số dư két đầu ngày | Hưng Tín";
+    } else if (path.startsWith("/commodities")) {
+      title = "Danh mục hàng hóa | Hưng Tín";
+    } else if (path.startsWith("/vouchers")) {
+      title = "Quản lý chứng từ | Hưng Tín";
+    } else if (path.startsWith("/stores")) {
+      title = "Danh sách cửa hàng | Hưng Tín";
+    } else if (path.startsWith("/employees")) {
+      title = "Danh sách nhân viên | Hưng Tín";
+    } else if (path.startsWith("/staff-permission")) {
+      title = "Phân quyền nhân viên | Hưng Tín";
+    } else if (path.startsWith("/settings")) {
+      title = "Cấu hình hệ thống | Hưng Tín";
+    } else if (path.startsWith("/capital")) {
+      title = "Quản lý nguồn vốn | Hưng Tín";
+    } else if (path.startsWith("/report-") || path.startsWith("/summary-report") || path.startsWith("/payment-history") || path.startsWith("/shop-detail") || path.startsWith("/shop-list") || path.startsWith("/category-list") || path.startsWith("/manage-expense") || path.startsWith("/manage-income")) {
+      title = "Báo cáo thống kê | Hưng Tín";
+    } else if (path.startsWith("/warning-")) {
+      title = "Cảnh báo hệ thống | Hưng Tín";
+    } else if (path.startsWith("/terms")) {
+      title = "Điều khoản sử dụng | Hưng Tín";
+    } else if (path.startsWith("/login")) {
+      title = "Đăng nhập hệ thống | Hưng Tín";
+    }
+    
+    document.title = title;
+  }, [location]);
+
+  return null;
+};
+
 function App() {
   return (
     <>
     {/* Global Toast — renders above everything, persists across routes */}
     <ToastContainer />
     <BrowserRouter>
+      <TitleUpdater />
       <AuthProvider>
         <ConfirmProvider>
           <Routes>
@@ -449,22 +509,6 @@ function App() {
             element={
               <PrivateLayout>
                 <TermsPage />
-              </PrivateLayout>
-            }
-          />
-          <Route
-            path="/subscription"
-            element={
-              <PrivateLayout>
-                <SubscriptionPage />
-              </PrivateLayout>
-            }
-          />
-          <Route
-            path="/store-addon"
-            element={
-              <PrivateLayout>
-                <StoreAddonPage />
               </PrivateLayout>
             }
           />

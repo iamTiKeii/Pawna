@@ -22,6 +22,9 @@ router.get("/", async (req: AuthenticatedRequest, res: Response) => {
     if (!settingsMap.system_logo) settingsMap.system_logo = "";
     if (!settingsMap.system_hotline) settingsMap.system_hotline = "0976862823";
     if (!settingsMap.system_email) settingsMap.system_email = "support@hungtin.vn";
+    if (!settingsMap.system_bank_name) settingsMap.system_bank_name = "";
+    if (!settingsMap.system_bank_account_number) settingsMap.system_bank_account_number = "";
+    if (!settingsMap.system_bank_account_holder) settingsMap.system_bank_account_holder = "";
 
     return res.json(settingsMap);
   } catch (error: any) {
