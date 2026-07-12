@@ -69,10 +69,44 @@ router.get("/", async (req, res) => {
             include: {
                 customer: true,
                 collector: { select: { full_name: true } },
+                payments: true,
             },
             orderBy: { created_at: "desc" },
         });
-        return res.json(contracts);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const mapped = contracts.map((c) => {
+            const totalRepay = Number(c.repayment_amount);
+            const totalDisbursed = Number(c.disbursed_amount);
+            const totalInterest = Math.max(0, totalRepay - totalDisbursed);
+            const interestRatio = totalRepay > 0 ? totalInterest / totalRepay : 0;
+            const totalPaid = c.payments
+                .filter((p) => p.is_paid)
+                .reduce((sum, p) => sum + Number(p.actual_paid), 0);
+            const paidCycles = c.payments.filter((p) => p.is_paid).length;
+            const remainingCycles = c.payments.length - paidCycles;
+            const collectedInterest = totalPaid * interestRatio;
+            const expectedInterest = totalInterest - collectedInterest;
+            const unpaid = [...c.payments]
+                .filter((p) => !p.is_paid)
+                .sort((a, b) => a.cycle_number - b.cycle_number)[0];
+            const nextPaymentDate = unpaid ? unpaid.to_date : null;
+            const isOverdue = c.status === "active" &&
+                c.payments.some((p) => !p.is_paid && new Date(p.to_date) < today);
+            return {
+                ...c,
+                total_paid: totalPaid,
+                paid_cycles: paidCycles,
+                remaining_amount: Math.max(0, totalRepay - totalPaid),
+                remaining_cycles: remainingCycles,
+                collected_interest: collectedInterest,
+                expected_interest: expectedInterest,
+                daily_payment: c.loan_duration > 0 ? Math.round(totalRepay / c.loan_duration) : 0,
+                next_payment_date: nextPaymentDate,
+                is_overdue: isOverdue,
+            };
+        });
+        return res.json(mapped);
     }
     catch (error) {
         return res.status(500).json({ error: error.message });
@@ -116,7 +150,7 @@ router.post("/", (0, permission_1.requirePermission)(["CONTRACTS_MANAGE"]), asyn
     try {
         const storeId = req.user.store_id;
         const employeeId = req.user.id;
-        const { customer_id, repayment_amount, disbursed_amount, period_type, loan_duration, cycle_days, is_upfront_collected, loan_date, collector_id, collaborator_id, notes, } = req.body;
+        const { customer_id, contract_code, repayment_amount, disbursed_amount, period_type, loan_duration, cycle_days, is_upfront_collected, loan_date, collector_id, collaborator_id, notes, } = req.body;
         if (!customer_id || !repayment_amount || !disbursed_amount || !period_type || !loan_duration || !cycle_days || !collector_id) {
             return res.status(400).json({ error: "Missing required fields" });
         }
@@ -130,7 +164,15 @@ router.post("/", (0, permission_1.requirePermission)(["CONTRACTS_MANAGE"]), asyn
             return res.status(400).json({ error: "Customer is blacklisted. Cannot create contract." });
         }
         const result = await prisma.$transaction(async (tx) => {
-            const contractCode = await (0, codeGen_1.generateContractCode)(tx, "installment");
+            if (contract_code) {
+                const existing = await tx.installmentContract.findUnique({
+                    where: { contract_code }
+                });
+                if (existing) {
+                    throw new Error(`Mã hợp đồng ${contract_code} đã tồn tại trên hệ thống.`);
+                }
+            }
+            const contractCode = contract_code || await (0, codeGen_1.generateContractCode)(tx, "installment");
             const normalizedLoanDate = (0, cash_1.normalizeToMidnight)(loan_date || new Date());
             const contract = await tx.installmentContract.create({
                 data: {
@@ -199,12 +241,13 @@ router.post("/:id/pay", (0, permission_1.requirePermission)(["CONTRACTS_OPERATE"
     try {
         const contractId = req.params.id;
         const employeeId = req.user.id;
-        const { paymentId, actualPaid, otherAmount, notes } = req.body;
+        const { paymentId, actualPaid, otherAmount, notes, paidDate } = req.body;
         if (!paymentId || actualPaid === undefined) {
             return res.status(400).json({ error: "Payment cycle ID and actual paid amount are required" });
         }
         const payAmount = Number(actualPaid);
         const otherVal = Number(otherAmount) || 0;
+        const payDate = paidDate ? new Date(paidDate) : new Date();
         const result = await prisma.$transaction(async (tx) => {
             const payment = await tx.installmentPayment.findUnique({
                 where: { id: paymentId },
@@ -216,7 +259,6 @@ router.post("/:id/pay", (0, permission_1.requirePermission)(["CONTRACTS_OPERATE"
             if (payment.is_paid) {
                 throw new Error("This installment cycle is already paid");
             }
-            const today = new Date();
             // Update payment
             const updatedPayment = await tx.installmentPayment.update({
                 where: { id: paymentId },
@@ -224,11 +266,11 @@ router.post("/:id/pay", (0, permission_1.requirePermission)(["CONTRACTS_OPERATE"
                     is_paid: true,
                     actual_paid: payAmount,
                     other_amount: otherVal,
-                    paid_date: (0, cash_1.normalizeToMidnight)(today),
+                    paid_date: (0, cash_1.normalizeToMidnight)(payDate),
                 },
             });
             // Update cash fund (+ payAmount)
-            await (0, cash_1.adjustDailyCash)(tx, payment.contract.store_id, today, payAmount, "installment_pay", employeeId, `Thu góp định kỳ kỳ ${payment.cycle_number} HĐ trả góp ${payment.contract.contract_code}. Thực thu: ${payAmount}`);
+            await (0, cash_1.adjustDailyCash)(tx, payment.contract.store_id, payDate, payAmount, "installment_pay", employeeId, `Thu góp định kỳ kỳ ${payment.cycle_number} HĐ trả góp ${payment.contract.contract_code}. Thực thu: ${payAmount}`);
             // Ledger log
             await tx.installmentTransactionLedger.create({
                 data: {
@@ -682,7 +724,7 @@ router.put("/:id", (0, permission_1.requirePermission)(["CONTRACTS_MANAGE"]), as
     try {
         const contractId = req.params.id;
         const employeeId = req.user.id;
-        const { customer_id, repayment_amount, disbursed_amount, period_type, loan_duration, cycle_days, is_upfront_collected, loan_date, collector_id, collaborator_id, notes, } = req.body;
+        const { customer_id, contract_code, repayment_amount, disbursed_amount, period_type, loan_duration, cycle_days, is_upfront_collected, loan_date, collector_id, collaborator_id, notes, } = req.body;
         const result = await prisma.$transaction(async (tx) => {
             const contract = await tx.installmentContract.findUnique({
                 where: { id: contractId },
@@ -729,10 +771,19 @@ router.put("/:id", (0, permission_1.requirePermission)(["CONTRACTS_MANAGE"]), as
                 newUpfrontAmt = cycles[0].expected_amount;
             }
             const newNetDisbursed = newDisb - newUpfrontAmt;
+            if (contract_code && contract_code !== contract.contract_code) {
+                const existing = await tx.installmentContract.findUnique({
+                    where: { contract_code }
+                });
+                if (existing) {
+                    throw new Error(`Mã hợp đồng ${contract_code} đã tồn tại trên hệ thống.`);
+                }
+            }
             // Update contract
             const updated = await tx.installmentContract.update({
                 where: { id: contractId },
                 data: {
+                    contract_code: contract_code || undefined,
                     customer_id: customer_id || undefined,
                     repayment_amount: newRepay,
                     disbursed_amount: newDisb,
@@ -789,7 +840,7 @@ router.put("/:id", (0, permission_1.requirePermission)(["CONTRACTS_MANAGE"]), as
     }
 });
 // 17. Delete Installment Contract
-router.delete("/:id", (0, permission_1.requirePermission)(["CONTRACTS_MANAGE"]), async (req, res) => {
+router.delete("/:id", (0, permission_1.requirePermission)(["SETTINGS_MANAGE"]), async (req, res) => {
     try {
         const contractId = req.params.id;
         const employeeId = req.user.id;
@@ -805,6 +856,8 @@ router.delete("/:id", (0, permission_1.requirePermission)(["CONTRACTS_MANAGE"]),
             if (!contract) {
                 throw new Error("Contract not found");
             }
+            // Check daily cash lock for original loan date
+            await (0, cash_1.checkDailyCashLock)(tx, contract.store_id, contract.loan_date);
             // Calculate old upfront
             let oldUpfront = 0;
             if (contract.is_upfront_collected && contract.payments.length > 0) {

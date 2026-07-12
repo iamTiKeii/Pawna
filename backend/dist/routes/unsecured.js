@@ -1150,7 +1150,7 @@ router.put("/:id", (0, permission_1.requirePermission)(["CONTRACTS_MANAGE"]), as
     }
 });
 // 20. Delete Unsecured Contract
-router.delete("/:id", (0, permission_1.requirePermission)(["CONTRACTS_MANAGE"]), async (req, res) => {
+router.delete("/:id", (0, permission_1.requirePermission)(["SETTINGS_MANAGE"]), async (req, res) => {
     try {
         const contractId = req.params.id;
         const employeeId = req.user.id;
@@ -1167,6 +1167,8 @@ router.delete("/:id", (0, permission_1.requirePermission)(["CONTRACTS_MANAGE"]),
             if (!contract) {
                 throw new Error("Contract not found");
             }
+            // Check daily cash lock for original loan date
+            await (0, cash_1.checkDailyCashLock)(tx, contract.store_id, contract.loan_date);
             // Calculate old upfront
             let oldUpfront = 0;
             if (contract.is_upfront_interest && contract.interest_payments.length > 0) {

@@ -6,6 +6,26 @@ export function normalizeToMidnight(dateInput: Date | string): Date {
   return new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
 }
 
+export async function checkDailyCashLock(
+  tx: Prisma.TransactionClient,
+  storeId: string,
+  dateInput: Date | string
+): Promise<void> {
+  const date = normalizeToMidnight(dateInput);
+  const dailyCash = await tx.dailyCash.findUnique({
+    where: {
+      store_id_date: {
+        store_id: storeId,
+        date: date,
+      },
+    },
+  });
+
+  if (dailyCash && (dailyCash as any).is_locked) {
+    throw new Error("Quỹ tiền mặt ngày này đã bị chốt. Không thể thay đổi giao dịch!");
+  }
+}
+
 export async function adjustDailyCash(
   tx: Prisma.TransactionClient,
   storeId: string,
@@ -15,6 +35,9 @@ export async function adjustDailyCash(
   employeeId: string,
   description: string
 ) {
+  // Verify daily cash lock status
+  await checkDailyCashLock(tx, storeId, dateInput);
+
   const date = normalizeToMidnight(dateInput);
   const changeAmt = new Prisma.Decimal(amount);
 

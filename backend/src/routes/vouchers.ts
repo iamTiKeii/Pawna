@@ -3,7 +3,7 @@ import { PrismaClient, Prisma } from "@prisma/client";
 import { authenticateToken, AuthenticatedRequest } from "../middleware/auth";
 import { requirePermission } from "../middleware/permission";
 import { generateVoucherCode } from "../utils/codeGen";
-import { adjustDailyCash, normalizeToMidnight } from "../utils/cash";
+import { adjustDailyCash, normalizeToMidnight, checkDailyCashLock } from "../utils/cash";
 
 const router = Router();
 const prisma = new PrismaClient();
@@ -317,8 +317,57 @@ router.put("/payments/:id/cancel", requirePermission(["VOUCHERS_MANAGE"]) as any
   }
 });
 
-// 8. Delete Receipt
-router.delete("/receipts/:id", requirePermission(["VOUCHERS_MANAGE"]) as any, async (req: AuthenticatedRequest, res: Response) => {
+// Helper functions for cancel/void logic
+async function cancelReceiptVoucher(tx: any, voucher: any, employeeId: string) {
+  // Check daily cash lock for voucher date and today
+  await checkDailyCashLock(tx, voucher.store_id, voucher.voucher_date);
+  await checkDailyCashLock(tx, voucher.store_id, new Date());
+
+  if (voucher.status === "active") {
+    // Reverse Daily Cash flow since it was active
+    await adjustDailyCash(
+      tx,
+      voucher.store_id,
+      new Date(),
+      -Number(voucher.amount),
+      "receipt_voided",
+      employeeId,
+      `Hủy phiếu thu ${voucher.voucher_code}. Khấu trừ lại: ${voucher.amount}`
+    );
+  }
+
+  return await tx.receiptVoucher.update({
+    where: { id: voucher.id },
+    data: { status: "cancelled" },
+  });
+}
+
+async function cancelPaymentVoucher(tx: any, voucher: any, employeeId: string) {
+  // Check daily cash lock for voucher date and today
+  await checkDailyCashLock(tx, voucher.store_id, voucher.voucher_date);
+  await checkDailyCashLock(tx, voucher.store_id, new Date());
+
+  if (voucher.status === "active") {
+    // Reverse Daily Cash flow since it was active
+    await adjustDailyCash(
+      tx,
+      voucher.store_id,
+      new Date(),
+      Number(voucher.amount),
+      "payment_voided",
+      employeeId,
+      `Hủy phiếu chi ${voucher.voucher_code}. Hoàn lại: ${voucher.amount}`
+    );
+  }
+
+  return await tx.paymentVoucher.update({
+    where: { id: voucher.id },
+    data: { status: "cancelled" },
+  });
+}
+
+// 8. Delete/Cancel Receipt
+router.delete("/receipts/:id", requirePermission(["VOUCHERS_MANAGE", "FUNDS_MANAGE"]) as any, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const id = req.params.id;
     const employeeId = req.user!.id;
@@ -326,30 +375,45 @@ router.delete("/receipts/:id", requirePermission(["VOUCHERS_MANAGE"]) as any, as
     const voucher = await prisma.receiptVoucher.findUnique({ where: { id } });
     if (!voucher) return res.status(404).json({ error: "Voucher not found" });
 
-    await prisma.$transaction(async (tx) => {
-      if (voucher.status === "active") {
-        // Reverse Daily Cash flow since it was active
-        await adjustDailyCash(
-          tx,
-          voucher.store_id,
-          new Date(),
-          -Number(voucher.amount),
-          "receipt_deleted",
-          employeeId,
-          `Xóa phiếu thu active ${voucher.voucher_code}. Khấu trừ lại: ${voucher.amount}`
-        );
-      }
-      await tx.receiptVoucher.delete({ where: { id } });
+    if (voucher.status === "cancelled") {
+      return res.status(400).json({ error: "Voucher is already cancelled" });
+    }
+
+    const result = await prisma.$transaction(async (tx) => {
+      return await cancelReceiptVoucher(tx, voucher, employeeId);
     });
 
-    return res.json({ message: "Receipt voucher deleted" });
+    return res.json({ message: "Receipt voucher cancelled successfully", voucher: result });
   } catch (error: any) {
     return res.status(500).json({ error: error.message });
   }
 });
 
-// 9. Delete Payment
-router.delete("/payments/:id", requirePermission(["VOUCHERS_MANAGE"]) as any, async (req: AuthenticatedRequest, res: Response) => {
+// Void Receipt Route
+router.post("/receipts/:id/void", requirePermission(["FUNDS_MANAGE"]) as any, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const id = req.params.id;
+    const employeeId = req.user!.id;
+
+    const voucher = await prisma.receiptVoucher.findUnique({ where: { id } });
+    if (!voucher) return res.status(404).json({ error: "Voucher not found" });
+
+    if (voucher.status === "cancelled") {
+      return res.status(400).json({ error: "Voucher is already voided" });
+    }
+
+    const result = await prisma.$transaction(async (tx) => {
+      return await cancelReceiptVoucher(tx, voucher, employeeId);
+    });
+
+    return res.json({ message: "Receipt voucher voided successfully", voucher: result });
+  } catch (error: any) {
+    return res.status(500).json({ error: error.message });
+  }
+});
+
+// 9. Delete/Cancel Payment
+router.delete("/payments/:id", requirePermission(["VOUCHERS_MANAGE", "FUNDS_MANAGE"]) as any, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const id = req.params.id;
     const employeeId = req.user!.id;
@@ -357,23 +421,38 @@ router.delete("/payments/:id", requirePermission(["VOUCHERS_MANAGE"]) as any, as
     const voucher = await prisma.paymentVoucher.findUnique({ where: { id } });
     if (!voucher) return res.status(404).json({ error: "Voucher not found" });
 
-    await prisma.$transaction(async (tx) => {
-      if (voucher.status === "active") {
-        // Reverse Daily Cash flow since it was active
-        await adjustDailyCash(
-          tx,
-          voucher.store_id,
-          new Date(),
-          Number(voucher.amount),
-          "payment_deleted",
-          employeeId,
-          `Xóa phiếu chi active ${voucher.voucher_code}. Hoàn lại: ${voucher.amount}`
-        );
-      }
-      await tx.paymentVoucher.delete({ where: { id } });
+    if (voucher.status === "cancelled") {
+      return res.status(400).json({ error: "Voucher is already cancelled" });
+    }
+
+    const result = await prisma.$transaction(async (tx) => {
+      return await cancelPaymentVoucher(tx, voucher, employeeId);
     });
 
-    return res.json({ message: "Payment voucher deleted" });
+    return res.json({ message: "Payment voucher cancelled successfully", voucher: result });
+  } catch (error: any) {
+    return res.status(500).json({ error: error.message });
+  }
+});
+
+// Void Payment Route
+router.post("/payments/:id/void", requirePermission(["FUNDS_MANAGE"]) as any, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const id = req.params.id;
+    const employeeId = req.user!.id;
+
+    const voucher = await prisma.paymentVoucher.findUnique({ where: { id } });
+    if (!voucher) return res.status(404).json({ error: "Voucher not found" });
+
+    if (voucher.status === "cancelled") {
+      return res.status(400).json({ error: "Voucher is already voided" });
+    }
+
+    const result = await prisma.$transaction(async (tx) => {
+      return await cancelPaymentVoucher(tx, voucher, employeeId);
+    });
+
+    return res.json({ message: "Payment voucher voided successfully", voucher: result });
   } catch (error: any) {
     return res.status(500).json({ error: error.message });
   }

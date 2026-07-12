@@ -4,7 +4,7 @@ import { authenticateToken, AuthenticatedRequest } from "../middleware/auth";
 import { requirePermission } from "../middleware/permission";
 import { generateContractCode } from "../utils/codeGen";
 import { generateInterestSchedule } from "../utils/interest";
-import { adjustDailyCash, normalizeToMidnight } from "../utils/cash";
+import { adjustDailyCash, normalizeToMidnight, checkDailyCashLock } from "../utils/cash";
 import { calculateDailyInterestRate } from "./pawn";
 
 const router = Router();
@@ -1501,7 +1501,7 @@ router.put("/:id", requirePermission(["CONTRACTS_MANAGE"]) as any, async (req: A
 });
 
 // 20. Delete Unsecured Contract
-router.delete("/:id", requirePermission(["CONTRACTS_MANAGE"]) as any, async (req: AuthenticatedRequest, res: Response) => {
+router.delete("/:id", requirePermission(["SETTINGS_MANAGE"]) as any, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const contractId = req.params.id;
     const employeeId = req.user!.id;
@@ -1520,6 +1520,9 @@ router.delete("/:id", requirePermission(["CONTRACTS_MANAGE"]) as any, async (req
       if (!contract) {
         throw new Error("Contract not found");
       }
+
+      // Check daily cash lock for original loan date
+      await checkDailyCashLock(tx, contract.store_id, contract.loan_date);
 
       // Calculate old upfront
       let oldUpfront = 0;

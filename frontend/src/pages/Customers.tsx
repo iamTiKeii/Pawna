@@ -69,6 +69,9 @@ export const Customers: React.FC = () => {
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isContractsOpen, setIsContractsOpen] = useState(false);
   const [isUploadOpen, setIsUploadOpen] = useState(false);
+  const [isBlacklistOpen, setIsBlacklistOpen] = useState(false);
+  const [blacklistReason, setBlacklistReason] = useState("");
+  const [blacklistCustomer, setBlacklistCustomer] = useState<Customer | null>(null);
 
   // Advanced fields collapse toggle
   const [showAdvanced, setShowAdvanced] = useState(true);
@@ -253,7 +256,7 @@ export const Customers: React.FC = () => {
     }
 
     try {
-      await axios.post("/api/customers", {
+      const res = await axios.post("/api/customers", {
         store_id: storeId,
         full_name: fullName,
         phone: phone || null,
@@ -274,6 +277,9 @@ export const Customers: React.FC = () => {
         notes: notes || null,
       });
       toast.success("Tạo mới hồ sơ khách hàng thành công!");
+      if (res.data.warning === "identity_card_number_duplicate") {
+        toast.warning("Cảnh báo: Số CCCD đã tồn tại trong hệ thống. Vui lòng xác minh lại.");
+      }
       setIsCreateOpen(false);
       fetchCustomers();
     } catch (err: any) {
@@ -289,7 +295,7 @@ export const Customers: React.FC = () => {
     }
 
     try {
-      await axios.put(`/api/customers/${selectedCustomerId}`, {
+      const res = await axios.put(`/api/customers/${selectedCustomerId}`, {
         store_id: storeId,
         full_name: fullName,
         phone: phone || null,
@@ -310,6 +316,9 @@ export const Customers: React.FC = () => {
         notes: notes || null,
       });
       toast.success("Cập nhật hồ sơ khách hàng thành công!");
+      if (res.data.warning === "identity_card_number_duplicate") {
+        toast.warning("Cảnh báo: Số CCCD đã tồn tại trong hệ thống. Vui lòng xác minh lại.");
+      }
       setIsEditOpen(false);
       fetchCustomers();
     } catch (err: any) {
@@ -319,29 +328,46 @@ export const Customers: React.FC = () => {
 
   const handleToggleBlacklist = (c: Customer, e: React.MouseEvent) => {
     const isCurrentlyBlacklist = c.status === "blacklist";
-    const msg = isCurrentlyBlacklist
-      ? `Bạn có chắc chắn muốn XÓA nợ xấu cho khách hàng ${c.full_name}?`
-      : `Bạn có chắc chắn muốn ĐÁNH DẤU NỢ XẤU / BLACKLIST cho khách hàng ${c.full_name}?`;
-
-    confirm({
-      title: isCurrentlyBlacklist ? "Gỡ danh sách đen" : "Đánh dấu nợ xấu",
-      message: msg,
-      type: isCurrentlyBlacklist ? "success" : "danger",
-      event: e,
-      onConfirm: async () => {
-        if (isCurrentlyBlacklist) {
+    
+    if (isCurrentlyBlacklist) {
+      confirm({
+        title: "Gỡ danh sách đen",
+        message: `Bạn có chắc chắn muốn XÓA nợ xấu cho khách hàng ${c.full_name}?`,
+        type: "success",
+        event: e,
+        onConfirm: async () => {
           await axios.post(`/api/customers/${c.id}/unblacklist`);
-        } else {
-          await axios.post(`/api/customers/${c.id}/blacklist`, {
-            reason: "Nợ xấu / Chậm trễ thanh toán nhiều lần"
-          });
-        }
-        fetchCustomers();
-      },
-      successMessage: isCurrentlyBlacklist
-        ? `Đã gỡ blacklist cho khách hàng ${c.full_name}`
-        : `Đã chuyển khách hàng ${c.full_name} sang blacklist.`,
-    });
+          fetchCustomers();
+        },
+        successMessage: `Đã gỡ blacklist cho khách hàng ${c.full_name}`,
+      });
+    } else {
+      setBlacklistCustomer(c);
+      setBlacklistReason("");
+      setIsBlacklistOpen(true);
+    }
+  };
+
+  const handleBlacklistSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!blacklistCustomer) return;
+    if (blacklistReason.trim().length < 10) {
+      toast.error("Lý do báo nợ xấu phải có ít nhất 10 ký tự.");
+      return;
+    }
+
+    try {
+      await axios.post(`/api/customers/${blacklistCustomer.id}/blacklist`, {
+        reason: blacklistReason,
+      });
+      toast.success(`Đã chuyển khách hàng ${blacklistCustomer.full_name} sang blacklist.`);
+      setIsBlacklistOpen(false);
+      setBlacklistCustomer(null);
+      setBlacklistReason("");
+      fetchCustomers();
+    } catch (err: any) {
+      toast.error(err.response?.data?.error || "Lỗi khi báo nợ xấu khách hàng.");
+    }
   };
 
   // Simulating File Uploading to Google Drive
@@ -1506,6 +1532,82 @@ export const Customers: React.FC = () => {
                 </button>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* BLACKLIST CUSTOMER MODAL */}
+      {isBlacklistOpen && blacklistCustomer && (
+        <div className="modal modal-open">
+          <div className="modal-box bg-white border border-slate-200 text-slate-800 rounded-2xl max-w-md p-0 overflow-hidden shadow-2xl">
+            {/* Header */}
+            <div className="flex justify-between items-center px-6 py-4 border-b border-slate-100">
+              <h3 className="font-extrabold text-sm text-red-600 flex items-center gap-2">
+                <AlertOctagon className="w-5 h-5 text-red-500" />
+                Đánh dấu Nợ xấu / Blacklist
+              </h3>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsBlacklistOpen(false);
+                  setBlacklistCustomer(null);
+                }}
+                className="btn btn-ghost btn-circle btn-xs text-slate-400 hover:bg-slate-100"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Form */}
+            <form onSubmit={handleBlacklistSubmit}>
+              {/* Body */}
+              <div className="p-6 space-y-4">
+                <div className="bg-red-50/50 border border-red-100 p-4 rounded-xl text-xs text-slate-600 space-y-1">
+                  <div className="font-bold text-slate-800">
+                    Khách hàng: <span className="text-red-650">{blacklistCustomer.full_name}</span>
+                  </div>
+                  {blacklistCustomer.identity_card_number && (
+                    <div>CCCD: {blacklistCustomer.identity_card_number}</div>
+                  )}
+                  {blacklistCustomer.phone && <div>Số điện thoại: {blacklistCustomer.phone}</div>}
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-slate-600 block">Lý do báo nợ xấu (tối thiểu 10 ký tự) *</label>
+                  <textarea
+                    value={blacklistReason}
+                    onChange={(e) => setBlacklistReason(e.target.value)}
+                    placeholder="Nhập lý do chi tiết..."
+                    className="textarea textarea-bordered w-full bg-white border-slate-200 text-slate-800 text-xs rounded-xl focus:border-amber-500 focus:outline-none min-h-[100px]"
+                    required
+                  />
+                  <div className="text-[10px] text-right text-slate-400 font-medium">
+                    {blacklistReason.length} / 10 ký tự tối thiểu
+                  </div>
+                </div>
+              </div>
+
+              {/* Footer */}
+              <div className="flex justify-end gap-2 px-6 py-4 bg-slate-50 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsBlacklistOpen(false);
+                    setBlacklistCustomer(null);
+                  }}
+                  className="btn btn-ghost btn-xs text-slate-500 rounded-lg text-xs hover:bg-slate-150 h-8"
+                >
+                  Hủy bỏ
+                </button>
+                <button
+                  type="submit"
+                  disabled={blacklistReason.trim().length < 10}
+                  className="btn btn-xs btn-primary bg-red-600 hover:bg-red-700 text-white font-bold rounded-lg text-xs h-8 px-4"
+                >
+                  Xác nhận Blacklist
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

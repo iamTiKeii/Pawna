@@ -1,6 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.normalizeToMidnight = normalizeToMidnight;
+exports.checkDailyCashLock = checkDailyCashLock;
 exports.adjustDailyCash = adjustDailyCash;
 const client_1 = require("@prisma/client");
 // Normalize a date to UTC midnight to store consistently in database @db.Date columns
@@ -8,7 +9,23 @@ function normalizeToMidnight(dateInput) {
     const d = new Date(dateInput);
     return new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
 }
+async function checkDailyCashLock(tx, storeId, dateInput) {
+    const date = normalizeToMidnight(dateInput);
+    const dailyCash = await tx.dailyCash.findUnique({
+        where: {
+            store_id_date: {
+                store_id: storeId,
+                date: date,
+            },
+        },
+    });
+    if (dailyCash && dailyCash.is_locked) {
+        throw new Error("Quỹ tiền mặt ngày này đã bị chốt. Không thể thay đổi giao dịch!");
+    }
+}
 async function adjustDailyCash(tx, storeId, dateInput, amount, type, employeeId, description) {
+    // Verify daily cash lock status
+    await checkDailyCashLock(tx, storeId, dateInput);
     const date = normalizeToMidnight(dateInput);
     const changeAmt = new client_1.Prisma.Decimal(amount);
     // 1. Check if DailyCash record exists for this store and date

@@ -82,6 +82,11 @@ export const PawnDetail: React.FC<PawnDetailProps> = ({ idProp, onClose, isModal
   const [blacklistReason, setBlacklistReason] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
+  // Liquidation state
+  const [liquidationPrice, setLiquidationPrice] = useState("");
+  const [liquidationBuyer, setLiquidationBuyer] = useState("");
+  const [liquidationNotes, setLiquidationNotes] = useState("");
+
   const fetchContractDetails = async () => {
     try {
       setLoading(true);
@@ -252,6 +257,30 @@ export const PawnDetail: React.FC<PawnDetailProps> = ({ idProp, onClose, isModal
       },
       successMessage: "Khôi phục trạng thái hoạt động hợp đồng thành công.",
     });
+  };
+
+  const handleLiquidate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!id) return;
+    try {
+      setSubmitting(true);
+      setError("");
+      setSuccess("");
+      await axios.post(`/api/contracts/pawn/${id}/liquidate`, {
+        liquidation_price: Number(liquidationPrice),
+        buyer: liquidationBuyer,
+        notes: liquidationNotes,
+      });
+      setSuccess("Thanh lý tài sản hợp đồng thành công!");
+      setLiquidationPrice("");
+      setLiquidationBuyer("");
+      setLiquidationNotes("");
+      fetchContractDetails();
+    } catch (err: any) {
+      setError(err.response?.data?.error || "Lỗi thanh lý tài sản.");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const handleStopTimer = async (timerId: string) => {
@@ -690,7 +719,7 @@ export const PawnDetail: React.FC<PawnDetailProps> = ({ idProp, onClose, isModal
 
       {getAssetDetailsList()}
 
-      {/* Reusable Toolbar list tabs of 10 buttons */}
+      {/* Reusable Toolbar list tabs of 11 buttons */}
       <div className="flex flex-wrap gap-1 border-b border-slate-200 pb-2">
         {[
           { id: "interest", label: "Đóng tiền lãi", icon: Coins, color: "text-[#3b82f6]" },
@@ -698,6 +727,7 @@ export const PawnDetail: React.FC<PawnDetailProps> = ({ idProp, onClose, isModal
           { id: "borrow_more", label: "Vay thêm", icon: ArrowUp, color: "text-[#ef4444]" },
           { id: "extend", label: "Gia hạn", icon: Calendar, color: "text-[#f59e0b]" },
           { id: "redeem", label: "Chuộc đồ", icon: Anchor, color: "text-[#0ea5e9]" },
+          { id: "liquidate", label: "Thanh lý", icon: AlertTriangle, color: "text-amber-500" },
           { id: "debt", label: "Nợ", icon: AlertTriangle, color: "text-[#9c27b0]" },
           { id: "docs", label: "Chứng từ", icon: FileText, color: "text-slate-500" },
           { id: "history", label: "Lịch sử", icon: History, color: "text-slate-500" },
@@ -1025,6 +1055,99 @@ export const PawnDetail: React.FC<PawnDetailProps> = ({ idProp, onClose, isModal
                       Hủy tất toán (Mở lại HĐ)
                     </button>
                   )}
+                </div>
+              </div>
+            </div>
+          </form>
+        )}
+
+        {/* TAB: Thanh lý */}
+        {activeTab === "liquidate" && contract.status === "liquidated" && (
+          <div className="w-full max-w-xl space-y-4 font-sans text-xs text-slate-800">
+            <h3 className="font-extrabold text-sm text-slate-800 border-b border-slate-100 pb-2 flex items-center gap-2">
+              <AlertTriangle className="w-5 h-5 text-amber-500" />
+              Thông Tin Đã Thanh Lý Tài Sản
+            </h3>
+            <div className="bg-amber-50 border border-amber-100 p-4 rounded-2xl space-y-2">
+              <div className="flex justify-between">
+                <span className="font-semibold text-slate-500">Giá bán thanh lý thực tế:</span>
+                <span className="font-bold text-slate-800">{formatVND(contract.liquidation_price || 0)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="font-semibold text-slate-500">Bên mua thanh lý:</span>
+                <span className="font-bold text-slate-800">{contract.liquidation_buyer || "N/A"}</span>
+              </div>
+              {contract.liquidation_price && (
+                <div className="flex justify-between border-t border-amber-200/50 pt-2 text-[11px] text-amber-600 font-bold">
+                  <span>Chênh lệch so với gốc:</span>
+                  <span>{formatVND(Number(contract.liquidation_price) - Number(contract.loan_amount))}</span>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {activeTab === "liquidate" && contract.status !== "liquidated" && (
+          <form onSubmit={handleLiquidate} className="w-full max-w-xl space-y-4 text-slate-800">
+            <h3 className="font-bold text-slate-800 border-b border-slate-100 pb-2">Thực hiện thanh lý tài sản thế chấp</h3>
+            
+            <div className="space-y-4 font-sans text-xs">
+              <div className="bg-amber-500/5 border border-amber-500/10 p-4 rounded-2xl text-[11px] text-slate-605 space-y-1">
+                <div>Sau khi thực hiện thanh lý, hợp đồng sẽ chuyển sang trạng thái <span className="font-bold text-amber-600">liquidated</span>.</div>
+                <div>Hệ thống tự động lập <span className="font-bold text-emerald-600">Phiếu Thu</span> tiền thanh lý và cộng vào quỹ két.</div>
+              </div>
+
+              <div className="grid grid-cols-12 gap-4 items-center">
+                <div className="col-span-4 text-right font-bold text-slate-600">Giá bán thực tế (VNĐ) <span className="text-red-500">*</span></div>
+                <div className="col-span-8">
+                  <MoneyInput
+                    value={liquidationPrice}
+                    onChange={(val) => setLiquidationPrice(String(val))}
+                    placeholder="0"
+                    disabled={submitting}
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-12 gap-4 items-center">
+                <div className="col-span-4 text-right font-bold text-slate-600">Người / Đơn vị mua <span className="text-red-500">*</span></div>
+                <div className="col-span-8">
+                  <input
+                    type="text"
+                    value={liquidationBuyer}
+                    onChange={(e) => setLiquidationBuyer(e.target.value)}
+                    placeholder="Tên người mua hoặc đơn vị..."
+                    className="input input-bordered input-sm w-full bg-white border-slate-200 text-slate-800 text-xs rounded-xl focus:border-amber-500 focus:outline-none h-[36px]"
+                    required
+                    disabled={submitting}
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-12 gap-4 items-center">
+                <div className="col-span-4 text-right font-bold text-slate-600">Ghi chú thanh lý</div>
+                <div className="col-span-8">
+                  <textarea
+                    value={liquidationNotes}
+                    onChange={(e) => setLiquidationNotes(e.target.value)}
+                    placeholder="Mô tả chi tiết..."
+                    className="textarea textarea-bordered w-full bg-white border-slate-200 text-slate-800 text-xs rounded-xl focus:border-amber-500 focus:outline-none min-h-[70px]"
+                    disabled={submitting}
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-12 gap-4 mt-6">
+                <div className="col-span-4"></div>
+                <div className="col-span-8">
+                  <button
+                    type="submit"
+                    className="btn btn-primary bg-amber-500 hover:bg-amber-600 border-none text-slate-950 w-52 font-bold rounded-lg text-xs h-9 min-h-[36px]"
+                    disabled={submitting || !liquidationPrice || !liquidationBuyer}
+                  >
+                    {submitting ? <span className="loading loading-spinner loading-xs mr-1"></span> : null}
+                    Xác nhận thanh lý tài sản
+                  </button>
                 </div>
               </div>
             </div>

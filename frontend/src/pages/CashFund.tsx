@@ -1,10 +1,9 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
 import { useAuth } from "../context/AuthContext";
-import { Wallet, History, ArrowUpRight, ArrowDownRight, RefreshCw, CalendarRange } from "lucide-react";
+import { Wallet, History, ArrowUpRight, ArrowDownRight, RefreshCw, CalendarRange, X } from "lucide-react";
 import { toast } from "../lib/toast";
 import { MoneyInput } from "../components/shared/MoneyInput";
-import { useConfirm } from "../context/ConfirmContext";
 
 interface CashHistory {
   id: string;
@@ -19,7 +18,6 @@ interface CashHistory {
 
 export const CashFund: React.FC = () => {
   const { activeStore } = useAuth();
-  const confirm = useConfirm();
   const [summary, setSummary] = useState<any>(null);
   const [history, setHistory] = useState<CashHistory[]>([]);
   const [loading, setLoading] = useState(false);
@@ -31,6 +29,28 @@ export const CashFund: React.FC = () => {
   const [amount, setAmount] = useState<number>(0);
   const [actionType, setActionType] = useState<"deposit" | "withdraw">("deposit");
   const [description, setDescription] = useState("");
+
+  // Closing Modal Form
+  const [isCloseModalOpen, setIsCloseModalOpen] = useState(false);
+  const [notesCount, setNotesCount] = useState<Record<number, number>>({
+    500000: 0,
+    200000: 0,
+    100000: 0,
+    50000: 0,
+    20000: 0,
+    10000: 0,
+    5000: 0,
+    2000: 0,
+    1000: 0,
+  });
+  const [manualPhysicalCash, setManualPhysicalCash] = useState<number | "">("");
+
+  const calculatedPhysicalCash = Object.entries(notesCount).reduce(
+    (sum, [denom, count]) => sum + Number(denom) * (Number(count) || 0),
+    0
+  );
+
+  const finalPhysicalCash = manualPhysicalCash !== "" ? Number(manualPhysicalCash) : calculatedPhysicalCash;
 
   const fetchData = async () => {
     if (!activeStore) return;
@@ -80,20 +100,39 @@ export const CashFund: React.FC = () => {
     }
   };
 
-  const handleBalance = (e: React.MouseEvent) => {
-    confirm({
-      title: "Chốt quỹ cuối ngày",
-      message: "Bạn có chắc chắn muốn CHỐT QUỸ CUỐI NGÀY? Việc này sẽ đồng bộ số két hiện tại thành số két đầu ngày tiếp theo.",
-      type: "warning",
-      event: e,
-      onConfirm: async () => {
-        setError("");
-        setSuccess("");
-        await axios.post("/api/cash/balance");
-        fetchData();
-      },
-      successMessage: "Chốt quỹ đầu ngày tiếp theo thành công!",
-    });
+  const handleCloseSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const finalVal = manualPhysicalCash !== "" ? Number(manualPhysicalCash) : calculatedPhysicalCash;
+    if (isNaN(finalVal) || finalVal < 0) {
+      toast.error("Số tiền mặt thực tế không hợp lệ.");
+      return;
+    }
+
+    try {
+      setLoading(true);
+      await axios.post("/api/cash/balance", {
+        physical_cash: finalVal,
+      });
+      toast.success("Chốt quỹ cuối ngày thành công!");
+      setIsCloseModalOpen(false);
+      setManualPhysicalCash("");
+      setNotesCount({
+        500000: 0,
+        200000: 0,
+        100000: 0,
+        50000: 0,
+        20000: 0,
+        10000: 0,
+        5000: 0,
+        2000: 0,
+        1000: 0,
+      });
+      fetchData();
+    } catch (err: any) {
+      toast.error(err.response?.data?.error || "Lỗi khi chốt quỹ.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const formatCurrency = (val: number | string) => {
@@ -123,7 +162,7 @@ export const CashFund: React.FC = () => {
             Điều chỉnh quỹ két
           </button>
           <button
-            onClick={(e) => handleBalance(e)}
+            onClick={() => setIsCloseModalOpen(true)}
             className="btn btn-primary bg-amber-500 hover:bg-amber-600 border-none text-slate-950 btn-sm font-extrabold flex-1 md:flex-none rounded-xl"
           >
             Chốt quỹ cuối ngày
@@ -256,6 +295,134 @@ export const CashFund: React.FC = () => {
                 </button>
                 <button type="submit" className="btn btn-primary bg-amber-500 hover:bg-amber-600 border-none text-slate-950 rounded-xl font-bold">
                   Thực hiện
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* CASH CLOSING & DENOMINATION COUNTING MODAL */}
+      {isCloseModalOpen && (
+        <div className="modal modal-open">
+          <div className="modal-box bg-white border border-slate-200 text-slate-800 rounded-2xl max-w-2xl p-0 overflow-hidden shadow-2xl">
+            {/* Header */}
+            <div className="flex justify-between items-center px-6 py-4 border-b border-slate-100 bg-amber-500/5">
+              <div>
+                <h3 className="font-extrabold text-sm text-slate-800">Chốt Quỹ Cuối Ngày & Khóa Sổ</h3>
+                <p className="text-[10px] text-slate-500 font-medium mt-0.5">Vui lòng đếm số lượng tờ tiền thực tế trong két để kiểm kê.</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsCloseModalOpen(false)}
+                className="btn btn-ghost btn-circle btn-xs text-slate-400 hover:bg-slate-100"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleCloseSubmit}>
+              {/* Body */}
+              <div className="p-6 space-y-5 max-h-[60vh] overflow-y-auto custom-scrollbar">
+                {/* Denomination Grid */}
+                <div className="space-y-2">
+                  <span className="text-xs font-bold text-slate-700 block">Đếm mệnh giá tiền mặt VNĐ</span>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {[500000, 200000, 100000, 50000, 20000, 10000, 5000, 2000, 1000].map((denom) => (
+                      <div
+                        key={denom}
+                        className="flex items-center justify-between border border-slate-100 p-2 rounded-xl bg-slate-50/50 hover:bg-slate-50 transition-colors"
+                      >
+                        <span className="text-xs font-bold text-slate-700 w-24">
+                          {denom.toLocaleString("vi-VN")} đ
+                        </span>
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="number"
+                            min="0"
+                            placeholder="0"
+                            value={notesCount[denom] || ""}
+                            onChange={(e) => {
+                              const val = Math.max(0, parseInt(e.target.value) || 0);
+                              setNotesCount((prev) => ({ ...prev, [denom]: val }));
+                            }}
+                            className="input input-bordered input-sm bg-white border-slate-200 text-slate-800 text-xs rounded-lg focus:border-amber-500 focus:outline-none w-20 text-center h-[30px]"
+                          />
+                          <span className="text-[11px] font-semibold text-slate-500 w-28 text-right pr-1">
+                            = {((notesCount[denom] || 0) * denom).toLocaleString("vi-VN")} đ
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Summary Section */}
+                <div className="bg-slate-50 border border-slate-100 p-4 rounded-2xl space-y-3">
+                  <div className="grid grid-cols-2 gap-y-2 text-xs font-semibold">
+                    <span className="text-slate-500">Tổng đếm mệnh giá:</span>
+                    <span className="text-right text-slate-800">{formatCurrency(calculatedPhysicalCash)}</span>
+
+                    <span className="text-slate-500">Số dư két hệ thống:</span>
+                    <span className="text-right text-slate-800">{formatCurrency(summary?.current_cash || 0)}</span>
+                  </div>
+
+                  {/* Manual Override Input */}
+                  <div className="border-t border-slate-200/65 pt-3 space-y-1.5">
+                    <label className="text-xs font-bold text-slate-700 block">Số tiền mặt thực tế nhập tay (Tùy chọn ghi đè)</label>
+                    <div className="relative">
+                      <input
+                        type="number"
+                        min="0"
+                        placeholder="Nếu không đếm theo mệnh giá, nhập tổng tiền thực tế tại đây..."
+                        value={manualPhysicalCash}
+                        onChange={(e) => {
+                          const val = e.target.value === "" ? "" : Math.max(0, parseFloat(e.target.value) || 0);
+                          setManualPhysicalCash(val);
+                        }}
+                        className="input input-bordered input-sm bg-white border-slate-200 text-slate-800 text-xs rounded-lg focus:border-amber-500 focus:outline-none w-full h-[36px]"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Result & Variance Info */}
+                  <div className="border-t border-slate-200/65 pt-3 flex justify-between items-center text-xs">
+                    <span className="font-bold text-slate-700">Tổng két thực tế chốt:</span>
+                    <span className="font-black text-sm text-amber-500">{formatCurrency(finalPhysicalCash)}</span>
+                  </div>
+
+                  <div className="flex justify-between items-center text-xs">
+                    <span className="font-semibold text-slate-500">Chênh lệch két (Variance):</span>
+                    {finalPhysicalCash - (summary?.current_cash || 0) > 0 ? (
+                      <span className="font-extrabold text-emerald-500">
+                        +{formatCurrency(finalPhysicalCash - (summary?.current_cash || 0))} (Lệch thừa - Tự động lập Phiếu Thu)
+                      </span>
+                    ) : finalPhysicalCash - (summary?.current_cash || 0) < 0 ? (
+                      <span className="font-extrabold text-red-500">
+                        {formatCurrency(finalPhysicalCash - (summary?.current_cash || 0))} (Lệch thiếu - Tự động lập Phiếu Chi)
+                      </span>
+                    ) : (
+                      <span className="font-extrabold text-slate-600">0 đ (Khớp quỹ két)</span>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Footer */}
+              <div className="flex justify-end gap-2 px-6 py-4 bg-slate-50 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setIsCloseModalOpen(false)}
+                  className="btn btn-ghost btn-xs text-slate-500 rounded-lg text-xs hover:bg-slate-150 h-8"
+                >
+                  Hủy bỏ
+                </button>
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="btn btn-xs btn-primary bg-amber-500 hover:bg-amber-600 border-none text-slate-950 font-extrabold rounded-lg text-xs h-8 px-6"
+                >
+                  {loading ? "Đang xử lý..." : "Khóa sổ & Chốt quỹ"}
                 </button>
               </div>
             </form>

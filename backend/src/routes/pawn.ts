@@ -2,9 +2,9 @@ import { Router, Response } from "express";
 import { PrismaClient, Prisma } from "@prisma/client";
 import { authenticateToken, AuthenticatedRequest } from "../middleware/auth";
 import { requirePermission } from "../middleware/permission";
-import { generateContractCode } from "../utils/codeGen";
+import { generateContractCode, generateVoucherCode } from "../utils/codeGen";
 import { generateInterestSchedule, InterestCycle } from "../utils/interest";
-import { adjustDailyCash, normalizeToMidnight } from "../utils/cash";
+import { adjustDailyCash, normalizeToMidnight, checkDailyCashLock } from "../utils/cash";
 
 const router = Router();
 const prisma = new PrismaClient();
@@ -1662,7 +1662,7 @@ router.put("/:id", requirePermission(["CONTRACTS_MANAGE"]) as any, async (req: A
 });
 
 // 22. Delete Pawn Contract
-router.delete("/:id", requirePermission(["CONTRACTS_MANAGE"]) as any, async (req: AuthenticatedRequest, res: Response) => {
+router.delete("/:id", requirePermission(["SETTINGS_MANAGE"]) as any, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const contractId = req.params.id;
     const employeeId = req.user!.id;
@@ -1681,6 +1681,9 @@ router.delete("/:id", requirePermission(["CONTRACTS_MANAGE"]) as any, async (req
       if (!contract) {
         throw new Error("Contract not found");
       }
+
+      // Check daily cash lock for original loan date
+      await checkDailyCashLock(tx, contract.store_id, contract.loan_date);
 
       // Calculate old upfront
       let oldUpfront = 0;
@@ -1739,6 +1742,154 @@ router.delete("/:id", requirePermission(["CONTRACTS_MANAGE"]) as any, async (req
     });
 
     return res.json(result);
+  } catch (error: any) {
+    return res.status(500).json({ error: error.message });
+  }
+});
+
+// 23. Liquidation Execution (BR-PAWN-009)
+router.post("/:id/liquidate", requirePermission(["CONTRACTS_OPERATE"]) as any, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const contractId = req.params.id;
+    const employeeId = req.user!.id;
+    const storeId = req.user!.store_id;
+    const { liquidation_price, buyer, notes } = req.body;
+
+    if (liquidation_price === undefined || !buyer) {
+      return res.status(400).json({ error: "liquidation_price and buyer are required" });
+    }
+
+    const price = Number(liquidation_price);
+    if (isNaN(price) || price < 0) {
+      return res.status(400).json({ error: "liquidation_price must be a non-negative number" });
+    }
+
+    const today = normalizeToMidnight(new Date());
+
+    const result = await prisma.$transaction(async (tx) => {
+      // 1. Check lock
+      await checkDailyCashLock(tx, storeId, today);
+
+      const contract = await tx.pawnContract.findUnique({
+        where: { id: contractId },
+        include: {
+          interest_type: true,
+          interest_payments: { orderBy: { cycle_number: "asc" } },
+          commodity: true,
+        },
+      });
+
+      if (!contract) {
+        throw new Error("Contract not found");
+      }
+
+      if (contract.status === "closed" || contract.status === "liquidated" || contract.status === "cancelled") {
+        throw new Error(`Trạng thái hợp đồng là ${contract.status}, không thể thanh lý.`);
+      }
+
+      // Check if it is overdue
+      const dueDate = new Date(contract.loan_date);
+      dueDate.setDate(dueDate.getDate() + contract.loan_days);
+      const overdueDays = Math.round((today.getTime() - dueDate.getTime()) / (1000 * 60 * 60 * 24));
+      
+      const liquidationGrace = contract.commodity ? contract.commodity.liquidation_after_days : 10;
+      if (overdueDays <= liquidationGrace) {
+        throw new Error(`Hợp đồng chưa đủ điều kiện thanh lý. Số ngày quá hạn: ${overdueDays}, yêu cầu > ${liquidationGrace}`);
+      }
+
+      // Calculate total outstanding debt
+      const principal = Number(contract.loan_amount);
+      const outstandingDebt = Number(contract.debt_amount);
+
+      const lastPaid = contract.interest_payments.filter((p) => p.is_paid).pop();
+      const accrualStart = lastPaid ? new Date(lastPaid.to_date) : new Date(contract.loan_date);
+      const startMidnight = new Date(accrualStart.getFullYear(), accrualStart.getMonth(), accrualStart.getDate());
+      const diffMs = today.getTime() - startMidnight.getTime();
+      const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24));
+      let daysAccrued = 0;
+      if (diffDays > 0) {
+        daysAccrued = lastPaid ? diffDays : diffDays + 1;
+      } else if (diffDays === 0) {
+        daysAccrued = lastPaid ? 0 : 1;
+      }
+
+      const dailyRate = calculateDailyInterestRate(
+        principal,
+        Number(contract.interest_rate),
+        contract.period_value,
+        contract.interest_type.code
+      );
+      const overdueInterest = Math.round(dailyRate * daysAccrued);
+      const totalDebt = principal + outstandingDebt + overdueInterest;
+
+      // 2. Update Contract Status
+      const updatedContract = await tx.pawnContract.update({
+        where: { id: contractId },
+        data: {
+          status: "liquidated",
+          liquidation_price: price,
+          liquidation_buyer: buyer,
+        },
+      });
+
+      // 3. Auto-create Receipt Voucher
+      let category = await tx.incomeCategory.findUnique({ where: { code: "thu_thanh_ly" } });
+      if (!category) {
+        category = await tx.incomeCategory.findFirst();
+      }
+      if (!category) {
+        throw new Error("Không tìm thấy Income Category để hạch toán.");
+      }
+
+      const voucherCode = await generateVoucherCode(tx, "receipt");
+      const profitOrLoss = price - totalDebt;
+      const profitOrLossText = profitOrLoss >= 0 
+        ? `Lãi thanh lý (Doanh thu khác): +${profitOrLoss.toLocaleString("vi-VN")} đ` 
+        : `Lỗ thanh lý (Chi phí thất thoát): -${Math.abs(profitOrLoss).toLocaleString("vi-VN")} đ`;
+
+      await tx.receiptVoucher.create({
+        data: {
+          store_id: storeId,
+          voucher_code: voucherCode,
+          category_id: category.id,
+          amount: price,
+          recipient_name: buyer,
+          notes: `Thu thanh lý tài sản thế chấp hợp đồng ${contract.contract_code}. Tổng nợ: ${totalDebt.toLocaleString("vi-VN")} đ (Gốc: ${principal.toLocaleString("vi-VN")} đ, Lãi quá hạn: ${overdueInterest.toLocaleString("vi-VN")} đ, Nợ cũ: ${outstandingDebt.toLocaleString("vi-VN")} đ). Giá bán thực tế: ${price.toLocaleString("vi-VN")} đ. ${profitOrLossText}. Ghi chú thêm: ${notes || ""}`,
+          voucher_date: new Date(),
+          employee_id: employeeId,
+          status: "active",
+        },
+      });
+
+      // 4. Update Daily Cash (+ price)
+      await adjustDailyCash(
+        tx,
+        storeId,
+        new Date(),
+        price,
+        "pawn_liquidation",
+        employeeId,
+        `Thu tiền thanh lý tài sản hợp đồng ${contract.contract_code}. Số tiền: ${price}`
+      );
+
+      // 5. Create Pawn Transaction Ledger Log
+      await tx.pawnTransactionLedger.create({
+        data: {
+          contract_id: contractId,
+          employee_id: employeeId,
+          debit_amount: 0,
+          credit_amount: price,
+          other_amount: 0,
+          action_type: "liquidated",
+          content: `Hợp đồng đã thanh lý tài sản cho bên mua ${buyer} với giá ${price.toLocaleString("vi-VN")} đ. ${profitOrLossText}`,
+          notes: notes,
+        },
+      });
+
+      return updatedContract;
+    });
+
+    return res.json({ message: "Thực thi thanh lý tài sản hợp đồng thành công!", contract: result });
   } catch (error: any) {
     return res.status(500).json({ error: error.message });
   }

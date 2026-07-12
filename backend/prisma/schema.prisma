@@ -147,6 +147,10 @@ model DailyCash {
   date           DateTime @db.Date
   beginning_cash Decimal  @default(0) @db.Decimal(15, 2)
   current_cash   Decimal  @default(0) @db.Decimal(15, 2)
+  physical_cash  Decimal  @default(0) @db.Decimal(15, 2)
+  is_locked      Boolean  @default(false)
+  locked_at      DateTime? @db.Timestamptz
+  locked_by      String?  @db.Uuid
   created_at     DateTime @default(now()) @db.Timestamptz
   updated_at     DateTime @default(now()) @updatedAt @db.Timestamptz
 
@@ -303,6 +307,8 @@ model PawnContract {
   engine_number       String?  @db.VarChar(100)
   debt_amount         Decimal  @default(0) @db.Decimal(15, 2)
   status              String   @default("active") @db.VarChar(20)
+  liquidation_price   Decimal? @db.Decimal(15, 2)
+  liquidation_buyer   String?  @db.VarChar(150)
   notes               String?  @db.Text
   created_at          DateTime @default(now()) @db.Timestamptz
   updated_at          DateTime @default(now()) @updatedAt @db.Timestamptz

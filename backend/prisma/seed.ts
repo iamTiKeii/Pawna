@@ -110,6 +110,7 @@ async function main() {
     { code: "CONTRACTS_MANAGE", name: "Quản lý Hợp đồng (Lập/Hủy) (Legacy)", category: "Hệ thống", description: "Legacy CONTRACTS_MANAGE" },
     { code: "CONTRACTS_OPERATE", name: "Thực hiện Giao dịch Hợp đồng (Legacy)", category: "Hệ thống", description: "Legacy CONTRACTS_OPERATE" },
     { code: "VOUCHERS_MANAGE", name: "Quản lý Thu Chi ngoài nghiệp vụ (Legacy)", category: "Hệ thống", description: "Legacy VOUCHERS_MANAGE" },
+    { code: "SETTINGS_MANAGE", name: "Quản trị hệ thống (Admin)", category: "Hệ thống", description: "Quyền quản trị cao nhất của hệ thống" },
   ];
 
   for (const perm of permissionsData) {

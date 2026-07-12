@@ -16,11 +16,15 @@ router.get("/", async (req: AuthenticatedRequest, res: Response) => {
     const whereClause: any = {};
 
     // Filter by store_id if provided; otherwise default to employee's store_id
-    if (store_id) {
-      whereClause.store_id = store_id as string;
-    } else {
-      whereClause.store_id = req.user!.store_id;
+    let targetStoreId = req.user!.store_id;
+    if (store_id && store_id !== req.user!.store_id) {
+      const hasPermission = req.user!.permissions.includes("STORES_MANAGE") || req.user!.permissions.includes("SETTINGS_MANAGE");
+      if (!hasPermission) {
+        return res.status(403).json({ error: "Không có quyền truy cập thông tin chi nhánh khác." });
+      }
+      targetStoreId = store_id as string;
     }
+    whereClause.store_id = targetStoreId;
 
     // Filter by status if provided (active, inactive, blacklist); otherwise exclude blacklisted customers by default
     if (status) {
@@ -115,6 +119,16 @@ router.post("/", requirePermission(["CUSTOMERS_MANAGE"]) as any, async (req: Aut
     // Set default store_id to employee's store if not provided
     const targetStoreId = store_id || req.user!.store_id;
 
+    let duplicateWarning = false;
+    if (identity_card_number) {
+      const existingCust = await prisma.customer.findFirst({
+        where: { identity_card_number },
+      });
+      if (existingCust) {
+        duplicateWarning = true;
+      }
+    }
+
     const newCust = await prisma.customer.create({
       data: {
         store_id: targetStoreId,
@@ -138,7 +152,10 @@ router.post("/", requirePermission(["CUSTOMERS_MANAGE"]) as any, async (req: Aut
       },
     });
 
-    return res.status(201).json(newCust);
+    return res.status(201).json({
+      ...newCust,
+      warning: duplicateWarning ? "identity_card_number_duplicate" : undefined,
+    });
   } catch (error: any) {
     return res.status(500).json({ error: error.message });
   }
@@ -176,6 +193,16 @@ router.put("/:id", requirePermission(["CUSTOMERS_MANAGE"]) as any, async (req: A
       return res.status(404).json({ error: "Customer not found" });
     }
 
+    let duplicateWarning = false;
+    if (identity_card_number && identity_card_number !== existing.identity_card_number) {
+      const existingCust = await prisma.customer.findFirst({
+        where: { identity_card_number },
+      });
+      if (existingCust) {
+        duplicateWarning = true;
+      }
+    }
+
     const updated = await prisma.customer.update({
       where: { id: req.params.id },
       data: {
@@ -200,20 +227,23 @@ router.put("/:id", requirePermission(["CUSTOMERS_MANAGE"]) as any, async (req: A
       },
     });
 
-    return res.json(updated);
+    return res.json({
+      ...updated,
+      warning: duplicateWarning ? "identity_card_number_duplicate" : undefined,
+    });
   } catch (error: any) {
     return res.status(500).json({ error: error.message });
   }
 });
 
 // 5. Blacklist Customer
-router.post("/:id/blacklist", requirePermission(["CUSTOMERS_MANAGE"]) as any, async (req: AuthenticatedRequest, res: Response) => {
+router.post("/:id/blacklist", requirePermission(["CUSTOMERS_MANAGE", "CONTRACTS_OPERATE"]) as any, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const customerId = req.params.id;
     const { reason } = req.body;
 
-    if (!reason) {
-      return res.status(400).json({ error: "Reason for blacklisting is required" });
+    if (!reason || reason.trim().length < 10) {
+      return res.status(400).json({ error: "Lý do báo nợ xấu phải có ít nhất 10 ký tự." });
     }
 
     const customer = await prisma.customer.findUnique({

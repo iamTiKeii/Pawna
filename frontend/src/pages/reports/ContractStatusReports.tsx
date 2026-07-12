@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
 import { useParams, Link } from "react-router-dom";
-import { Search, ChevronRight, RefreshCw, AlertCircle } from "lucide-react";
+import { Search, ChevronRight, RefreshCw, AlertCircle, X, AlertOctagon } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
+import { toast } from "../../lib/toast";
 
 export const ContractStatusReports: React.FC<{ overrideCategory?: string }> = ({ overrideCategory }) => {
   const { activeStore } = useAuth();
@@ -18,6 +19,37 @@ export const ContractStatusReports: React.FC<{ overrideCategory?: string }> = ({
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+
+  // Liquidation state variables
+  const [isLiquidateOpen, setIsLiquidateOpen] = useState(false);
+  const [liquidateContract, setLiquidateContract] = useState<any>(null);
+  const [liquidationPrice, setLiquidationPrice] = useState("");
+  const [liquidationBuyer, setLiquidationBuyer] = useState("");
+  const [liquidationNotes, setLiquidationNotes] = useState("");
+
+  const handleLiquidateSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!liquidateContract) return;
+    try {
+      setLoading(true);
+      await axios.post(`/api/contracts/pawn/${liquidateContract.id}/liquidate`, {
+        liquidation_price: Number(liquidationPrice),
+        buyer: liquidationBuyer,
+        notes: liquidationNotes,
+      });
+      toast.success("Thanh lý tài sản hợp đồng thành công!");
+      setIsLiquidateOpen(false);
+      setLiquidateContract(null);
+      setLiquidationPrice("");
+      setLiquidationBuyer("");
+      setLiquidationNotes("");
+      fetchData();
+    } catch (err: any) {
+      toast.error(err.response?.data?.error || "Lỗi khi thực hiện thanh lý.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const fetchData = async () => {
     if (!activeStore || !category) return;
@@ -231,8 +263,22 @@ export const ContractStatusReports: React.FC<{ overrideCategory?: string }> = ({
                             {c.status}
                           </span>
                         </td>
-                        <td className="text-right">
-                          <Link to={`/contracts/pawn/${c.id}`} className="btn btn-ghost btn-xs text-amber-500">
+                        <td className="text-right flex justify-end gap-1.5 items-center">
+                          {category === "waiting-liquidation" && (
+                            <button
+                              onClick={() => {
+                                setLiquidateContract(c);
+                                setLiquidationPrice("");
+                                setLiquidationBuyer("");
+                                setLiquidationNotes("");
+                                setIsLiquidateOpen(true);
+                              }}
+                              className="btn btn-xs btn-primary bg-amber-500 hover:bg-amber-600 border-none text-slate-950 font-bold rounded-lg h-[26px]"
+                            >
+                              Thanh lý
+                            </button>
+                          )}
+                          <Link to={`/contracts/pawn/${c.id}`} className="btn btn-ghost btn-xs text-amber-500 rounded-lg h-[26px]">
                             Chi Tiết
                           </Link>
                         </td>
@@ -378,6 +424,98 @@ export const ContractStatusReports: React.FC<{ overrideCategory?: string }> = ({
           </div>
         )}
       </div>
+
+      {/* PAWN ASSET LIQUIDATION MODAL */}
+      {isLiquidateOpen && liquidateContract && (
+        <div className="modal modal-open">
+          <div className="modal-box bg-white border border-slate-200 text-slate-800 rounded-2xl max-w-md p-0 overflow-hidden shadow-2xl">
+            {/* Header */}
+            <div className="flex justify-between items-center px-6 py-4 border-b border-slate-100 bg-amber-500/5">
+              <h3 className="font-extrabold text-sm text-slate-800 flex items-center gap-2">
+                <AlertOctagon className="w-5 h-5 text-amber-500" />
+                Thanh Lý Tài Sản Cầm Đồ
+              </h3>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsLiquidateOpen(false);
+                  setLiquidateContract(null);
+                }}
+                className="btn btn-ghost btn-circle btn-xs text-slate-400 hover:bg-slate-100"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleLiquidateSubmit}>
+              {/* Body */}
+              <div className="p-6 space-y-4 text-xs">
+                <div className="bg-slate-50 border border-slate-150 p-4 rounded-xl space-y-1.5 font-medium text-slate-650">
+                  <div>Hợp đồng: <span className="font-bold text-slate-800">{liquidateContract.contract_code}</span></div>
+                  <div>Tài sản: <span className="font-bold text-slate-800">{liquidateContract.asset_name}</span></div>
+                  <div>Dư nợ gốc cầm cố: <span className="font-bold text-amber-600">{formatCurrency(liquidateContract.loan_amount)}</span></div>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="font-semibold text-slate-600">Số tiền bán thanh lý thực tế (VNĐ) *</label>
+                  <input
+                    type="number"
+                    min="0"
+                    placeholder="Ví dụ: 15000000"
+                    value={liquidationPrice}
+                    onChange={(e) => setLiquidationPrice(e.target.value)}
+                    className="input input-bordered input-sm w-full bg-white border-slate-200 text-slate-800 text-xs rounded-xl focus:border-amber-500 focus:outline-none h-[36px]"
+                    required
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="font-semibold text-slate-600">Bên mua tài sản thanh lý *</label>
+                  <input
+                    type="text"
+                    placeholder="Ví dụ: Cửa hàng xe cũ Hùng Vương..."
+                    value={liquidationBuyer}
+                    onChange={(e) => setLiquidationBuyer(e.target.value)}
+                    className="input input-bordered input-sm w-full bg-white border-slate-200 text-slate-800 text-xs rounded-xl focus:border-amber-500 focus:outline-none h-[36px]"
+                    required
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="font-semibold text-slate-600">Ghi chú thanh lý</label>
+                  <textarea
+                    placeholder="Chi tiết hóa đơn, tình trạng tài sản bàn giao..."
+                    value={liquidationNotes}
+                    onChange={(e) => setLiquidationNotes(e.target.value)}
+                    className="textarea textarea-bordered w-full bg-white border-slate-200 text-slate-800 text-xs rounded-xl focus:border-amber-500 focus:outline-none min-h-[70px]"
+                  />
+                </div>
+              </div>
+
+              {/* Footer */}
+              <div className="flex justify-end gap-2 px-6 py-4 bg-slate-50 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsLiquidateOpen(false);
+                    setLiquidateContract(null);
+                  }}
+                  className="btn btn-ghost btn-xs text-slate-500 rounded-lg text-xs hover:bg-slate-150 h-8"
+                >
+                  Hủy bỏ
+                </button>
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="btn btn-xs btn-primary bg-amber-500 hover:bg-amber-600 border-none text-slate-950 font-extrabold rounded-lg text-xs h-8 px-6"
+                >
+                  Xác nhận Thanh lý
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
