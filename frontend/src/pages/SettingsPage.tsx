@@ -45,6 +45,23 @@ export const SettingsPage: React.FC = () => {
 
   // Loading and Alert states
   const [loading, setLoading] = useState(false);
+  const [banksList, setBanksList] = useState<string[]>([]);
+
+  // Fetch VietQR banks list
+  useEffect(() => {
+    const fetchBanks = async () => {
+      try {
+        const res = await axios.get("https://api.vietqr.io/v2/banks");
+        if (res.data && res.data.code === "00") {
+          const names = res.data.data.map((b: any) => b.name);
+          setBanksList(names);
+        }
+      } catch (err) {
+        console.error("Error loading VietQR banks list in settings:", err);
+      }
+    };
+    fetchBanks();
+  }, []);
 
   // System Settings state
   const [systemName, setSystemName] = useState("");
@@ -259,7 +276,7 @@ export const SettingsPage: React.FC = () => {
                   className="select select-bordered select-sm w-full bg-white border-slate-200 focus:outline-none focus:border-amber-500 text-slate-800 rounded-lg text-xs h-[32px] min-h-[32px]"
                 >
                   <option value="">-- Chọn ngân hàng --</option>
-                  {BANK_LIST.map((bank) => (
+                  {(banksList.length > 0 ? banksList : BANK_LIST).map((bank) => (
                     <option key={bank} value={bank}>{bank}</option>
                   ))}
                 </select>
