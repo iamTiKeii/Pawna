@@ -11,6 +11,9 @@ router.use(auth_1.authenticateToken);
 router.get("/", async (req, res) => {
     try {
         const commodities = await prisma.commodity.findMany({
+            where: {
+                status: { not: "deleted" }
+            },
             include: {
                 interest_type: true,
             },
@@ -114,8 +117,26 @@ router.put("/:id", (0, permission_1.requirePermission)(["COMMODITIES_MANAGE"]), 
 // 6. Delete Commodity Configuration
 router.delete("/:id", (0, permission_1.requirePermission)(["COMMODITIES_MANAGE"]), async (req, res) => {
     try {
+        const id = req.params.id;
+        // Check if referenced by pawn contracts
+        const refPawnCount = await prisma.pawnContract.count({
+            where: { commodity_id: id }
+        });
+        // Check if referenced by unsecured contracts
+        const refUnsecuredCount = await prisma.unsecuredContract.count({
+            where: { commodity_id: id }
+        });
+        if (refPawnCount > 0 || refUnsecuredCount > 0) {
+            // Soft delete: keep the record to maintain DB integrity but hide it from configs
+            await prisma.commodity.update({
+                where: { id },
+                data: { status: "deleted" }
+            });
+            return res.json({ message: "Commodity has existing contract references; soft deleted successfully" });
+        }
+        // Hard delete since it has no references
         await prisma.commodity.delete({
-            where: { id: req.params.id },
+            where: { id },
         });
         return res.json({ message: "Commodity configuration deleted successfully" });
     }
