@@ -1,8 +1,10 @@
 import React, { useEffect, useState, useRef } from "react";
 import axios from "axios";
-import { Plus, Search, Printer, X, Trash2, CheckCircle, AlertCircle } from "lucide-react";
+import { Plus, Search, Printer, X, Trash2 } from "lucide-react";
 import { useReactToPrint } from "react-to-print";
 import { useLocation } from "react-router-dom";
+import { toast } from "../lib/toast";
+import { MoneyInput } from "../components/shared/MoneyInput";
 
 interface Voucher {
   id: string;
@@ -26,27 +28,10 @@ interface Voucher {
 
 export const Vouchers: React.FC = () => {
   const location = useLocation();
-  const isExpensePage = location.pathname === "/manage-expense";
+  const isExpensePage = location.pathname.includes("/expenses");
 
   const [vouchers, setVouchers] = useState<Voucher[]>([]);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
-
-  // Auto-dismiss logic for alerts after 5 seconds
-  useEffect(() => {
-    if (success) {
-      const timer = setTimeout(() => setSuccess(""), 5000);
-      return () => clearTimeout(timer);
-    }
-  }, [success]);
-
-  useEffect(() => {
-    if (error) {
-      const timer = setTimeout(() => setError(""), 5000);
-      return () => clearTimeout(timer);
-    }
-  }, [error]);
 
   // Filters
   const [searchQuery, setSearchQuery] = useState("");
@@ -58,10 +43,10 @@ export const Vouchers: React.FC = () => {
   // Create form state
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [partnerName, setPartnerName] = useState("");
-  const [amount, setAmount] = useState("0");
-  const [description, setDescription] = useState("");
+  const [amount, setAmount] = useState<number>(0);
+  const [notes, setNotes] = useState("");
+  const [voucherDate, setVoucherDate] = useState("");
   const [formCategoryId, setFormCategoryId] = useState("");
-  const [exitAfterSubmit, setExitAfterSubmit] = useState(false);
 
   // Printing state
   const [activePrintVoucher, setActivePrintVoucher] = useState<Voucher | null>(null);
@@ -76,18 +61,17 @@ export const Vouchers: React.FC = () => {
   const fetchVouchers = async () => {
     try {
       setLoading(true);
-      setError("");
-      const endpoint = isExpensePage ? "/api/vouchers/payments" : "/api/vouchers/receipts";
       const params = new URLSearchParams();
       if (searchQuery) params.append("search", searchQuery);
       if (startDate) params.append("startDate", startDate);
       if (endDate) params.append("endDate", endDate);
       if (selectedCategoryId) params.append("category_id", selectedCategoryId);
+      params.append("type", isExpensePage ? "expense" : "income");
 
-      const res = await axios.get(`${endpoint}?${params.toString()}`);
+      const res = await axios.get(`/api/vouchers?${params.toString()}`);
       setVouchers(res.data);
     } catch (err: any) {
-      setError(err.response?.data?.error || "Không thể tải danh sách phiếu thu/chi.");
+      toast.error(err.response?.data?.error || "Không thể tải danh sách phiếu.");
     } finally {
       setLoading(false);
     }
@@ -95,8 +79,7 @@ export const Vouchers: React.FC = () => {
 
   const fetchCategories = async () => {
     try {
-      const endpoint = isExpensePage ? "/api/vouchers/categories/expense" : "/api/vouchers/categories/income";
-      const res = await axios.get(endpoint);
+      const res = await axios.get(`/api/vouchers/categories?type=${isExpensePage ? "expense" : "income"}`);
       setCategories(res.data);
     } catch (err) {
       console.error("Error fetching categories", err);
@@ -105,7 +88,6 @@ export const Vouchers: React.FC = () => {
 
   useEffect(() => {
     fetchCategories();
-    // Reset filters when switching pages
     setSearchQuery("");
     setStartDate(getThirtyDaysAgo());
     setEndDate(new Date().toISOString().split("T")[0]);
@@ -121,60 +103,46 @@ export const Vouchers: React.FC = () => {
     fetchVouchers();
   };
 
-  const handleCreate = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!partnerName || !amount || amount === "0" || !formCategoryId) {
-      setError("Vui lòng điền đầy đủ các trường bắt buộc (*)");
+    if (!partnerName || !amount || amount === 0 || !formCategoryId) {
+      toast.warning("Vui lòng điền đầy đủ các thông tin bắt buộc (*)");
       return;
     }
 
     try {
-      setError("");
-      setSuccess("");
-      const endpoint = isExpensePage ? "/api/vouchers/payments" : "/api/vouchers/receipts";
-      const rawAmount = Number(amount.replace(/\D/g, "")) || 0;
-      
       const payload = {
         category_id: formCategoryId,
-        amount: rawAmount,
+        amount: amount,
         recipient_name: partnerName,
-        notes: description,
+        partner_name: partnerName,
+        notes: notes,
+        voucher_date: voucherDate || undefined,
+        type: isExpensePage ? "expense" : "income",
       };
 
-      const res = await axios.post(endpoint, payload);
-      setSuccess(`Đã tạo phiếu ${isExpensePage ? "chi" : "thu"} thành công!`);
+      await axios.post("/api/vouchers", payload);
+      toast.success(isExpensePage ? "Thêm phiếu chi mới thành công!" : "Thêm phiếu thu mới thành công!");
       
-      // Reset form fields
       setPartnerName("");
-      setAmount("0");
-      setDescription("");
-      
-      if (exitAfterSubmit) {
-        setIsCreateOpen(false);
-      }
+      setAmount(0);
+      setNotes("");
+      setFormCategoryId("");
+      setIsCreateOpen(false);
       fetchVouchers();
-      
-      // Open print preview
-      setActivePrintVoucher({
-        ...res.data,
-        type: isExpensePage ? "payment" : "receipt"
-      });
     } catch (err: any) {
-      setError(err.response?.data?.error || "Không thể tạo phiếu thu chi.");
+      toast.error(err.response?.data?.error || "Lỗi lưu phiếu.");
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (!window.confirm("Bạn có chắc chắn muốn xóa phiếu này? Hành động này sẽ cập nhật lại quỹ tiền mặt.")) return;
+  const handleDelete = async (id: string, code: string) => {
+    if (!window.confirm(`Bạn có chắc chắn muốn xóa phiếu ${code}?`)) return;
     try {
-      setError("");
-      setSuccess("");
-      const endpoint = isExpensePage ? `/api/vouchers/payments/${id}` : `/api/vouchers/receipts/${id}`;
-      await axios.delete(endpoint);
-      setSuccess("Đã xóa phiếu thành công!");
+      await axios.delete(`/api/vouchers/${id}`);
+      toast.success(`Đã xóa phiếu ${code} thành công!`);
       fetchVouchers();
     } catch (err: any) {
-      setError(err.response?.data?.error || "Không thể xóa phiếu.");
+      toast.error(err.response?.data?.error || "Không thể xóa phiếu.");
     }
   };
 
@@ -201,11 +169,10 @@ export const Vouchers: React.FC = () => {
   const totalAmount = vouchers.reduce((sum, v) => sum + Number(v.amount || 0), 0);
 
   const handleOpenCreateModal = () => {
-    setError("");
-    setSuccess("");
     setPartnerName("");
-    setAmount("0");
-    setDescription("");
+    setAmount(0);
+    setNotes("");
+    setVoucherDate(new Date().toISOString().split("T")[0]);
     if (categories.length > 0) {
       setFormCategoryId(categories[0].id);
     } else {
@@ -216,35 +183,14 @@ export const Vouchers: React.FC = () => {
 
   return (
     <div className="space-y-4">
-      {/* Title Header */}
       <div className="flex justify-between items-center py-2">
         <h2 className="text-lg font-bold text-slate-800 uppercase tracking-tight">
           {isExpensePage ? "Chi hoạt động" : "Thu hoạt động"}
         </h2>
       </div>
 
-      {/* Toast notifications in top right corner */}
-      {(error || success) && (
-        <div className="toast toast-top toast-end z-[9999] mt-16 mr-4 space-y-2">
-          {success && (
-            <div className="alert alert-success bg-[#0fbc98] text-white shadow-lg text-xs rounded-xl py-3 border-none flex items-center gap-2.5 min-w-[280px]">
-              <CheckCircle className="w-4 h-4 text-white shrink-0" />
-              <span>{success}</span>
-            </div>
-          )}
-          {error && (
-            <div className="alert alert-error bg-red-500 text-white shadow-lg text-xs rounded-xl py-3 border-none flex items-center gap-2.5 min-w-[280px]">
-              <AlertCircle className="w-4 h-4 text-white shrink-0" />
-              <span>{error}</span>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Filter and Control Bar */}
       <div className="bg-white border border-slate-150 p-4 rounded-2xl shadow-sm">
         <form onSubmit={handleSearchSubmit} className="flex flex-col md:flex-row gap-3 items-center w-full">
-          {/* Customer search query */}
           <div className="relative flex-1 w-full md:w-auto">
             <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-400">
               <Search className="w-4 h-4" />
@@ -429,18 +375,13 @@ export const Vouchers: React.FC = () => {
                 <div className="col-span-3 text-right pr-4 text-xs font-semibold text-slate-600">
                   Số tiền <span className="text-red-500">*</span>
                 </div>
-                <div className="col-span-9 relative">
-                  <input
-                    type="text"
-                    value={Number(amount || 0).toLocaleString("en-US")}
-                    onChange={(e) => {
-                      const clean = e.target.value.replace(/\D/g, "");
-                      setAmount(clean || "0");
-                    }}
-                    className="input input-bordered input-sm w-full bg-white border-slate-200 focus:outline-none focus:border-amber-500 text-slate-800 text-xs rounded-lg pr-12 font-bold text-slate-805"
+                <div className="col-span-9">
+                  <MoneyInput
+                    value={amount}
+                    onChange={(val) => setAmount(val)}
+                    placeholder="0"
                     required
                   />
-                  <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[10px] text-slate-450 font-bold">VNĐ</span>
                 </div>
 
                 {/* Voucher type */}

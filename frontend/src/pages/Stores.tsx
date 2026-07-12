@@ -15,6 +15,8 @@ import {
   EyeOff
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
+import { toast } from "../lib/toast";
+import { MoneyInput } from "../components/shared/MoneyInput";
 
 interface Store {
   id: string;
@@ -46,8 +48,6 @@ export const Stores: React.FC = () => {
   
   const [stores, setStores] = useState<Store[]>([]);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
 
   // Search & Filter
   const [searchQuery, setSearchQuery] = useState("");
@@ -64,7 +64,7 @@ export const Stores: React.FC = () => {
   // Create form states
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [name, setName] = useState("");
-  const [investmentCapital, setInvestmentCapital] = useState("0");
+  const [investmentCapital, setInvestmentCapital] = useState<number>(0);
   const [status, setStatus] = useState("active");
   
   // Advanced & Quick employee creation for create modal
@@ -85,7 +85,7 @@ export const Stores: React.FC = () => {
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [selectedStore, setSelectedStore] = useState<Store | null>(null);
   const [editName, setEditName] = useState("");
-  const [editCapital, setEditCapital] = useState("0");
+  const [editCapital, setEditCapital] = useState<number>(0);
   const [editStatus, setEditStatus] = useState("active");
   
   // Advanced & Quick employee creation for edit modal
@@ -107,11 +107,19 @@ export const Stores: React.FC = () => {
   const fetchStores = async () => {
     try {
       setLoading(true);
-      setError("");
-      const res = await axios.get("/api/stores");
+      
+      const query = new URLSearchParams();
+      if (searchQuery) {
+        query.append("search", searchQuery);
+      }
+      if (selectedStatusFilter) {
+        query.append("status", selectedStatusFilter);
+      }
+
+      const res = await axios.get(`/api/stores?${query.toString()}`);
       setStores(res.data);
     } catch (err: any) {
-      setError(err.response?.data?.error || "Không thể tải danh sách chi nhánh.");
+      toast.error(err.response?.data?.error || "Không thể tải danh sách chi nhánh.");
     } finally {
       setLoading(false);
     }
@@ -126,8 +134,6 @@ export const Stores: React.FC = () => {
     if (!name) return;
 
     try {
-      setError("");
-      setSuccess("");
 
       // Serialize advanced fields to JSON in notes field
       const notesJson = JSON.stringify({
@@ -138,7 +144,7 @@ export const Stores: React.FC = () => {
 
       const storeRes = await axios.post("/api/stores", {
         name,
-        investment_capital: Number(investmentCapital) || 0,
+        investment_capital: investmentCapital,
         status,
         address,
         phone,
@@ -158,9 +164,9 @@ export const Stores: React.FC = () => {
         });
       }
 
-      setSuccess("Khai trương chi nhánh mới thành công!");
+      toast.success("Khai trương chi nhánh mới thành công!");
       setName("");
-      setInvestmentCapital("0");
+      setInvestmentCapital(0);
       setStatus("active");
       setPhone("");
       setProvince("");
@@ -175,7 +181,7 @@ export const Stores: React.FC = () => {
       setIsCreateOpen(false);
       fetchStores();
     } catch (err: any) {
-      setError(err.response?.data?.error || "Không thể tạo chi nhánh.");
+      toast.error(err.response?.data?.error || "Không thể tạo chi nhánh.");
     }
   };
 
@@ -184,20 +190,18 @@ export const Stores: React.FC = () => {
   const handleDelete = async (store: Store) => {
     if (!window.confirm(`Bạn có chắc chắn muốn xóa chi nhánh "${store.name}"?`)) return;
     try {
-      setError("");
-      setSuccess("");
       await axios.delete(`/api/stores/${store.id}`);
-      setSuccess(`Xóa chi nhánh ${store.name} thành công!`);
+      toast.success(`Xóa chi nhánh ${store.name} thành công!`);
       fetchStores();
     } catch (err: any) {
-      setError(err.response?.data?.error || "Không thể xóa chi nhánh (Có thể do đã đăng ký nhân viên).");
+      toast.error(err.response?.data?.error || "Không thể xóa chi nhánh (Có thể do đã đăng ký nhân viên).");
     }
   };
 
   const handleOpenEdit = (store: Store) => {
     setSelectedStore(store);
     setEditName(store.name);
-    setEditCapital(String(store.investment_capital));
+    setEditCapital(store.investment_capital);
     setEditStatus(store.status);
     setEditPhone(store.phone || "");
     setEditAddress(store.address || "");
@@ -228,8 +232,6 @@ export const Stores: React.FC = () => {
 
     try {
       setEditLoading(true);
-      setError("");
-      setSuccess("");
 
       const notesJson = JSON.stringify({
         province: editProvince,
@@ -239,7 +241,7 @@ export const Stores: React.FC = () => {
 
       await axios.put(`/api/stores/${selectedStore.id}`, {
         name: editName,
-        investment_capital: Number(editCapital) || 0,
+        investment_capital: editCapital,
         status: editStatus,
         phone: editPhone,
         address: editAddress,
@@ -257,12 +259,12 @@ export const Stores: React.FC = () => {
         });
       }
 
-      setSuccess(`Cập nhật cấu hình chi nhánh ${editName} thành công!`);
+      toast.success(`Cập nhật cấu hình chi nhánh ${editName} thành công!`);
       setIsEditOpen(false);
       setSelectedStore(null);
       fetchStores();
     } catch (err: any) {
-      setError(err.response?.data?.error || "Cập nhật cấu hình chi nhánh thất bại.");
+      toast.error(err.response?.data?.error || "Cập nhật cấu hình chi nhánh thất bại.");
     } finally {
       setEditLoading(false);
     }
@@ -274,7 +276,7 @@ export const Stores: React.FC = () => {
       name: store.name,
       investment_capital: Number(store.investment_capital)
     });
-    setSuccess(`Chuyển quyền quản lý sang chi nhánh "${store.name}" thành công!`);
+    toast.success(`Chuyển quyền quản lý sang chi nhánh "${store.name}" thành công!`);
   };
 
   const handleNavigateToDetail = (store: Store) => {
@@ -385,8 +387,6 @@ export const Stores: React.FC = () => {
         <button
           onClick={() => {
             setIsCreateOpen(true);
-            setError("");
-            setSuccess("");
           }}
           className="btn btn-primary bg-emerald-500 hover:bg-emerald-600 border-none text-white btn-sm rounded-lg font-medium px-4 text-xs shadow-sm flex items-center justify-center gap-1 shrink-0"
           type="button"
@@ -395,20 +395,6 @@ export const Stores: React.FC = () => {
           <span>Thêm mới</span>
         </button>
       </div>
-
-      {error && (
-        <div className="alert alert-error text-xs p-3 rounded-xl border border-red-200 bg-red-50 text-red-800 flex items-start gap-2 shadow-sm">
-          <X className="w-4 h-4 shrink-0 mt-0.5 text-red-650" />
-          <span>{error}</span>
-        </div>
-      )}
-
-      {success && (
-        <div className="alert alert-success text-xs p-3 rounded-xl border border-green-200 bg-green-50 text-green-800 flex items-start gap-2 shadow-sm">
-          <Save className="w-4 h-4 shrink-0 mt-0.5 text-green-650" />
-          <span>{success}</span>
-        </div>
-      )}
 
       {/* Stores List Table */}
       <div className="bg-white border border-slate-200/80 rounded-2xl overflow-hidden shadow-sm">
@@ -640,12 +626,10 @@ export const Stores: React.FC = () => {
                   Số vốn đầu tư <span className="text-red-500">*</span>
                 </div>
                 <div className="col-span-9">
-                  <input
-                    type="number"
-                    placeholder="0"
+                  <MoneyInput
                     value={investmentCapital}
-                    onChange={(e) => setInvestmentCapital(e.target.value)}
-                    className="input input-bordered input-sm w-full bg-white border-slate-200 focus:outline-none focus:border-amber-500 text-slate-800 text-xs rounded-lg"
+                    onChange={(val) => setInvestmentCapital(val)}
+                    placeholder="0"
                     required
                   />
                 </div>
@@ -884,11 +868,10 @@ export const Stores: React.FC = () => {
                   Số vốn đầu tư <span className="text-red-500">*</span>
                 </div>
                 <div className="col-span-9">
-                  <input
-                    type="number"
+                  <MoneyInput
                     value={editCapital}
-                    onChange={(e) => setEditCapital(e.target.value)}
-                    className="input input-bordered input-sm w-full bg-white border-slate-200 focus:outline-none focus:border-amber-500 text-slate-800 text-xs rounded-lg"
+                    onChange={(val) => setEditCapital(val)}
+                    placeholder="0"
                     required
                   />
                 </div>

@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
 import { CheckCircle, AlertCircle, Wrench, X, ArrowUpDown, ChevronLeft, ChevronRight } from "lucide-react";
+import { toast } from "../lib/toast";
+import { MoneyInput } from "../components/shared/MoneyInput";
 import { useAuth } from "../context/AuthContext";
 
 interface CashHistoryItem {
@@ -20,13 +22,13 @@ export const BeginningCash: React.FC = () => {
   const [currentSummary, setCurrentSummary] = useState<any>(null);
   const [histories, setHistories] = useState<CashHistoryItem[]>([]);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
+  const setError = (msg: string) => { if (msg) toast.error(msg); };
+  const setSuccess = (msg: string) => { if (msg) toast.success(msg); };
 
   // Modal states
   const [isAdjustModalOpen, setIsAdjustModalOpen] = useState(false);
   const [isBeginningModalOpen, setIsBeginningModalOpen] = useState(false);
-  const [modalAmount, setModalAmount] = useState("");
+  const [modalAmount, setModalAmount] = useState<number>(0);
 
   // Table Sort and Pagination states
   const [sortField, setSortField] = useState<string>("created_at");
@@ -34,20 +36,7 @@ export const BeginningCash: React.FC = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(50);
 
-  // Auto-dismiss logic for alerts after 5 seconds
-  useEffect(() => {
-    if (success) {
-      const timer = setTimeout(() => setSuccess(""), 5000);
-      return () => clearTimeout(timer);
-    }
-  }, [success]);
 
-  useEffect(() => {
-    if (error) {
-      const timer = setTimeout(() => setError(""), 5000);
-      return () => clearTimeout(timer);
-    }
-  }, [error]);
 
   const fetchData = async () => {
     if (!activeStore) return;
@@ -74,25 +63,14 @@ export const BeginningCash: React.FC = () => {
   }, [activeStore]);
 
   // Form input formatter
-  const handleAmountChange = (val: string) => {
-    const clean = val.replace(/\D/g, "");
-    if (!clean) {
-      setModalAmount("");
-      return;
-    }
-    setModalAmount(Number(clean).toLocaleString("vi-VN"));
-  };
 
-  const parseFormattedNumber = (val: string) => {
-    return Number(val.replace(/\D/g, ""));
-  };
 
   // Open modals prefilled
   const handleOpenAdjustModal = () => {
     setError("");
     setSuccess("");
     const current = currentSummary ? Math.round(Number(currentSummary.current_cash)) : 0;
-    setModalAmount(current.toLocaleString("vi-VN"));
+    setModalAmount(current);
     setIsAdjustModalOpen(true);
   };
 
@@ -100,7 +78,7 @@ export const BeginningCash: React.FC = () => {
     setError("");
     setSuccess("");
     const beg = currentSummary ? Math.round(Number(currentSummary.beginning_cash)) : 0;
-    setModalAmount(beg.toLocaleString("vi-VN"));
+    setModalAmount(beg);
     setIsBeginningModalOpen(true);
   };
 
@@ -110,7 +88,7 @@ export const BeginningCash: React.FC = () => {
     setError("");
     setSuccess("");
 
-    const newCashVal = parseFormattedNumber(modalAmount);
+    const newCashVal = modalAmount;
     const currentCashVal = currentSummary ? Number(currentSummary.current_cash) : 0;
     const diff = newCashVal - currentCashVal;
 
@@ -143,7 +121,7 @@ export const BeginningCash: React.FC = () => {
     setError("");
     setSuccess("");
 
-    const newBegVal = parseFormattedNumber(modalAmount);
+    const newBegVal = modalAmount;
 
     try {
       setLoading(true);
@@ -417,19 +395,12 @@ export const BeginningCash: React.FC = () => {
                 <label className="block text-xs font-semibold text-slate-500 mb-1.5">
                   Số tiền <span className="text-red-500">*</span>
                 </label>
-                <div className="join w-full border border-slate-200 rounded-lg overflow-hidden focus-within:border-amber-500 transition-all duration-200">
-                  <input
-                    type="text"
-                    value={modalAmount}
-                    onChange={(e) => handleAmountChange(e.target.value)}
-                    placeholder="Nhập số tiền"
-                    className="input input-sm join-item flex-1 bg-white text-slate-800 font-bold focus:outline-none h-[38px] px-3"
-                    required
-                  />
-                  <span className="join-item bg-slate-50 border-l border-slate-200 px-3 flex items-center text-xs font-semibold text-slate-500 h-[38px]">
-                    VNĐ
-                  </span>
-                </div>
+                <MoneyInput
+                  value={modalAmount}
+                  onChange={(val) => setModalAmount(val)}
+                  placeholder="Nhập số tiền"
+                  required
+                />
                 <p className="text-[10px] text-slate-400 mt-2 leading-relaxed">
                   Diễn giải: Chức năng <span className="font-semibold text-blue-600">Nhập lại quỹ tiền mặt</span> cho phép bạn cập nhật mới quỹ tiền mặt hiện có
                 </p>
@@ -469,19 +440,12 @@ export const BeginningCash: React.FC = () => {
                 <label className="block text-xs font-semibold text-slate-500 mb-1.5">
                   Số tiền <span className="text-red-500">*</span>
                 </label>
-                <div className="join w-full border border-slate-200 rounded-lg overflow-hidden focus-within:border-amber-500 transition-all duration-200">
-                  <input
-                    type="text"
-                    value={modalAmount}
-                    onChange={(e) => handleAmountChange(e.target.value)}
-                    placeholder="Nhập số tiền"
-                    className="input input-sm join-item flex-1 bg-white text-slate-800 font-bold focus:outline-none h-[38px] px-3"
-                    required
-                  />
-                  <span className="join-item bg-slate-50 border-l border-slate-200 px-3 flex items-center text-xs font-semibold text-slate-500 h-[38px]">
-                    VNĐ
-                  </span>
-                </div>
+                <MoneyInput
+                  value={modalAmount}
+                  onChange={(val) => setModalAmount(val)}
+                  placeholder="Nhập số tiền"
+                  required
+                />
                 <p className="text-[10px] text-slate-400 mt-2 leading-relaxed">
                   Diễn giải: Chức năng <span className="font-semibold text-emerald-600">Cập nhật tiền đầu ngày</span> cho phép bạn thay đổi số tiền quỹ đầu ngày của cửa hàng
                 </p>

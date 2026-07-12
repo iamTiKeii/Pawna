@@ -68,8 +68,8 @@ export const CapitalContracts: React.FC = () => {
   const [interestTypes, setInterestTypes] = useState<InterestType[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
+  const setError = (msg: string) => { if (msg) toast.error(msg); };
+  const setSuccess = (msg: string) => { if (msg) toast.success(msg); };
 
   // Filters & Search
   const [searchQuery, setSearchQuery] = useState("");
@@ -237,7 +237,7 @@ export const CapitalContracts: React.FC = () => {
     setInvestorPhone(c.investor_phone || "");
     setInvestorAddress(c.investor_address || "");
     
-    setAmount(String(c.amount));
+    setAmount(c.amount);
     setInvestmentDate(c.investment_date.split("T")[0]);
     setInterestTypeId(c.interest_type_id || "");
     setIsUpfront(c.is_upfront_interest);
@@ -278,7 +278,7 @@ export const CapitalContracts: React.FC = () => {
         investor_id_card: investorIdCard || null,
         investor_phone: investorPhone || null,
         investor_address: investorAddress || null,
-        amount: Number(amount) || 0,
+        amount: amount,
         investment_date: investmentDate,
         interest_type_id: interestTypeId || null,
         is_upfront_interest: isUpfront,
@@ -329,7 +329,7 @@ export const CapitalContracts: React.FC = () => {
       setSelectedContractDetail(res.data);
       setActiveDetailTab("interest");
       setTxDate(new Date().toISOString().split("T")[0]);
-      setTxAmount("0");
+      setTxAmount(0);
       setTxNotes("");
       setTxExtendToDate(new Date().toISOString().split("T")[0]);
       setIsDetailLedgerOpen(true);
@@ -344,7 +344,7 @@ export const CapitalContracts: React.FC = () => {
     try {
       setError("");
       setSuccess("");
-      const amountVal = type === "withdraw_all" ? Number(selectedContractDetail.amount) : Number(txAmount) || 0;
+      const amountVal = type === "withdraw_all" ? Number(selectedContractDetail.amount) : txAmount;
       
       await axios.post(`/api/contracts/capital/${selectedContractDetail.id}/transactions`, {
         type,
@@ -359,7 +359,7 @@ export const CapitalContracts: React.FC = () => {
       setSelectedContractDetail(res.data);
       fetchContracts();
       // Reset input fields
-      setTxAmount("0");
+      setTxAmount(0);
       setTxNotes("");
     } catch (err: any) {
       window.alert(err.response?.data?.error || "Giao dịch không thành công.");
@@ -884,18 +884,13 @@ export const CapitalContracts: React.FC = () => {
                 <div className="col-span-3 text-right pr-4 text-xs font-semibold text-slate-650">
                   Số tiền đầu tư <span className="text-red-500">*</span>
                 </div>
-                <div className="col-span-9 relative">
-                  <input
-                    type="text"
-                    value={Number(amount || 0).toLocaleString("en-US")}
-                    onChange={(e) => {
-                      const clean = e.target.value.replace(/\D/g, "");
-                      setAmount(clean || "0");
-                    }}
-                    className="input input-bordered input-sm w-full bg-white border-slate-200 focus:outline-none focus:border-amber-500 text-slate-800 text-xs rounded-lg pr-12 font-bold text-slate-800"
+                <div className="col-span-9">
+                  <MoneyInput
+                    value={amount}
+                    onChange={(val) => setAmount(val)}
+                    placeholder="0"
                     required
                   />
-                  <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[10px] text-slate-450 font-bold">VNĐ</span>
                 </div>
 
                 {/* Date of investment */}
@@ -1245,7 +1240,7 @@ export const CapitalContracts: React.FC = () => {
                   type="button"
                   onClick={() => {
                     setActiveDetailTab(t.id);
-                    setTxAmount("0");
+                    setTxAmount(0);
                     setTxNotes("");
                   }}
                   className={`flex items-center gap-1.5 px-4 py-2 text-xs font-semibold border-b-2 -mb-px transition-all ${
@@ -1285,18 +1280,13 @@ export const CapitalContracts: React.FC = () => {
                           />
                         </div>
                         <div className="col-span-3 text-right pr-4 text-xs font-semibold text-slate-600">Số tiền đóng *</div>
-                        <div className="col-span-9 relative">
-                          <input
-                            type="text"
-                            value={Number(txAmount || 0).toLocaleString("en-US")}
-                            onChange={(e) => {
-                              const clean = e.target.value.replace(/\D/g, "");
-                              setTxAmount(clean || "0");
-                            }}
-                            className="input input-bordered input-sm w-full bg-white border-slate-200 text-slate-855 font-bold text-xs rounded-lg"
+                        <div className="col-span-9">
+                          <MoneyInput
+                            value={txAmount}
+                            onChange={(val) => setTxAmount(val)}
+                            placeholder="0"
                             required
                           />
-                          <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[10px] text-slate-400 font-bold">VNĐ</span>
                         </div>
                         <div className="col-span-3 text-right pr-4 text-xs font-semibold text-slate-600">Ghi chú</div>
                         <div className="col-span-9">
@@ -1339,18 +1329,13 @@ export const CapitalContracts: React.FC = () => {
                         />
                       </div>
                       <div className="col-span-3 text-right pr-4 text-xs font-semibold text-slate-605">Số tiền gốc trả trước *</div>
-                      <div className="col-span-9 relative">
-                        <input
-                          type="text"
-                          value={Number(txAmount || 0).toLocaleString("en-US")}
-                          onChange={(e) => {
-                            const clean = e.target.value.replace(/\D/g, "");
-                            setTxAmount(clean || "0");
-                          }}
-                          className="input input-bordered input-sm w-full bg-white border-slate-200 text-slate-850 font-bold text-xs rounded-lg"
+                      <div className="col-span-9">
+                        <MoneyInput
+                          value={txAmount}
+                          onChange={(val) => setTxAmount(val)}
+                          placeholder="0"
                           required
                         />
-                        <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[10px] text-slate-400 font-bold">VNĐ</span>
                       </div>
                       <div className="col-span-3 text-right pr-4 text-xs font-semibold text-slate-605">Ghi chú</div>
                       <div className="col-span-9">
@@ -1434,18 +1419,13 @@ export const CapitalContracts: React.FC = () => {
                         />
                       </div>
                       <div className="col-span-3 text-right pr-4 text-xs font-semibold text-slate-600">Số tiền vay thêm *</div>
-                      <div className="col-span-9 relative">
-                        <input
-                          type="text"
-                          value={Number(txAmount || 0).toLocaleString("en-US")}
-                          onChange={(e) => {
-                            const clean = e.target.value.replace(/\D/g, "");
-                            setTxAmount(clean || "0");
-                          }}
-                          className="input input-bordered input-sm w-full bg-white border-slate-200 text-slate-850 font-bold text-xs rounded-lg"
+                      <div className="col-span-9">
+                        <MoneyInput
+                          value={txAmount}
+                          onChange={(val) => setTxAmount(val)}
+                          placeholder="0"
                           required
                         />
-                        <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[10px] text-slate-400 font-bold">VNĐ</span>
                       </div>
                       <div className="col-span-3 text-right pr-4 text-xs font-semibold text-slate-600">Ghi chú</div>
                       <div className="col-span-9">

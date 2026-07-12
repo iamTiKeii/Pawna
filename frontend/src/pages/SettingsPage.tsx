@@ -54,8 +54,8 @@ export const SettingsPage: React.FC = () => {
 
   // Loading and Alert states
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
+  const setError = (msg: string) => { if (msg) toast.error(msg); };
+  const setSuccess = (msg: string) => { if (msg) toast.success(msg); };
 
   // Tab 1: System Settings state
   const [systemName, setSystemName] = useState("");
@@ -238,19 +238,7 @@ export const SettingsPage: React.FC = () => {
         </button>
       </div>
 
-      {/* Message Notifications */}
-      {error && (
-        <div className="alert alert-error text-xs p-3 rounded-xl border border-red-200 bg-red-50 text-red-800 flex items-start gap-2 shadow-sm">
-          <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-red-600" />
-          <span>{error}</span>
-        </div>
-      )}
-      {success && (
-        <div className="alert alert-success text-xs p-3 rounded-xl border border-green-200 bg-green-50 text-green-800 flex items-start gap-2 shadow-sm">
-          <CheckCircle className="w-4 h-4 shrink-0 mt-0.5 text-green-600" />
-          <span>{success}</span>
-        </div>
-      )}
+
 
       {/* Tab Contents */}
       <div className="bg-white rounded-3xl border border-slate-200/80 shadow-sm p-6">

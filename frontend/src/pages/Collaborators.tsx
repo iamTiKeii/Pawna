@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
-import { Plus, Search, Edit3, ShieldAlert, Trash2, X, Lock, Unlock, CheckCircle, AlertCircle } from "lucide-react";
+import { Plus, Search, Edit3, ShieldAlert, Trash2, X, Lock, Unlock } from "lucide-react";
+import { toast } from "../lib/toast";
 
 interface Collaborator {
   id: string;
@@ -17,23 +18,6 @@ interface Collaborator {
 export const Collaborators: React.FC = () => {
   const [collaborators, setCollaborators] = useState<Collaborator[]>([]);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
-
-  // Auto-dismiss logic for alerts after 5 seconds
-  useEffect(() => {
-    if (success) {
-      const timer = setTimeout(() => setSuccess(""), 5000);
-      return () => clearTimeout(timer);
-    }
-  }, [success]);
-
-  useEffect(() => {
-    if (error) {
-      const timer = setTimeout(() => setError(""), 5000);
-      return () => clearTimeout(timer);
-    }
-  }, [error]);
 
   // Filters
   const [searchQuery, setSearchQuery] = useState("");
@@ -64,7 +48,6 @@ export const Collaborators: React.FC = () => {
   const fetchCollaborators = async () => {
     try {
       setLoading(true);
-      setError("");
       const params = new URLSearchParams();
       if (searchQuery) params.append("search", searchQuery);
       if (statusFilter) params.append("status", statusFilter);
@@ -72,7 +55,7 @@ export const Collaborators: React.FC = () => {
       const res = await axios.get(`/api/collaborators?${params.toString()}`);
       setCollaborators(res.data);
     } catch (err: any) {
-      setError(err.response?.data?.error || "Không thể tải danh sách cộng tác viên.");
+      toast.error(err.response?.data?.error || "Không thể tải danh sách cộng tác viên.");
     } finally {
       setLoading(false);
     }
@@ -105,8 +88,6 @@ export const Collaborators: React.FC = () => {
   };
 
   const handleOpenCreate = () => {
-    setError("");
-    setSuccess("");
     setFullName("");
     setCode("");
     setPhone("");
@@ -118,8 +99,6 @@ export const Collaborators: React.FC = () => {
   };
 
   const handleOpenEdit = (c: Collaborator) => {
-    setError("");
-    setSuccess("");
     setSelectedId(c.id);
     setFullName(c.full_name);
     setCode(c.code);
@@ -132,8 +111,6 @@ export const Collaborators: React.FC = () => {
   };
 
   const handleOpenDeactivate = (c: Collaborator) => {
-    setError("");
-    setSuccess("");
     setTargetCollab(c);
     setIsDeactivateConfirmOpen(true);
   };
@@ -141,13 +118,11 @@ export const Collaborators: React.FC = () => {
   const handleCreateSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!fullName || !code) {
-      setError("Vui lòng nhập đầy đủ các thông tin bắt buộc (*)");
+      toast.warning("Vui lòng nhập đầy đủ các thông tin bắt buộc (*)");
       return;
     }
 
     try {
-      setError("");
-      setSuccess("");
       await axios.post("/api/collaborators", {
         full_name: fullName,
         code,
@@ -157,24 +132,22 @@ export const Collaborators: React.FC = () => {
         bank_account_holder: bankAccountHolder || null,
         status: "active",
       });
-      setSuccess("Thêm cộng tác viên mới thành công!");
+      toast.success("Thêm cộng tác viên mới thành công!");
       setIsCreateOpen(false);
       fetchCollaborators();
     } catch (err: any) {
-      setError(err.response?.data?.error || "Không thể tạo cộng tác viên mới.");
+      toast.error(err.response?.data?.error || "Không thể tạo cộng tác viên mới.");
     }
   };
 
   const handleEditSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!fullName || !code) {
-      setError("Vui lòng nhập đầy đủ các thông tin bắt buộc (*)");
+      toast.warning("Vui lòng nhập đầy đủ các thông tin bắt buộc (*)");
       return;
     }
 
     try {
-      setError("");
-      setSuccess("");
       await axios.put(`/api/collaborators/${selectedId}`, {
         full_name: fullName,
         code,
@@ -184,24 +157,22 @@ export const Collaborators: React.FC = () => {
         bank_account_holder: bankAccountHolder || null,
         status,
       });
-      setSuccess("Cập nhật thông tin cộng tác viên thành công!");
+      toast.success("Cập nhật thông tin cộng tác viên thành công!");
       setIsEditOpen(false);
       fetchCollaborators();
     } catch (err: any) {
-      setError(err.response?.data?.error || "Không thể cập nhật cộng tác viên.");
+      toast.error(err.response?.data?.error || "Không thể cập nhật cộng tác viên.");
     }
   };
 
   const handleToggleStatusSubmit = async () => {
     if (!targetCollab) return;
     try {
-      setError("");
-      setSuccess("");
       const newStatus = targetCollab.status === "active" ? "inactive" : "active";
       await axios.put(`/api/collaborators/${targetCollab.id}`, {
         status: newStatus,
       });
-      setSuccess(
+      toast.success(
         newStatus === "active"
           ? `Đã kích hoạt hoạt động cho cộng tác viên ${targetCollab.full_name}!`
           : `Đã vô hiệu hóa hoạt động cho cộng tác viên ${targetCollab.full_name}!`
@@ -210,20 +181,18 @@ export const Collaborators: React.FC = () => {
       setTargetCollab(null);
       fetchCollaborators();
     } catch (err: any) {
-      setError(err.response?.data?.error || "Không thể đổi trạng thái hoạt động của cộng tác viên.");
+      toast.error(err.response?.data?.error || "Không thể đổi trạng thái hoạt động của cộng tác viên.");
     }
   };
 
   const handleDelete = async (id: string, name: string) => {
     if (!window.confirm(`Bạn có chắc chắn muốn xóa vĩnh viễn hồ sơ cộng tác viên ${name}?`)) return;
     try {
-      setError("");
-      setSuccess("");
       await axios.delete(`/api/collaborators/${id}`);
-      setSuccess(`Đã xóa cộng tác viên ${name} thành công!`);
+      toast.success(`Đã xóa cộng tác viên ${name} thành công!`);
       fetchCollaborators();
     } catch (err: any) {
-      setError(err.response?.data?.error || "Không thể xóa cộng tác viên.");
+      toast.error(err.response?.data?.error || "Không thể xóa cộng tác viên.");
     }
   };
 
@@ -235,24 +204,6 @@ export const Collaborators: React.FC = () => {
           Cộng tác viên
         </h2>
       </div>
-
-      {/* Toast notifications in top right corner */}
-      {(error || success) && (
-        <div className="toast toast-top toast-end z-[9999] mt-16 mr-4 space-y-2">
-          {success && (
-            <div className="alert alert-success bg-[#0fbc98] text-white shadow-lg text-xs rounded-xl py-3 border-none flex items-center gap-2.5 min-w-[280px]">
-              <CheckCircle className="w-4 h-4 text-white shrink-0" />
-              <span>{success}</span>
-            </div>
-          )}
-          {error && (
-            <div className="alert alert-error bg-red-500 text-white shadow-lg text-xs rounded-xl py-3 border-none flex items-center gap-2.5 min-w-[280px]">
-              <AlertCircle className="w-4 h-4 text-white shrink-0" />
-              <span>{error}</span>
-            </div>
-          )}
-        </div>
-      )}
 
       {/* Filter and Control Bar */}
       <div className="bg-white border border-slate-150 p-4 rounded-2xl shadow-sm">

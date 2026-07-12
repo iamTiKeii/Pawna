@@ -3,7 +3,6 @@ import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import { 
   Plus, 
-  ShieldCheck, 
   ToggleLeft, 
   ToggleRight, 
   Shield, 
@@ -13,6 +12,7 @@ import {
   Mail, 
   X 
 } from "lucide-react";
+import { toast } from "../lib/toast";
 
 interface Employee {
   id: string;
@@ -49,8 +49,6 @@ export const Employees: React.FC = () => {
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [stores, setStores] = useState<Store[]>([]);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
 
   // Filters state
   const [searchQuery, setSearchQuery] = useState("");
@@ -82,7 +80,6 @@ export const Employees: React.FC = () => {
   const fetchData = async () => {
     try {
       setLoading(true);
-      setError("");
       const [empRes, storesRes] = await Promise.all([
         axios.get("/api/employees"),
         axios.get("/api/stores"),
@@ -90,7 +87,7 @@ export const Employees: React.FC = () => {
       setEmployees(empRes.data);
       setStores(storesRes.data.filter((s: any) => s.status === "active"));
     } catch (err: any) {
-      setError(err.response?.data?.error || "Không thể tải dữ liệu nhân viên.");
+      toast.error(err.response?.data?.error || "Không thể tải dữ liệu nhân viên.");
     } finally {
       setLoading(false);
     }
@@ -103,13 +100,11 @@ export const Employees: React.FC = () => {
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!username || !password || !fullName || !storeId) {
-      setError("Vui lòng nhập đầy đủ các trường bắt buộc");
+      toast.warning("Vui lòng nhập đầy đủ các trường bắt buộc");
       return;
     }
 
     try {
-      setError("");
-      setSuccess("");
       await axios.post("/api/employees", {
         username,
         password,
@@ -117,7 +112,7 @@ export const Employees: React.FC = () => {
         store_id: storeId,
         status,
       });
-      setSuccess("Tạo mới tài khoản nhân viên thành công!");
+      toast.success("Tạo mới tài khoản nhân viên thành công!");
       setUsername("");
       setPassword("");
       setFullName("");
@@ -126,20 +121,18 @@ export const Employees: React.FC = () => {
       setIsCreateOpen(false);
       fetchData();
     } catch (err: any) {
-      setError(err.response?.data?.error || "Không thể thêm nhân viên.");
+      toast.error(err.response?.data?.error || "Không thể thêm nhân viên.");
     }
   };
 
   const handleToggleStatus = async (emp: Employee) => {
     const newStatus = emp.status === "active" ? "inactive" : "active";
     try {
-      setError("");
-      setSuccess("");
       await axios.put(`/api/employees/${emp.id}/status`, { status: newStatus });
-      setSuccess(`Cập nhật trạng thái cho ${emp.full_name} thành công!`);
+      toast.success(`Cập nhật trạng thái cho ${emp.full_name} thành công!`);
       fetchData();
     } catch (err: any) {
-      setError(err.response?.data?.error || "Không thể cập nhật trạng thái nhân viên.");
+      toast.error(err.response?.data?.error || "Không thể cập nhật trạng thái nhân viên.");
     }
   };
 
@@ -163,17 +156,15 @@ export const Employees: React.FC = () => {
     if (!selectedEmp) return;
 
     try {
-      setError("");
-      setSuccess("");
       await axios.put(`/api/employees/${selectedEmp.id}/permissions`, {
         permission_codes: selectedPerms,
       });
-      setSuccess(`Cấp quyền thành công cho nhân sự ${selectedEmp.full_name}!`);
+      toast.success(`Cấp quyền thành công cho nhân sự ${selectedEmp.full_name}!`);
       setIsPermsOpen(false);
       setSelectedEmp(null);
       fetchData();
     } catch (err: any) {
-      setError(err.response?.data?.error || "Không thể cấp quyền.");
+      toast.error(err.response?.data?.error || "Không thể cấp quyền.");
     }
   };
 
@@ -272,8 +263,6 @@ export const Employees: React.FC = () => {
         <button
           onClick={() => {
             setIsCreateOpen(true);
-            setError("");
-            setSuccess("");
           }}
           className="btn btn-primary bg-emerald-500 hover:bg-emerald-600 border-none text-white btn-sm rounded-lg font-medium px-4 text-xs shadow-sm flex items-center justify-center gap-1 shrink-0"
           type="button"
@@ -282,20 +271,6 @@ export const Employees: React.FC = () => {
           <span>Thêm nhân viên</span>
         </button>
       </div>
-
-      {error && (
-        <div className="alert alert-error text-xs p-3 rounded-xl border border-red-200 bg-red-50 text-red-800 flex items-start gap-2 shadow-sm">
-          <X className="w-4 h-4 shrink-0 mt-0.5 text-red-650" />
-          <span>{error}</span>
-        </div>
-      )}
-
-      {success && (
-        <div className="alert alert-success text-xs p-3 rounded-xl border border-green-200 bg-green-50 text-green-800 flex items-start gap-2 shadow-sm">
-          <ShieldCheck className="w-4 h-4 shrink-0 mt-0.5 text-green-650" />
-          <span>{success}</span>
-        </div>
-      )}
 
       {/* Employee List Table */}
       <div className="bg-white border border-slate-200/80 rounded-2xl overflow-hidden shadow-sm">

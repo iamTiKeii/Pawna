@@ -1,5 +1,6 @@
 import React, { createContext, useState, useEffect, useContext } from "react";
 import axios from "axios";
+import { toast } from "../lib/toast";
 
 export interface StoreInfo {
   id: string;
@@ -85,12 +86,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   // Auto-logout when API returns 401 or 403 (e.g. token expired after 12h)
+  // Also auto-toast error for all API failures
   useEffect(() => {
     const interceptor = axios.interceptors.response.use(
       (response) => response,
       (error) => {
-        if (error.response && (error.response.status === 401 || error.response.status === 403)) {
-          logout();
+        if (error.response) {
+          const status = error.response.status;
+          if (status === 401 || status === 403) {
+            toast.error("Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.");
+            logout();
+          }
+          // Don't auto-toast here — let individual handlers decide
+          // because they have context-specific messages
+        } else if (error.request) {
+          // Network error (no response received)
+          toast.error("Lỗi kết nối mạng. Vui lòng kiểm tra đường truyền.");
         }
         return Promise.reject(error);
       }

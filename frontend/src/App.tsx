@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { Header } from "./components/Header";
 import { Sidebar } from "./components/Sidebar";
+import { ToastContainer } from "./components/shared/ToastContainer";
 
 // Pages
 import { Login } from "./pages/Login";
@@ -115,6 +116,9 @@ const PublicRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 
 function App() {
   return (
+    <>
+    {/* Global Toast — renders above everything, persists across routes */}
+    <ToastContainer />
     <BrowserRouter>
       <AuthProvider>
         <Routes>
@@ -518,6 +522,7 @@ function App() {
         </Routes>
       </AuthProvider>
     </BrowserRouter>
+    </>
   );
 }
 

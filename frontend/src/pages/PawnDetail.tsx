@@ -19,8 +19,11 @@ import {
   Printer,
   Save,
   CheckCircle,
-  AlertCircle
+  AlertCircle,
+  FileSpreadsheet
 } from "lucide-react";
+import { toast } from "../lib/toast";
+import { MoneyInput } from "../components/shared/MoneyInput";
 
 interface PawnDetailProps {
   idProp?: string;
@@ -36,8 +39,13 @@ export const PawnDetail: React.FC<PawnDetailProps> = ({ idProp, onClose, isModal
 
   const [contract, setContract] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
+  
+  const setError = (msg: string) => {
+    if (msg) toast.error(msg);
+  };
+  const setSuccess = (msg: string) => {
+    if (msg) toast.success(msg);
+  };
 
   // Tabs: interest, pay_down, borrow_more, extend, redeem, debt, docs, history, timer, blacklist
   const [activeTab, setActiveTab] = useState<string>(defaultTab);
@@ -74,21 +82,6 @@ export const PawnDetail: React.FC<PawnDetailProps> = ({ idProp, onClose, isModal
   // Blacklist state
   const [blacklistReason, setBlacklistReason] = useState("");
   const [submitting, setSubmitting] = useState(false);
-
-  // Auto-dismiss alerts after 5 seconds
-  useEffect(() => {
-    if (success) {
-      const timer = setTimeout(() => setSuccess(""), 5000);
-      return () => clearTimeout(timer);
-    }
-  }, [success]);
-
-  useEffect(() => {
-    if (error) {
-      const timer = setTimeout(() => setError(""), 5000);
-      return () => clearTimeout(timer);
-    }
-  }, [error]);
 
   const fetchContractDetails = async () => {
     try {
@@ -636,24 +629,6 @@ export const PawnDetail: React.FC<PawnDetailProps> = ({ idProp, onClose, isModal
 
   const contentJSX = (
     <div className="space-y-5 text-sm">
-      {/* Toast notifications in top right corner */}
-      {(error || success) && (
-        <div className="fixed toast toast-top toast-end z-[99999] mt-16 mr-4 space-y-2">
-          {success && (
-            <div className="alert alert-success bg-[#0fbc98] text-white shadow-lg text-xs rounded-xl py-3 border-none flex items-center gap-2.5 min-w-[280px]">
-              <CheckCircle className="w-4 h-4 text-white shrink-0" />
-              <span>{success}</span>
-            </div>
-          )}
-          {error && (
-            <div className="alert alert-error bg-red-500 text-white shadow-lg text-xs rounded-xl py-3 border-none flex items-center gap-2.5 min-w-[280px]">
-              <AlertCircle className="w-4 h-4 text-white shrink-0" />
-              <span>{error}</span>
-            </div>
-          )}
-        </div>
-      )}
-
       {/* Grid summary stats matching screenshot */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-slate-50 border border-slate-200/60 p-4 rounded-xl text-slate-700 text-xs">
         <div className="space-y-2 md:border-r md:border-slate-200/50 md:pr-6">
@@ -805,11 +780,11 @@ export const PawnDetail: React.FC<PawnDetailProps> = ({ idProp, onClose, isModal
                           {isPaid ? (
                             <span className="font-bold text-emerald-600">{formatCurrency(payment.actual_paid)}</span>
                           ) : (
-                            <input
-                              type="number"
+                            <MoneyInput
                               value={amountVal}
-                              onChange={(e) => setPayAmounts(prev => ({ ...prev, [payment.id]: e.target.value }))}
-                              className="input input-bordered input-xs w-full bg-white border-slate-200 text-red-600 font-bold focus:outline-none"
+                              onChange={(val) => setPayAmounts(prev => ({ ...prev, [payment.id]: String(val) }))}
+                              className="input-xs w-full bg-white border-slate-200 text-red-650 font-bold focus:outline-none"
+                              suffix=""
                               disabled={contract.status !== "active"}
                             />
                           )}
@@ -861,17 +836,11 @@ export const PawnDetail: React.FC<PawnDetailProps> = ({ idProp, onClose, isModal
               <h3 className="font-bold text-slate-800 border-b border-slate-100 pb-2">Nhận trả bớt gốc</h3>
               <div>
                 <label className="label font-semibold text-slate-600">Số tiền gốc khách trả bớt *</label>
-                <div className="relative">
-                  <input
-                    type="number"
-                    placeholder="Ví dụ: 5000000"
+                  <MoneyInput
                     value={principalAmount}
-                    onChange={(e) => setPrincipalAmount(e.target.value)}
-                    className="input input-bordered w-full bg-white border-slate-200 text-slate-800 focus:border-amber-500 focus:outline-none rounded-lg"
-                    required
+                    onChange={(val) => setPrincipalAmount(String(val))}
+                    placeholder="Ví dụ: 5.000.000"
                   />
-                  <span className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 font-bold">VNĐ</span>
-                </div>
               </div>
               <div>
                 <label className="label font-semibold text-slate-600">Ghi chú giải trình</label>
@@ -902,17 +871,11 @@ export const PawnDetail: React.FC<PawnDetailProps> = ({ idProp, onClose, isModal
               <h3 className="font-bold text-slate-800 border-b border-slate-100 pb-2">Giải ngân cho vay thêm gốc</h3>
               <div>
                 <label className="label font-semibold text-slate-600">Số tiền cho vay thêm gốc *</label>
-                <div className="relative">
-                  <input
-                    type="number"
-                    placeholder="Ví dụ: 10000000"
+                  <MoneyInput
                     value={principalAmount}
-                    onChange={(e) => setPrincipalAmount(e.target.value)}
-                    className="input input-bordered w-full bg-white border-slate-200 text-slate-800 focus:border-amber-500 focus:outline-none rounded-lg"
-                    required
+                    onChange={(val) => setPrincipalAmount(String(val))}
+                    placeholder="Ví dụ: 10.000.000"
                   />
-                  <span className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 font-bold">VNĐ</span>
-                </div>
               </div>
               <div>
                 <label className="label font-semibold text-slate-600">Ghi chú giải trình</label>
@@ -1023,17 +986,12 @@ export const PawnDetail: React.FC<PawnDetailProps> = ({ idProp, onClose, isModal
               <div className="grid grid-cols-12 gap-4 items-center">
                 <div className="col-span-4 text-right font-bold text-slate-600">Tiền khác <span className="text-red-500">*</span></div>
                 <div className="col-span-8">
-                  <div className="relative w-full max-w-md flex items-center">
-                    <input
-                      type="number"
-                      placeholder="0"
-                      value={redeemOther}
-                      onChange={(e) => setRedeemOther(e.target.value)}
-                      disabled={contract.status !== "active"}
-                      className="input input-bordered w-full bg-white border-slate-200 text-slate-800 focus:border-amber-500 focus:outline-none rounded-lg text-xs h-9 pr-14"
-                    />
-                    <span className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 font-bold bg-slate-50 border-l border-slate-200 rounded-r-lg px-2 text-[10px]">VNĐ</span>
-                  </div>
+                  <MoneyInput
+                    value={redeemOther}
+                    onChange={(val) => setRedeemOther(String(val))}
+                    placeholder="0"
+                    disabled={contract.status !== "active"}
+                  />
                 </div>
               </div>
 
@@ -1087,18 +1045,12 @@ export const PawnDetail: React.FC<PawnDetailProps> = ({ idProp, onClose, isModal
               <div className="grid grid-cols-12 gap-4 items-center">
                 <div className="col-span-4 text-right font-bold text-slate-600">Số tiền nợ lại <span className="text-red-500">*</span></div>
                 <div className="col-span-8">
-                  <div className="relative w-full max-w-md flex items-center">
-                    <input
-                      type="number"
-                      placeholder="0"
-                      value={recordDebtAmount}
-                      onChange={(e) => setRecordDebtAmount(e.target.value)}
-                      disabled={contract.status !== "active"}
-                      className="input input-bordered w-full bg-white border-slate-200 text-slate-800 focus:border-amber-500 focus:outline-none rounded-lg text-xs h-9 pr-14"
-                      required
-                    />
-                    <span className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 font-bold bg-slate-50 border-l border-slate-200 rounded-r-lg px-2 text-[10px]">VNĐ</span>
-                  </div>
+                  <MoneyInput
+                    value={recordDebtAmount}
+                    onChange={(val) => setRecordDebtAmount(String(val))}
+                    placeholder="0"
+                    disabled={contract.status !== "active"}
+                  />
                 </div>
               </div>
               <div className="grid grid-cols-12 gap-4 items-center">
@@ -1125,18 +1077,12 @@ export const PawnDetail: React.FC<PawnDetailProps> = ({ idProp, onClose, isModal
               <div className="grid grid-cols-12 gap-4 items-center">
                 <div className="col-span-4 text-right font-bold text-slate-600">Số tiền trả nợ <span className="text-red-500">*</span></div>
                 <div className="col-span-8">
-                  <div className="relative w-full max-w-md flex items-center">
-                    <input
-                      type="number"
-                      placeholder="0"
-                      value={payDebtAmount}
-                      onChange={(e) => setPayDebtAmount(e.target.value)}
-                      disabled={contract.status !== "active"}
-                      className="input input-bordered w-full bg-white border-slate-200 text-slate-800 focus:border-amber-500 focus:outline-none rounded-lg text-xs h-9 pr-14"
-                      required
-                    />
-                    <span className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 font-bold bg-slate-50 border-l border-slate-200 rounded-r-lg px-2 text-[10px]">VNĐ</span>
-                  </div>
+                  <MoneyInput
+                    value={payDebtAmount}
+                    onChange={(val) => setPayDebtAmount(String(val))}
+                    placeholder="0"
+                    disabled={contract.status !== "active"}
+                  />
                 </div>
               </div>
               <div className="grid grid-cols-12 gap-4 items-center">

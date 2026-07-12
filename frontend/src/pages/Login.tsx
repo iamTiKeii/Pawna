@@ -2,12 +2,13 @@ import React, { useState, useEffect } from "react";
 import axios from "axios";
 import { useAuth } from "../context/AuthContext";
 import { Shield, Lock, User, Store, DollarSign, ArrowRight } from "lucide-react";
+import { toast } from "../lib/toast";
 
 export const Login: React.FC = () => {
   const { login } = useAuth();
   const [isBootstrapped, setIsBootstrapped] = useState<boolean | null>(null);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
+  const setError = (msg: string) => { if (msg) toast.error(msg); };
 
   // Login form fields
   const [username, setUsername] = useState("");
@@ -109,11 +110,7 @@ export const Login: React.FC = () => {
           </p>
         </div>
 
-        {error && (
-          <div className="alert alert-error bg-red-500/10 border-red-500/30 text-red-200 text-sm rounded-xl mb-6">
-            <span>{error}</span>
-          </div>
-        )}
+
 
         {isBootstrapped ? (
           /* Login Form */

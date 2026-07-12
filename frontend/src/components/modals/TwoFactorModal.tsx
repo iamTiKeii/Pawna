@@ -17,8 +17,8 @@ export const TwoFactorModal: React.FC<TwoFactorModalProps> = ({ isOpen, onClose 
   const [otpCode, setOtpCode] = useState("");
   
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
+  const setError = (msg: string) => { if (msg) toast.error(msg); };
+  const setSuccess = (msg: string) => { if (msg) toast.success(msg); };
   const [copied, setCopied] = useState(false);
 
   const checkStatus = () => {

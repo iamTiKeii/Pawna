@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
-import { Plus, Search, Edit3, X, Upload, List, AlertOctagon, CheckCircle, AlertCircle } from "lucide-react";
+import { Plus, Search, Edit3, X, Upload, List, AlertOctagon } from "lucide-react";
+import { toast } from "../lib/toast";
 
 interface Customer {
   id: string;
@@ -52,23 +53,6 @@ interface Contract {
 export const Customers: React.FC = () => {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
-
-  // Auto-dismiss logic for alerts after 5 seconds
-  useEffect(() => {
-    if (success) {
-      const timer = setTimeout(() => setSuccess(""), 5000);
-      return () => clearTimeout(timer);
-    }
-  }, [success]);
-
-  useEffect(() => {
-    if (error) {
-      const timer = setTimeout(() => setError(""), 5000);
-      return () => clearTimeout(timer);
-    }
-  }, [error]);
 
   // Filter states
   const [searchQuery, setSearchQuery] = useState("");
@@ -136,7 +120,6 @@ export const Customers: React.FC = () => {
   const fetchCustomers = async () => {
     try {
       setLoading(true);
-      setError("");
       const params = new URLSearchParams();
       if (searchQuery) params.append("search", searchQuery);
       if (storeFilter) params.append("store_id", storeFilter);
@@ -145,7 +128,7 @@ export const Customers: React.FC = () => {
       const res = await axios.get(`/api/customers?${params.toString()}`);
       setCustomers(res.data);
     } catch (err: any) {
-      setError(err.response?.data?.error || "Không thể tải danh sách khách hàng.");
+      toast.error(err.response?.data?.error || "Không thể tải danh sách khách hàng.");
     } finally {
       setLoading(false);
     }
@@ -167,8 +150,6 @@ export const Customers: React.FC = () => {
   };
 
   const handleOpenCreate = () => {
-    setError("");
-    setSuccess("");
     setStoreId(stores[0]?.id || "");
     setFullName("");
     setPhone("");
@@ -196,8 +177,6 @@ export const Customers: React.FC = () => {
   };
 
   const handleOpenEdit = (c: Customer) => {
-    setError("");
-    setSuccess("");
     setSelectedCustomerId(c.id);
     setStoreId(c.store_id);
     setFullName(c.full_name);
@@ -267,13 +246,11 @@ export const Customers: React.FC = () => {
   const handleCreateSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!fullName || !storeId) {
-      setError("Vui lòng điền các thông tin bắt buộc (*)");
+      toast.warning("Vui lòng điền các thông tin bắt buộc (*)");
       return;
     }
 
     try {
-      setError("");
-      setSuccess("");
       await axios.post("/api/customers", {
         store_id: storeId,
         full_name: fullName,
@@ -294,24 +271,22 @@ export const Customers: React.FC = () => {
         status,
         notes: notes || null,
       });
-      setSuccess("Tạo mới hồ sơ khách hàng thành công!");
+      toast.success("Tạo mới hồ sơ khách hàng thành công!");
       setIsCreateOpen(false);
       fetchCustomers();
     } catch (err: any) {
-      setError(err.response?.data?.error || "Không thể tạo mới hồ sơ khách hàng.");
+      toast.error(err.response?.data?.error || "Không thể tạo mới hồ sơ khách hàng.");
     }
   };
 
   const handleEditSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!fullName || !storeId) {
-      setError("Vui lòng điền các thông tin bắt buộc (*)");
+      toast.warning("Vui lòng điền các thông tin bắt buộc (*)");
       return;
     }
 
     try {
-      setError("");
-      setSuccess("");
       await axios.put(`/api/customers/${selectedCustomerId}`, {
         store_id: storeId,
         full_name: fullName,
@@ -332,11 +307,11 @@ export const Customers: React.FC = () => {
         status,
         notes: notes || null,
       });
-      setSuccess("Cập nhật hồ sơ khách hàng thành công!");
+      toast.success("Cập nhật hồ sơ khách hàng thành công!");
       setIsEditOpen(false);
       fetchCustomers();
     } catch (err: any) {
-      setError(err.response?.data?.error || "Không thể cập nhật hồ sơ khách hàng.");
+      toast.error(err.response?.data?.error || "Không thể cập nhật hồ sơ khách hàng.");
     }
   };
 
@@ -349,20 +324,18 @@ export const Customers: React.FC = () => {
     if (!window.confirm(msg)) return;
 
     try {
-      setError("");
-      setSuccess("");
       if (isCurrentlyBlacklist) {
         await axios.post(`/api/customers/${c.id}/unblacklist`);
-        setSuccess(`Đã gỡ blacklist cho khách hàng ${c.full_name}`);
+        toast.success(`Đã gỡ blacklist cho khách hàng ${c.full_name}`);
       } else {
         const reason = window.prompt("Nhập lý do nợ xấu / blacklist:", "Chậm trễ thanh toán gốc lãi nhiều lần");
         if (reason === null) return;
         await axios.post(`/api/customers/${c.id}/blacklist`, { reason });
-        setSuccess(`Đã chuyển khách hàng ${c.full_name} sang blacklist.`);
+        toast.success(`Đã chuyển khách hàng ${c.full_name} sang blacklist.`);
       }
       fetchCustomers();
     } catch (err: any) {
-      setError(err.response?.data?.error || "Không thể cập nhật blacklist.");
+      toast.error(err.response?.data?.error || "Không thể cập nhật blacklist.");
     }
   };
 
@@ -395,8 +368,6 @@ export const Customers: React.FC = () => {
   // Save the simulated Google Drive links back to customer notes
   const handleSaveUploadLinks = async () => {
     try {
-      setError("");
-      setSuccess("");
       // Fetch customer current notes
       const res = await axios.get(`/api/customers/${selectedCustomerId}`);
       const currentCustomer = res.data;
@@ -418,11 +389,11 @@ export const Customers: React.FC = () => {
         notes: updatedNotes || null,
       });
 
-      setSuccess(`Lưu ảnh lên thư mục Google Drive của khách hàng ${selectedCustomerName} thành công!`);
+      toast.success(`Lưu ảnh lên thư mục Google Drive của khách hàng ${selectedCustomerName} thành công!`);
       setIsUploadOpen(false);
       fetchCustomers();
     } catch (err: any) {
-      setError("Không thể lưu liên kết ảnh Google Drive.");
+      toast.error("Không thể lưu liên kết ảnh Google Drive.");
     }
   };
 
@@ -459,23 +430,6 @@ export const Customers: React.FC = () => {
       </div>
 
       {/* Toast notifications in top right corner */}
-      {(error || success) && (
-        <div className="toast toast-top toast-end z-[9999] mt-16 mr-4 space-y-2">
-          {success && (
-            <div className="alert alert-success bg-[#0fbc98] text-white shadow-lg text-xs rounded-xl py-3 border-none flex items-center gap-2.5 min-w-[280px]">
-              <CheckCircle className="w-4 h-4 text-white shrink-0" />
-              <span>{success}</span>
-            </div>
-          )}
-          {error && (
-            <div className="alert alert-error bg-red-500 text-white shadow-lg text-xs rounded-xl py-3 border-none flex items-center gap-2.5 min-w-[280px]">
-              <AlertCircle className="w-4 h-4 text-white shrink-0" />
-              <span>{error}</span>
-            </div>
-          )}
-        </div>
-      )}
-
       {/* Filter and Control Bar */}
       <div className="bg-white border border-slate-150 p-4 rounded-2xl shadow-sm">
         <form onSubmit={handleSearchSubmit} className="flex flex-col md:flex-row gap-3 items-center w-full">

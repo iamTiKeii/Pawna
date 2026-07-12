@@ -9,6 +9,8 @@ import {
   ChevronDown,
   ChevronsUpDown
 } from "lucide-react";
+import { toast } from "../lib/toast";
+import { MoneyInput } from "../components/shared/MoneyInput";
 
 interface InterestType {
   id: string;
@@ -40,8 +42,6 @@ export const Commodities: React.FC = () => {
   const [commodities, setCommodities] = useState<Commodity[]>([]);
   const [interestTypes, setInterestTypes] = useState<InterestType[]>([]);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
 
   // Search & Filter
   const [searchQuery, setSearchQuery] = useState("");
@@ -74,7 +74,7 @@ export const Commodities: React.FC = () => {
 
   const [interestTypeId, setInterestTypeId] = useState("");
   const [isUpfrontInterest, setIsUpfrontInterest] = useState(false);
-  const [defaultAmount, setDefaultAmount] = useState("0");
+  const [defaultAmount, setDefaultAmount] = useState<number>(0);
   const [defaultInterestRate, setDefaultInterestRate] = useState("0");
   const [defaultPeriodValue, setDefaultPeriodValue] = useState("10");
   const [defaultLoanDays, setDefaultLoanDays] = useState("30");
@@ -86,12 +86,11 @@ export const Commodities: React.FC = () => {
   const fetchData = async () => {
     try {
       setLoading(true);
-      setError("");
       
       // Fetch commodities and interest types concurrently
       const [commRes, interestRes] = await Promise.all([
         axios.get("/api/commodities"),
-        axios.get("/api/commodities/interest-types")
+        axios.get("/api/interest-types")
       ]);
 
       setCommodities(commRes.data);
@@ -102,7 +101,7 @@ export const Commodities: React.FC = () => {
         setInterestTypeId(interestRes.data[0].id);
       }
     } catch (err: any) {
-      setError(err.response?.data?.error || "Không thể tải danh sách cấu hình.");
+      toast.error(err.response?.data?.error || "Không thể tải danh sách cấu hình.");
     } finally {
       setLoading(false);
     }
@@ -124,7 +123,7 @@ export const Commodities: React.FC = () => {
       setInterestTypeId(interestTypes[0].id);
     }
     setIsUpfrontInterest(false);
-    setDefaultAmount("0");
+    setDefaultAmount(0);
     setDefaultInterestRate("0");
     setDefaultPeriodValue("10");
     setDefaultLoanDays("30");
@@ -135,8 +134,6 @@ export const Commodities: React.FC = () => {
     setShowSectionValue(true);
     setShowSectionAttr(true);
     
-    setError("");
-    setSuccess("");
     setIsModalOpen(true);
   };
 
@@ -154,7 +151,7 @@ export const Commodities: React.FC = () => {
 
     setInterestTypeId(comm.interest_type_id);
     setIsUpfrontInterest(comm.is_upfront_interest);
-    setDefaultAmount(String(comm.default_amount));
+    setDefaultAmount(comm.default_amount);
     setDefaultInterestRate(String(comm.default_interest_rate));
     setDefaultPeriodValue(String(comm.default_period_value));
     setDefaultLoanDays(String(comm.default_loan_days));
@@ -164,21 +161,17 @@ export const Commodities: React.FC = () => {
     setShowSectionValue(true);
     setShowSectionAttr(true);
 
-    setError("");
-    setSuccess("");
     setIsModalOpen(true);
   };
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name || !code || !interestTypeId) {
-      setError("Vui lòng điền đầy đủ các thông tin bắt buộc (*)");
+      toast.warning("Vui lòng điền đầy đủ các thông tin bắt buộc (*)");
       return;
     }
 
     try {
-      setError("");
-      setSuccess("");
 
       // Serialize attributes into name
       const cleanAttrs = attributes.filter(a => a.trim() !== "");
@@ -193,7 +186,7 @@ export const Commodities: React.FC = () => {
         status,
         interest_type_id: interestTypeId,
         is_upfront_interest: isUpfrontInterest,
-        default_amount: Number(defaultAmount) || 0,
+        default_amount: defaultAmount,
         default_interest_rate: Number(defaultInterestRate) || 0,
         default_period_value: Number(defaultPeriodValue) || 10,
         default_loan_days: Number(defaultLoanDays) || 30,
@@ -202,16 +195,16 @@ export const Commodities: React.FC = () => {
 
       if (isEditMode) {
         await axios.put(`/api/commodities/${selectedId}`, payload);
-        setSuccess("Cập nhật cấu hình hàng hóa thành công!");
+        toast.success("Cập nhật cấu hình hàng hóa thành công!");
       } else {
         await axios.post("/api/commodities", payload);
-        setSuccess("Tạo cấu hình hàng hóa thành công!");
+        toast.success("Tạo cấu hình hàng hóa thành công!");
       }
 
       setIsModalOpen(false);
       fetchData();
     } catch (err: any) {
-      setError(err.response?.data?.error || "Không thể lưu cấu hình.");
+      toast.error(err.response?.data?.error || "Không thể lưu cấu hình.");
     }
   };
 
@@ -219,13 +212,11 @@ export const Commodities: React.FC = () => {
     const cleanName = comm.name.split("|")[0];
     if (!window.confirm(`Bạn có chắc chắn muốn xóa cấu hình hàng hóa "${cleanName}"?`)) return;
     try {
-      setError("");
-      setSuccess("");
       await axios.delete(`/api/commodities/${comm.id}`);
-      setSuccess("Xóa cấu hình hàng hóa thành công!");
+      toast.success(`Đã xóa cấu hình hàng hóa ${cleanName} thành công!`);
       fetchData();
     } catch (err: any) {
-      setError(err.response?.data?.error || "Không thể xóa cấu hình.");
+      toast.error(err.response?.data?.error || "Không thể xóa cấu hình.");
     }
   };
 
@@ -373,20 +364,6 @@ export const Commodities: React.FC = () => {
           <span>Thêm mới</span>
         </button>
       </div>
-
-      {error && (
-        <div className="alert alert-error text-xs p-3 rounded-xl border border-red-200 bg-red-50 text-red-800 flex items-start gap-2 shadow-sm">
-          <X className="w-4 h-4 shrink-0 mt-0.5 text-red-650" />
-          <span>{error}</span>
-        </div>
-      )}
-
-      {success && (
-        <div className="alert alert-success text-xs p-3 rounded-xl border border-green-200 bg-green-50 text-green-800 flex items-start gap-2 shadow-sm">
-          <Save className="w-4 h-4 shrink-0 mt-0.5 text-green-650" />
-          <span>{success}</span>
-        </div>
-      )}
 
       {/* Commodities Table List */}
       <div className="bg-white border border-slate-200/80 rounded-2xl overflow-hidden shadow-sm">
@@ -692,15 +669,13 @@ export const Commodities: React.FC = () => {
                     <div className="col-span-3 text-right pr-4 text-xs font-semibold text-slate-600">
                       Số tiền cầm <span className="text-red-500">*</span>
                     </div>
-                    <div className="col-span-9 relative">
-                      <input
-                        type="number"
+                    <div className="col-span-9">
+                      <MoneyInput
                         value={defaultAmount}
-                        onChange={(e) => setDefaultAmount(e.target.value)}
-                        className="input input-bordered input-sm w-full bg-white border-slate-200 focus:outline-none focus:border-amber-500 text-slate-800 text-xs rounded-lg pr-12"
+                        onChange={(val) => setDefaultAmount(val)}
+                        placeholder="0"
                         required
                       />
-                      <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[10px] text-slate-450 font-bold">VND</span>
                     </div>
 
                     {/* Interest Rate */}

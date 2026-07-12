@@ -175,8 +175,8 @@ export const StaffPermission: React.FC = () => {
   
   const [loading, setLoading] = useState(false);
   const [saveLoading, setSaveLoading] = useState(false);
-  const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
+  const setError = (msg: string) => { if (msg) toast.error(msg); };
+  const setSuccess = (msg: string) => { if (msg) toast.success(msg); };
 
   // Track collapsed parents in tree structure
   const [collapsedNodes, setCollapsedNodes] = useState<Record<string, boolean>>({
@@ -403,19 +403,7 @@ export const StaffPermission: React.FC = () => {
           </div>
         ) : (
           <form onSubmit={handleSave} className="space-y-5">
-            {error && (
-              <div className="alert alert-error text-xs p-3 rounded-xl border border-red-200 bg-red-50 text-red-800 flex items-start gap-2 shadow-sm">
-                <X className="w-4 h-4 shrink-0 mt-0.5 text-red-650" />
-                <span>{error}</span>
-              </div>
-            )}
 
-            {success && (
-              <div className="alert alert-success text-xs p-3 rounded-xl border border-green-200 bg-green-50 text-green-800 flex items-start gap-2 shadow-sm">
-                <ShieldCheck className="w-4 h-4 shrink-0 mt-0.5 text-green-650" />
-                <span>{success}</span>
-              </div>
-            )}
 
             <div className="grid grid-cols-12 gap-y-5 items-start">
               

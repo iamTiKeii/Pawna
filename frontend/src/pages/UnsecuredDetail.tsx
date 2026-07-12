@@ -6,10 +6,10 @@ import {
   Upload,
   ArrowLeft,
   PhoneCall,
-  RefreshCw,
-  CheckCircle,
-  AlertCircle
+  RefreshCw
 } from "lucide-react";
+import { toast } from "../lib/toast";
+import { MoneyInput } from "../components/shared/MoneyInput";
 
 export const UnsecuredDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -17,8 +17,12 @@ export const UnsecuredDetail: React.FC = () => {
 
   const [contract, setContract] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
+  const setError = (msg: string) => {
+    if (msg) toast.error(msg);
+  };
+  const setSuccess = (msg: string) => {
+    if (msg) toast.success(msg);
+  };
 
   const [activeSubTab, setActiveSubTab] = useState<"schedule" | "principal" | "debt" | "ledger" | "docs" | "reminders">("schedule");
 
@@ -387,24 +391,6 @@ export const UnsecuredDetail: React.FC = () => {
           </button>
         </div>
       </div>
-
-      {/* Toast notifications in top right corner */}
-      {(error || success) && (
-        <div className="fixed toast toast-top toast-end z-[99999] mt-16 mr-4 space-y-2">
-          {success && (
-            <div className="alert alert-success bg-[#0fbc98] text-white shadow-lg text-xs rounded-xl py-3 border-none flex items-center gap-2.5 min-w-[280px]">
-              <CheckCircle className="w-4 h-4 text-white shrink-0" />
-              <span>{success}</span>
-            </div>
-          )}
-          {error && (
-            <div className="alert alert-error bg-red-500 text-white shadow-lg text-xs rounded-xl py-3 border-none flex items-center gap-2.5 min-w-[280px]">
-              <AlertCircle className="w-4 h-4 text-white shrink-0" />
-              <span>{error}</span>
-            </div>
-          )}
-        </div>
-      )}
 
       {/* Top Details Grid */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
@@ -837,22 +823,19 @@ export const UnsecuredDetail: React.FC = () => {
             <form onSubmit={handlePayInterest} className="space-y-4">
               <div>
                 <label className="label text-slate-500 text-sm py-1">Tiền lãi thực thu (VNĐ) *</label>
-                <input
-                  type="number"
+                <MoneyInput
                   value={payInterestAmount}
-                  onChange={(e) => setPayInterestAmount(e.target.value)}
-                  className="input input-bordered w-full bg-white border-slate-200 text-slate-800 rounded-xl"
+                  onChange={(val) => setPayInterestAmount(String(val))}
+                  placeholder="0"
                   required
                 />
               </div>
               <div>
                 <label className="label text-slate-500 text-sm py-1">Phí phạt trễ (VNĐ)</label>
-                <input
-                  type="number"
-                  placeholder="0"
+                <MoneyInput
                   value={payInterestOther}
-                  onChange={(e) => setPayInterestOther(e.target.value)}
-                  className="input input-bordered w-full bg-slate-955 border-slate-850 text-slate-700 rounded-xl"
+                  onChange={(val) => setPayInterestOther(String(val))}
+                  placeholder="0"
                 />
               </div>
               <div>
@@ -896,12 +879,10 @@ export const UnsecuredDetail: React.FC = () => {
               </div>
               <div>
                 <label className="label text-slate-500 text-sm py-1">Số tiền gốc (VNĐ) *</label>
-                <input
-                  type="number"
-                  placeholder="5000000"
+                <MoneyInput
                   value={principalAmount}
-                  onChange={(e) => setPrincipalAmount(e.target.value)}
-                  className="input input-bordered w-full bg-slate-50 border-slate-200/80 text-slate-700 rounded-xl"
+                  onChange={(val) => setPrincipalAmount(String(val))}
+                  placeholder="Ví dụ: 5.000.000"
                   required
                 />
               </div>
@@ -985,12 +966,10 @@ export const UnsecuredDetail: React.FC = () => {
               </div>
               <div>
                 <label className="label text-slate-500 text-sm py-1">Phí phát sinh thêm / Phí giảm trừ (VNĐ)</label>
-                <input
-                  type="number"
-                  placeholder="0"
+                <MoneyInput
                   value={redeemOther}
-                  onChange={(e) => setRedeemOther(e.target.value)}
-                  className="input input-bordered w-full bg-slate-50 border-slate-200/80 text-slate-700 rounded-xl"
+                  onChange={(val) => setRedeemOther(String(val))}
+                  placeholder="0"
                 />
               </div>
               <div>
@@ -1043,11 +1022,10 @@ export const UnsecuredDetail: React.FC = () => {
               </div>
               <div>
                 <label className="label text-slate-500 text-sm py-1">Số tiền nợ (VNĐ) *</label>
-                <input
-                  type="number"
+                <MoneyInput
                   value={debtAmount}
-                  onChange={(e) => setDebtAmount(e.target.value)}
-                  className="input input-bordered w-full bg-slate-50 border-slate-200/80 text-slate-700 rounded-xl"
+                  onChange={(val) => setDebtAmount(String(val))}
+                  placeholder="0"
                   required
                 />
               </div>

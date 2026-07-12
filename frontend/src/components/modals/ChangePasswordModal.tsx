@@ -12,8 +12,8 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({ isOpen
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
+  const setError = (msg: string) => { if (msg) toast.error(msg); };
+  const setSuccess = (msg: string) => { if (msg) toast.success(msg); };
   
   const [showOld, setShowOld] = useState(false);
   const [showNew, setShowNew] = useState(false);

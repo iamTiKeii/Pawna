@@ -2,6 +2,8 @@ import React, { useEffect, useState } from "react";
 import axios from "axios";
 import { useAuth } from "../context/AuthContext";
 import { Wallet, History, ArrowUpRight, ArrowDownRight, RefreshCw, CalendarRange } from "lucide-react";
+import { toast } from "../lib/toast";
+import { MoneyInput } from "../components/shared/MoneyInput";
 
 interface CashHistory {
   id: string;
@@ -19,12 +21,12 @@ export const CashFund: React.FC = () => {
   const [summary, setSummary] = useState<any>(null);
   const [history, setHistory] = useState<CashHistory[]>([]);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
+  const setError = (msg: string) => { if (msg) toast.error(msg); };
+  const setSuccess = (msg: string) => { if (msg) toast.success(msg); };
 
   // Adjustment Modal Form
   const [isAdjustOpen, setIsAdjustOpen] = useState(false);
-  const [amount, setAmount] = useState("");
+  const [amount, setAmount] = useState<number>(0);
   const [actionType, setActionType] = useState<"deposit" | "withdraw">("deposit");
   const [description, setDescription] = useState("");
 
@@ -52,12 +54,12 @@ export const CashFund: React.FC = () => {
 
   const handleAdjust = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!amount || Number(amount) <= 0) return;
+    if (!amount || amount <= 0) return;
 
     try {
       setError("");
       setSuccess("");
-      const adjVal = Number(amount);
+      const adjVal = amount;
       const netAmount = actionType === "deposit" ? adjVal : -adjVal;
 
       await axios.post("/api/cash/adjust", {
@@ -67,7 +69,7 @@ export const CashFund: React.FC = () => {
       });
 
       setSuccess("Điều chỉnh quỹ két thủ công thành công!");
-      setAmount("");
+      setAmount(0);
       setDescription("");
       setIsAdjustOpen(false);
       fetchData();
@@ -127,17 +129,7 @@ export const CashFund: React.FC = () => {
         </div>
       </div>
 
-      {error && (
-        <div className="alert alert-error bg-red-500/10 border-red-500/30 text-red-200 text-sm rounded-xl">
-          <span>{error}</span>
-        </div>
-      )}
 
-      {success && (
-        <div className="alert alert-success bg-emerald-500/10 border-emerald-500/30 text-emerald-200 text-sm rounded-xl">
-          <span>{success}</span>
-        </div>
-      )}
 
       {/* Stats Cards */}
       {summary && (
@@ -239,12 +231,10 @@ export const CashFund: React.FC = () => {
               </div>
               <div>
                 <label className="label text-slate-600 font-semibold text-sm">Số tiền mặt (VNĐ) *</label>
-                <input
-                  type="number"
-                  placeholder="20000000"
+                <MoneyInput
                   value={amount}
-                  onChange={(e) => setAmount(e.target.value)}
-                  className="input input-bordered w-full bg-slate-955 border-slate-200/80 text-slate-800 rounded-xl"
+                  onChange={(val) => setAmount(val)}
+                  placeholder="20000000"
                   required
                 />
               </div>

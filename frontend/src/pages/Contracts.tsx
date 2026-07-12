@@ -25,6 +25,8 @@ import {
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { PawnDetail } from "./PawnDetail";
+import { toast } from "../lib/toast";
+import { MoneyInput } from "../components/shared/MoneyInput";
 
 export const Contracts: React.FC = () => {
   const { activeStore } = useAuth();
@@ -61,7 +63,6 @@ export const Contracts: React.FC = () => {
   const [commodityIdFilter, setCommodityIdFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("all_active"); // all_active, closed, overdue, all
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
 
   // Helpers choice lists
   const [customers, setCustomers] = useState<any[]>([]);
@@ -140,7 +141,6 @@ export const Contracts: React.FC = () => {
     if (!activeStore) return;
     try {
       setLoading(true);
-      setError("");
       
       if (activeTab === "pawn") {
         const res = await axios.get(`/api/contracts/pawn?search=${search}`);
@@ -153,7 +153,7 @@ export const Contracts: React.FC = () => {
         setInstallmentList(res.data);
       }
     } catch (err: any) {
-      setError(err.response?.data?.error || "Lỗi tải danh sách hợp đồng.");
+      toast.error(err.response?.data?.error || "Lỗi tải danh sách hợp đồng.");
     } finally {
       setLoading(false);
     }
@@ -496,7 +496,7 @@ export const Contracts: React.FC = () => {
       let finalCustomerId = pCustomerId;
       if (customerType === "new") {
         if (!newCustName) {
-          setError("Vui lòng nhập tên khách hàng mới");
+          toast.warning("Vui lòng nhập tên khách hàng mới");
           return;
         }
         const custRes = await axios.post("/api/customers", {
@@ -510,7 +510,7 @@ export const Contracts: React.FC = () => {
       }
 
       if (!finalCustomerId) {
-        setError("Vui lòng chọn hoặc nhập khách hàng");
+        toast.warning("Vui lòng chọn hoặc nhập khách hàng");
         return;
       }
 
@@ -536,8 +536,10 @@ export const Contracts: React.FC = () => {
 
       if (editingId) {
         await axios.put(`/api/contracts/pawn/${editingId}`, payload);
+        toast.success("Cập nhật hợp đồng cầm đồ thành công!");
       } else {
         await axios.post("/api/contracts/pawn", payload);
+        toast.success("Tạo mới hợp đồng cầm đồ thành công!");
       }
 
       setIsPawnOpen(false);
@@ -548,70 +550,70 @@ export const Contracts: React.FC = () => {
       fetchContracts();
       fetchCashSummary();
     } catch (err: any) {
-      setError(err.response?.data?.error || "Lỗi lưu hợp đồng cầm đồ.");
+      toast.error(err.response?.data?.error || "Lỗi lưu hợp đồng cầm đồ.");
     }
   };
 
   const handleCreateUnsecured = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      setError("");
       await axios.post("/api/contracts/unsecured", {
         customer_id: uCustomerId,
         commodity_id: uCommodityId || undefined,
-        loan_amount: uLoanAmount,
+        loan_amount: Number(uLoanAmount),
         interest_type_id: uInterestTypeId,
         is_upfront_interest: uIsUpfront,
-        loan_days: uLoanDays,
-        period_value: uPeriodValue,
-        interest_rate: uInterestRate,
+        loan_days: Number(uLoanDays),
+        period_value: Number(uPeriodValue),
+        interest_rate: Number(uInterestRate),
         loan_date: uLoanDate || undefined,
         collector_id: uCollectorId,
         collaborator_id: uCollaboratorId || undefined,
         notes: uNotes || undefined,
       });
+      toast.success("Tạo mới hợp đồng tín chấp thành công!");
       setIsUnsecuredOpen(false);
       fetchContracts();
       fetchCashSummary();
     } catch (err: any) {
-      setError(err.response?.data?.error || "Lỗi tạo hợp đồng tín chấp.");
+      toast.error(err.response?.data?.error || "Lỗi tạo hợp đồng tín chấp.");
     }
   };
 
   const handleCreateInstallment = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      setError("");
       await axios.post("/api/contracts/installment", {
         customer_id: iCustomerId,
-        repayment_amount: iRepaymentAmount,
-        disbursed_amount: iDisbursedAmount,
+        repayment_amount: Number(iRepaymentAmount),
+        disbursed_amount: Number(iDisbursedAmount),
         period_type: iPeriodType,
-        loan_duration: iLoanDuration,
-        cycle_days: iCycleDays,
+        loan_duration: Number(iLoanDuration),
+        cycle_days: Number(iCycleDays),
         is_upfront_collected: iIsUpfront,
         loan_date: iLoanDate || undefined,
         collector_id: iCollectorId,
         collaborator_id: iCollaboratorId || undefined,
         notes: iNotes || undefined,
       });
+      toast.success("Tạo mới hợp đồng trả góp thành công!");
       setIsInstallmentOpen(false);
       fetchContracts();
       fetchCashSummary();
     } catch (err: any) {
-      setError(err.response?.data?.error || "Lỗi tạo hợp đồng trả góp.");
+      toast.error(err.response?.data?.error || "Lỗi tạo hợp đồng trả góp.");
     }
   };
 
   const handleDeletePawnRow = async (contractId: string, contractCode: string) => {
     if (!window.confirm(`Bạn có chắc chắn muốn xóa hợp đồng ${contractCode}? Dòng tiền liên quan sẽ bị đảo ngược khỏi quỹ két để cân đối sổ sách.`)) return;
     try {
-      setError("");
       await axios.delete(`/api/contracts/pawn/${contractId}`);
+      toast.success(`Đã xóa hợp đồng ${contractCode} thành công!`);
       fetchContracts();
       fetchCashSummary();
     } catch (err: any) {
-      setError(err.response?.data?.error || "Không thể xóa hợp đồng.");
+      toast.error(err.response?.data?.error || "Không thể xóa hợp đồng.");
     }
   };
 
@@ -740,12 +742,6 @@ export const Contracts: React.FC = () => {
           </button>
         </div>
       </div>
-
-      {error && (
-        <div className="alert alert-error bg-red-500/10 border-red-500/30 text-red-200 text-sm rounded-xl">
-          <span>{error}</span>
-        </div>
-      )}
 
       {/* SUMMARY BOXES ROW matching Image 1 */}
       {activeTab === "pawn" && (
@@ -1359,13 +1355,13 @@ export const Contracts: React.FC = () => {
                       </label>
                       <div className="grow">
                         <div className="flex items-center border border-slate-200 rounded-lg overflow-hidden bg-white w-full max-w-[220px] h-8">
-                          <input
-                            type="number"
-                            placeholder="0"
+                          <MoneyInput
                             value={pLoanAmount}
-                            onChange={(e) => setPLoanAmount(e.target.value)}
-                            className="grow px-3 text-slate-850 h-full font-bold focus:outline-none bg-white text-left text-xs"
+                            onChange={(val) => setPLoanAmount(String(val))}
+                            placeholder="0"
                             required
+                            className="grow px-3 text-slate-850 h-full font-bold focus:outline-none bg-white text-left text-xs border-none"
+                            suffix=""
                           />
                           <span className="bg-slate-50 text-slate-400 px-3 h-full flex items-center border-l border-slate-200 text-[10px] font-bold shrink-0 select-none">
                             VNĐ
@@ -1722,13 +1718,12 @@ export const Contracts: React.FC = () => {
 
               <div>
                 <label className="label text-slate-600 font-semibold py-1">Số tiền giải ngân vay nợ (VNĐ) *</label>
-                <input
-                  type="number"
-                  placeholder="10000000"
+                <MoneyInput
                   value={uLoanAmount}
-                  onChange={(e) => setULoanAmount(e.target.value)}
-                  className="input input-bordered w-full bg-white border-slate-200 text-slate-800 rounded-xl input-sm focus:border-amber-500"
+                  onChange={(val) => setULoanAmount(String(val))}
+                  placeholder="10000000"
                   required
+                  className="bg-white border-slate-200 text-slate-800 rounded-xl input-sm focus:border-amber-500"
                 />
               </div>
 
@@ -1897,24 +1892,23 @@ export const Contracts: React.FC = () => {
                 <div>
                   <label className="label text-slate-600 font-semibold py-1">Tổng tiền phải trả góp (Gốc + Lãi) *</label>
                   <input
-                    type="number"
-                    placeholder="12000000"
-                    value={iRepaymentAmount}
-                    onChange={(e) => setIRepaymentAmount(e.target.value)}
-                    className="input input-bordered w-full bg-white border-slate-200 text-slate-800 rounded-xl input-sm focus:border-amber-500"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="label text-slate-600 font-semibold py-1">Tiền thực giao cho khách vay *</label>
-                  <input
-                    type="number"
-                    placeholder="10000000"
-                    value={iDisbursedAmount}
-                    onChange={(e) => setIDisbursedAmount(e.target.value)}
-                    className="input input-bordered w-full bg-white border-slate-200 text-slate-800 rounded-xl input-sm focus:border-amber-500"
-                    required
-                  />
+                <MoneyInput
+                  value={iRepaymentAmount}
+                  onChange={(val) => setIRepaymentAmount(String(val))}
+                  placeholder="12000000"
+                  required
+                  className="bg-white border-slate-200 text-slate-800 rounded-xl input-sm focus:border-amber-500"
+                />
+              </div>
+              <div>
+                <label className="label text-slate-600 font-semibold py-1">Tiền thực giao cho khách vay *</label>
+                <MoneyInput
+                  value={iDisbursedAmount}
+                  onChange={(val) => setIDisbursedAmount(String(val))}
+                  placeholder="10000000"
+                  required
+                  className="bg-white border-slate-200 text-slate-800 rounded-xl input-sm focus:border-amber-500"
+                />
                 </div>
               </div>
 
