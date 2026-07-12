@@ -3,6 +3,7 @@ import axios from "axios";
 import { useParams, Link } from "react-router-dom";
 import {
   Upload,
+  ArrowLeft,
   X,
   Coins,
   ArrowDown,
@@ -1111,7 +1112,22 @@ export const UnsecuredDetail: React.FC<UnsecuredDetailProps> = ({ idProp, onClos
   }
 
   return (
-    <div className="container mx-auto p-4 md:p-6 max-w-6xl">
+    <div className="container mx-auto p-4 md:p-6 max-w-6xl space-y-4">
+      <div className="flex justify-between items-center bg-white border border-slate-200/80 p-4 rounded-xl shadow-sm">
+        <div className="flex items-center gap-3">
+          <Link
+            to="/contracts"
+            className="btn btn-outline border-slate-200 text-slate-600 btn-sm rounded-lg flex items-center gap-1 font-bold text-xs"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            Quay lại
+          </Link>
+          <h1 className="text-base font-extrabold text-slate-800 flex items-center gap-2">
+            <BookOpen className="w-5 h-5 text-slate-800" />
+            Chi tiết hợp đồng tín chấp {contract.contract_code}
+          </h1>
+        </div>
+      </div>
       {contentJSX}
     </div>
   );

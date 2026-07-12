@@ -122,7 +122,7 @@ export const Contracts: React.FC = () => {
   const [uCollaboratorId, setUCollaboratorId] = useState("");
   const [uNotes, setUNotes] = useState("");
   const [uContractCodeNumber, setUContractCodeNumber] = useState<number>(1);
-  const [uAssetName, setUAssetName] = useState("");
+
 
   // Installment form fields
   const [iCustomerId, setICustomerId] = useState("");
@@ -268,19 +268,28 @@ export const Contracts: React.FC = () => {
     } else if (activeTab === "unsecured") {
       filename = "Hop_Dong_Tin_Chap";
       headers = [
-        "Mã HĐ", "Khách hàng", "SĐT Khách hàng", "Số nợ vay gốc (VNĐ)", 
-        "Mốc vay", "Hạn vay (Ngày)", "Lãi suất (%)", "Trạng thái"
+        "Mã HĐ", "Khách hàng", "SĐT Khách hàng", "Tài sản", "Tiền vay (VNĐ)", 
+        "Ngày vay", "Lãi đã đóng (VNĐ)", "Nợ cũ (VNĐ)", "Lãi đến hôm nay (VNĐ)", 
+        "Ngày phải đóng", "Trạng thái"
       ];
-      rows = unsecuredList.map((item) => [
-        item.contract_code,
-        item.customer?.full_name || "",
-        item.customer?.phone || "",
-        Number(item.loan_amount || 0),
-        item.loan_date ? new Date(item.loan_date).toLocaleDateString("vi-VN") : "",
-        item.loan_days || 0,
-        Number(item.interest_rate || 0),
-        item.status === "active" ? "Đang chạy" : "Đã đóng"
-      ]);
+      rows = unsecuredList.map((item) => {
+        const nextPayDate = getNextPaymentDate(item);
+        const accruedInt = getAccruedInterest(item);
+        const paidInt = getPaidInterest(item);
+        return [
+          item.contract_code,
+          item.customer?.full_name || "",
+          item.customer?.phone || "",
+          item.commodity?.name?.split("|")[0] || "Tín chấp",
+          Number(item.loan_amount || 0),
+          item.loan_date ? new Date(item.loan_date).toLocaleDateString("vi-VN") : "",
+          paidInt,
+          Number(item.debt_amount || 0),
+          accruedInt,
+          nextPayDate ? nextPayDate.toLocaleDateString("vi-VN") : "",
+          item.status === "active" ? "Đang chạy" : "Đã đóng"
+        ];
+      });
     } else {
       filename = "Hop_Dong_Tra_Gop";
       headers = [
@@ -449,7 +458,7 @@ export const Contracts: React.FC = () => {
     } else if (activeTab === "unsecured") {
       setUCustomerId("");
       setUCommodityId("");
-      setUAssetName("");
+
       setULoanAmount("");
       if (interestTypes.length > 0) {
         const dailyKMil = interestTypes.find(t => t.code === "daily_k_million");
@@ -547,33 +556,60 @@ export const Contracts: React.FC = () => {
 
   const openEditModal = (item: any) => {
     setEditingId(item.id);
-    setPCustomerId(item.customer_id);
     setCustomerType("existing");
-    setPCommodityId(item.commodity_id);
-    setPAssetName(item.asset_name);
-    setPLoanAmount(String(Number(item.loan_amount)));
-    setPInterestTypeId(item.interest_type_id);
-    setPIsUpfront(item.is_upfront_interest);
-    setPLoanDays(String(item.loan_days));
-    setPPeriodValue(String(item.period_value));
-    setPInterestRate(String(Number(item.interest_rate)));
-    
-    const d = new Date(item.loan_date);
-    const dateStr = d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
-    setPLoanDate(dateStr);
-    
-    setPCollectorId(item.collector_id);
-    setPCollaboratorId(item.collaborator_id || "");
-    setPLicensePlate(item.license_plate || "");
-    setPChassisNumber(item.chassis_number || "");
-    setPEngineNumber(item.engine_number || "");
-    setPNotes(item.notes || "");
-    
-    const match = item.contract_code?.match(/\d+/);
-    if (match) {
-      setPContractCodeNumber(Number(match[0]));
+
+    if (activeTab === "pawn") {
+      setPCustomerId(item.customer_id);
+      setPCommodityId(item.commodity_id);
+      setPAssetName(item.asset_name);
+      setPLoanAmount(String(Number(item.loan_amount)));
+      setPInterestTypeId(item.interest_type_id);
+      setPIsUpfront(item.is_upfront_interest);
+      setPLoanDays(String(item.loan_days));
+      setPPeriodValue(String(item.period_value));
+      setPInterestRate(String(Number(item.interest_rate)));
+      
+      const d = new Date(item.loan_date);
+      const dateStr = d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+      setPLoanDate(dateStr);
+      
+      setPCollectorId(item.collector_id);
+      setPCollaboratorId(item.collaborator_id || "");
+      setPLicensePlate(item.license_plate || "");
+      setPChassisNumber(item.chassis_number || "");
+      setPEngineNumber(item.engine_number || "");
+      setPNotes(item.notes || "");
+      
+      const match = item.contract_code?.match(/\d+/);
+      if (match) {
+        setPContractCodeNumber(Number(match[0]));
+      }
+      setIsPawnOpen(true);
+    } else if (activeTab === "unsecured") {
+      setUCustomerId(item.customer_id);
+      setUCommodityId(item.commodity_id || "");
+
+      setULoanAmount(String(Number(item.loan_amount)));
+      setUInterestTypeId(item.interest_type_id);
+      setUIsUpfront(item.is_upfront_interest);
+      setULoanDays(String(item.loan_days));
+      setUPeriodValue(String(item.period_value));
+      setUInterestRate(String(Number(item.interest_rate)));
+      
+      const d = new Date(item.loan_date);
+      const dateStr = d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+      setULoanDate(dateStr);
+      
+      setUCollectorId(item.collector_id);
+      setUCollaboratorId(item.collaborator_id || "");
+      setUNotes(item.notes || "");
+      
+      const match = item.contract_code?.match(/\d+/);
+      if (match) {
+        setUContractCodeNumber(Number(match[0]));
+      }
+      setIsUnsecuredOpen(true);
     }
-    setIsPawnOpen(true);
   };
 
   const handleCreatePawn = async (e: React.FormEvent) => {
@@ -643,8 +679,29 @@ export const Contracts: React.FC = () => {
   const handleCreateUnsecured = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      await axios.post("/api/contracts/unsecured", {
-        customer_id: uCustomerId,
+      let finalCustomerId = uCustomerId;
+      if (customerType === "new") {
+        if (!newCustName) {
+          toast.warning("Vui lòng nhập tên khách hàng mới");
+          return;
+        }
+        const custRes = await axios.post("/api/customers", {
+          full_name: newCustName,
+          phone: newCustPhone || undefined,
+          identity_card_number: newCustCard || undefined,
+          address: newCustAddress || undefined,
+        });
+        finalCustomerId = custRes.data.id;
+        fetchHelpers();
+      }
+
+      if (!finalCustomerId) {
+        toast.warning("Vui lòng chọn hoặc nhập khách hàng");
+        return;
+      }
+
+      const payload = {
+        customer_id: finalCustomerId,
         commodity_id: uCommodityId || undefined,
         loan_amount: Number(uLoanAmount),
         interest_type_id: uInterestTypeId,
@@ -656,13 +713,26 @@ export const Contracts: React.FC = () => {
         collector_id: uCollectorId,
         collaborator_id: uCollaboratorId || undefined,
         notes: uNotes || undefined,
-      });
-      toast.success("Tạo mới hợp đồng tín chấp thành công!");
+        contract_code: `TC-${uContractCodeNumber}`
+      };
+
+      if (editingId) {
+        await axios.put(`/api/contracts/unsecured/${editingId}`, payload);
+        toast.success("Cập nhật hợp đồng tín chấp thành công!");
+      } else {
+        await axios.post("/api/contracts/unsecured", payload);
+        toast.success("Tạo mới hợp đồng tín chấp thành công!");
+      }
+
       setIsUnsecuredOpen(false);
+      setNewCustName("");
+      setNewCustPhone("");
+      setNewCustCard("");
+      setNewCustAddress("");
       fetchContracts();
       fetchCashSummary();
     } catch (err: any) {
-      toast.error(err.response?.data?.error || "Lỗi tạo hợp đồng tín chấp.");
+      toast.error(err.response?.data?.error || "Lỗi lưu hợp đồng tín chấp.");
     }
   };
 
@@ -808,12 +878,37 @@ export const Contracts: React.FC = () => {
   const totalPaidInterest = filteredPawnList.reduce((sum, item) => sum + getPaidInterest(item), 0);
   const cashFundVal = cashSummary ? Number(cashSummary.current_cash || 0) : 50000000;
 
+  // Local filtering logic for Unsecured Contracts
+  const filteredUnsecuredList = unsecuredList.filter((item) => {
+    if (search) {
+      const q = search.toLowerCase();
+      const codeMatch = item.contract_code?.toLowerCase().includes(q);
+      const nameMatch = item.customer?.full_name?.toLowerCase().includes(q);
+      const phoneMatch = item.customer?.phone?.toLowerCase().includes(q);
+      const cardMatch = item.customer?.identity_card_number?.toLowerCase().includes(q);
+      if (!codeMatch && !nameMatch && !phoneMatch && !cardMatch) {
+        return false;
+      }
+    }
+    if (statusFilter === "all_active") {
+      if (item.status !== "active") return false;
+    } else if (statusFilter === "closed") {
+      if (item.status !== "closed" && item.status !== "redeemed") return false;
+    } else if (statusFilter === "overdue") {
+      if (item.status !== "active") return false;
+      const nextDate = getNextPaymentDate(item);
+      if (!nextDate || nextDate.getTime() >= new Date().getTime()) {
+        return false;
+      }
+    }
+    return true;
+  });
+
   // Unsecured stats calculations
-  const activeUnsecuredList = unsecuredList.filter((item) => item.status === "active");
-  const totalUnsecuredLent = activeUnsecuredList.reduce((sum, item) => sum + Number(item.loan_amount || 0), 0);
-  const totalUnsecuredDebt = activeUnsecuredList.reduce((sum, item) => sum + Number(item.debt_amount || 0), 0);
-  const totalUnsecuredExpectedInterest = activeUnsecuredList.reduce((sum, item) => sum + getAccruedInterest(item), 0);
-  const totalUnsecuredPaidInterest = unsecuredList.reduce((sum, item) => sum + getPaidInterest(item), 0);
+  const totalUnsecuredLent = filteredUnsecuredList.filter(item => item.status === "active").reduce((sum, item) => sum + Number(item.loan_amount || 0), 0);
+  const totalUnsecuredDebt = filteredUnsecuredList.filter(item => item.status === "active").reduce((sum, item) => sum + Number(item.debt_amount || 0), 0);
+  const totalUnsecuredExpectedInterest = filteredUnsecuredList.filter(item => item.status === "active").reduce((sum, item) => sum + getAccruedInterest(item), 0);
+  const totalUnsecuredPaidInterest = filteredUnsecuredList.reduce((sum, item) => sum + getPaidInterest(item), 0);
 
   const getUnsecuredInterestSubtext = (item: any) => {
     if (!item.interest_type) return "";
@@ -905,10 +1000,10 @@ export const Contracts: React.FC = () => {
       })()}
 
       {/* FILTER CONTROLS ROW matching Image 1 */}
-      {activeTab === "pawn" ? (
-        <div className="grid grid-cols-1 md:grid-cols-7 gap-2 items-center bg-slate-50 border border-slate-200/80 p-3 rounded-2xl">
+      {(activeTab === "pawn" || activeTab === "unsecured") ? (
+        <div className={`grid grid-cols-1 ${activeTab === "pawn" ? "md:grid-cols-7" : "md:grid-cols-7"} gap-2 items-center bg-slate-50 border border-slate-200/80 p-3 rounded-2xl`}>
           {/* Search customer */}
-          <div className="relative md:col-span-2">
+          <div className={`relative ${activeTab === "pawn" ? "md:col-span-2" : "md:col-span-3"}`}>
             <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-400">
               <Search className="w-4 h-4" />
             </span>
@@ -921,33 +1016,37 @@ export const Contracts: React.FC = () => {
             />
           </div>
 
-          {/* Search asset */}
-          <div className="relative md:col-span-1">
-            <input
-              type="text"
-              placeholder="Tìm theo tài sản"
-              value={searchAsset}
-              onChange={(e) => setSearchAsset(e.target.value)}
-              className="input input-bordered w-full bg-white border-slate-200 text-slate-800 text-xs focus:border-amber-500 focus:outline-none rounded-xl"
-            />
-          </div>
+          {activeTab === "pawn" ? (
+            <>
+              {/* Search asset */}
+              <div className="relative md:col-span-1">
+                <input
+                  type="text"
+                  placeholder="Tìm theo tài sản"
+                  value={searchAsset}
+                  onChange={(e) => setSearchAsset(e.target.value)}
+                  className="input input-bordered w-full bg-white border-slate-200 text-slate-800 text-xs focus:border-amber-500 focus:outline-none rounded-xl"
+                />
+              </div>
 
-          {/* Dropdown Types */}
-          <div className="md:col-span-1">
-            <select
-              value={commodityIdFilter}
-              onChange={(e) => setCommodityIdFilter(e.target.value)}
-              className="select select-bordered w-full bg-white border-slate-200 text-slate-800 text-xs focus:border-amber-500 focus:outline-none rounded-xl"
-            >
-              <option value="">Loại tài sản</option>
-              {commodities.map((c) => (
-                <option key={c.id} value={c.id}>{c.name.split("|")[0]}</option>
-              ))}
-            </select>
-          </div>
+              {/* Dropdown Types */}
+              <div className="md:col-span-1">
+                <select
+                  value={commodityIdFilter}
+                  onChange={(e) => setCommodityIdFilter(e.target.value)}
+                  className="select select-bordered w-full bg-white border-slate-200 text-slate-800 text-xs focus:border-amber-500 focus:outline-none rounded-xl"
+                >
+                  <option value="">Loại tài sản</option>
+                  {commodities.map((c) => (
+                    <option key={c.id} value={c.id}>{c.name.split("|")[0]}</option>
+                  ))}
+                </select>
+              </div>
+            </>
+          ) : null}
 
           {/* Dropdown Contract status */}
-          <div className="md:col-span-1">
+          <div className={`${activeTab === "pawn" ? "md:col-span-1" : "md:col-span-2"}`}>
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
@@ -962,7 +1061,7 @@ export const Contracts: React.FC = () => {
 
           {/* Buttons: Lọc, + Thêm mới, ... */}
           <div className="md:col-span-2 flex gap-1.5 w-full justify-end">
-            <button onClick={fetchContracts} className="btn btn-outline border-slate-200 text-slate-700 btn-sm text-xs rounded-xl flex items-center gap-1">
+            <button onClick={fetchContracts} className="btn btn-outline border-blue-200 text-blue-500 hover:bg-blue-50 btn-sm text-xs rounded-xl flex items-center gap-1">
               <Filter className="w-3.5 h-3.5" />
               Lọc
             </button>
@@ -1176,7 +1275,7 @@ export const Contracts: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {unsecuredList.map((item, index) => {
+                  {filteredUnsecuredList.map((item, index) => {
                     const nextPayDate = getNextPaymentDate(item);
                     const accruedInt = getAccruedInterest(item);
                     const elapsedDays = getAccruedDays(item);
@@ -1287,7 +1386,7 @@ export const Contracts: React.FC = () => {
                   })}
 
                   {/* Summary Totals Row matching Image 1 */}
-                  {unsecuredList.length > 0 && (
+                  {filteredUnsecuredList.length > 0 && (
                     <tr className="bg-slate-50/50 border-t border-b border-slate-200 text-xs font-extrabold">
                       <td colSpan={4} className="text-right py-3.5 text-red-600">Tổng tiền:</td>
                       <td className="text-red-600">{formatCurrency(totalUnsecuredLent).replace("₫", "")}</td>
@@ -2060,26 +2159,17 @@ export const Contracts: React.FC = () => {
 
                   <div className="flex items-center pt-2">
                     <label className={labelClass}>Loại tài sản *</label>
-                    <div className="flex-1 flex gap-2">
-                      <select
-                        value={uCommodityId}
-                        onChange={(e) => handleUnsecuredCommodityChange(e.target.value)}
-                        className="select select-bordered select-sm w-1/2 bg-white border-slate-200 rounded-lg text-slate-800 font-semibold text-xs h-8 min-h-[32px] focus:outline-none"
-                        required
-                      >
-                        <option value="">-- Chọn loại hàng hóa --</option>
-                        {commodities.filter(c => c.category === "unsecured").map((c) => (
-                          <option key={c.id} value={c.id}>{c.name.split("|")[0]} ({c.code})</option>
-                        ))}
-                      </select>
-                      <input
-                        type="text"
-                        placeholder="Tên tài sản. VD: Honda SH 150i"
-                        value={uAssetName}
-                        onChange={(e) => setUAssetName(e.target.value)}
-                        className="input input-bordered input-sm w-1/2 bg-white border-slate-200 rounded-lg text-slate-800 text-xs h-8 focus:outline-none"
-                      />
-                    </div>
+                    <select
+                      value={uCommodityId}
+                      onChange={(e) => handleUnsecuredCommodityChange(e.target.value)}
+                      className="select select-bordered select-sm flex-1 bg-white border-slate-200 rounded-lg text-slate-800 font-semibold text-xs h-8 min-h-[32px] focus:outline-none"
+                      required
+                    >
+                      <option value="">-- Chọn loại hàng hóa --</option>
+                      {commodities.filter(c => c.category === "unsecured").map((c) => (
+                        <option key={c.id} value={c.id}>{c.name.split("|")[0]} ({c.code})</option>
+                      ))}
+                    </select>
                   </div>
 
                   <div className="flex items-center">
@@ -2640,8 +2730,11 @@ export const Contracts: React.FC = () => {
           ? new Date(new Date(activePrintContract.loan_date).getTime() + (activePrintContract.loan_days * 24 * 60 * 60 * 1000)).toLocaleDateString("vi-VN")
           : "";
 
-        const assetType = activePrintContract.commodity?.name?.split("|")[0] || "Tài sản";
-        const assetDetailParts = [
+        const isUnsecuredPrint = activePrintContract.contract_code?.startsWith("TC-") || activePrintContract.commodity?.category === "unsecured";
+        const assetType = isUnsecuredPrint
+          ? (activePrintContract.commodity?.name?.split("|")[0] || "Cho vay tín chấp")
+          : (activePrintContract.commodity?.name?.split("|")[0] || "Tài sản");
+        const assetDetailParts = isUnsecuredPrint ? [] : [
           activePrintContract.asset_name,
           activePrintContract.license_plate ? `Biển kiểm soát: ${activePrintContract.license_plate}` : "",
           activePrintContract.chassis_number ? `Số khung: ${activePrintContract.chassis_number}` : "",
@@ -2681,13 +2774,19 @@ export const Contracts: React.FC = () => {
                         <tbody>
                           <tr>
                             <td className="w-[45%] text-center align-top">
-                              <div className="font-bold text-[12px] uppercase">CẦM ĐỒ {storeDetails.name}</div>
+                              <div className="font-bold text-[12px] uppercase">
+                                {isUnsecuredPrint ? "GIAO DỊCH" : "CẦM ĐỒ"} {storeDetails.name}
+                              </div>
                               <div className="text-[9px] mt-1">Hotline: <strong>{storeDetails.phone}</strong></div>
                               <div className="text-[9px]">Mã Giao Dịch: <strong>{activePrintContract.contract_code}</strong></div>
                             </td>
                             <td className="w-[55%] text-center align-top">
-                              <div className="font-bold text-[13px] uppercase">HỢP ĐỒNG CẦM ĐỒ</div>
-                              <div className="italic text-[9px]">(Kiêm phiếu chi tiền mặt)</div>
+                              <div className="font-bold text-[13px] uppercase">
+                                {isUnsecuredPrint ? "HỢP ĐỒNG CHO VAY TÍN CHẤP" : "HỢP ĐỒNG CẦM ĐỒ"}
+                              </div>
+                              <div className="italic text-[9px]">
+                                {isUnsecuredPrint ? "(Tự nguyện dân sự)" : "(Kiêm phiếu chi tiền mặt)"}
+                              </div>
                               <div className="text-[9px] mt-1">Ngày: <strong>{loanStartDateStr}</strong></div>
                             </td>
                           </tr>
@@ -2695,11 +2794,15 @@ export const Contracts: React.FC = () => {
                       </table>
 
                       {/* Bên cho vay */}
-                      <div className="font-bold border-b border-black text-[10px] uppercase mt-4 mb-2">BÊN CHO VAY</div>
+                      <div className="font-bold border-b border-black text-[10px] uppercase mt-4 mb-2">
+                        {isUnsecuredPrint ? "BÊN CHO VAY" : "BÊN CHO VAY / NHẬN CẦM"}
+                      </div>
                       <table className="w-full border-collapse mb-3 text-[10px]">
                         <tbody>
                           <tr>
-                            <td className="font-bold w-[120px] py-0.5">Bên nhận cầm:</td>
+                            <td className="font-bold w-[120px] py-0.5">
+                              {isUnsecuredPrint ? "Bên cho vay:" : "Bên nhận cầm:"}
+                            </td>
                             <td className="font-bold uppercase py-0.5">{storeDetails.name}</td>
                           </tr>
                           <tr>
@@ -2719,7 +2822,9 @@ export const Contracts: React.FC = () => {
                       </table>
 
                       {/* Bên vay */}
-                      <div className="font-bold border-b border-black text-[10px] uppercase mt-4 mb-2">BÊN VAY (BÊN CẦM TÀI SẢN)</div>
+                      <div className="font-bold border-b border-black text-[10px] uppercase mt-4 mb-2">
+                        {isUnsecuredPrint ? "BÊN VAY TIỀN" : "BÊN VAY (BÊN CẦM TÀI SẢN)"}
+                      </div>
                       <table className="w-full border-collapse mb-3 text-[10px]">
                         <tbody>
                           <tr>
@@ -2748,15 +2853,21 @@ export const Contracts: React.FC = () => {
                       </table>
 
                       {/* Thông tin tài sản */}
-                      <div className="font-bold border-b border-black text-[10px] uppercase mt-4 mb-2">THÔNG TIN TÀI SẢN &amp; GIẤY TỜ KÈM THEO</div>
+                      <div className="font-bold border-b border-black text-[10px] uppercase mt-4 mb-2">
+                        {isUnsecuredPrint ? "THÔNG TIN KHOÁN VAY & GIẤY TỜ THAM CHIẾU" : "THÔNG TIN TÀI SẢN & GIẤY TỜ KÈM THEO"}
+                      </div>
                       <table className="w-full border-collapse mb-3 text-[10px]">
                         <tbody>
                           <tr>
-                            <td className="font-bold w-[120px] py-0.5">Loại tài sản:</td>
+                            <td className="font-bold w-[120px] py-0.5">
+                              {isUnsecuredPrint ? "Hình thức vay:" : "Loại tài sản:"}
+                            </td>
                             <td className="py-0.5">
                               <div className="flex justify-between">
                                 <span>{assetType}</span>
-                                <span>Chi tiết tài sản: <strong>{assetDetailStr}</strong></span>
+                                {!isUnsecuredPrint && (
+                                  <span>Chi tiết tài sản: <strong>{assetDetailStr}</strong></span>
+                                )}
                               </div>
                             </td>
                           </tr>
@@ -2782,8 +2893,16 @@ export const Contracts: React.FC = () => {
                         ) : (
                           <li>Tự nguyện chi trả lệ phí: <strong>Thỏa thuận</strong>.</li>
                         )}
-                        <li>Tôi cam kết tài sản thuộc quyền sở hữu hợp pháp của tôi và các giấy tờ đã xuất trình là bản gốc do các cơ quan quản lý nhà nước cấp. Nếu sai, tôi hoàn toàn chịu trách nhiệm trước pháp luật.</li>
-                        <li>Tôi cam kết trả gốc và lệ phí đúng hạn. Hết thời hạn trên, tôi không đến chuộc lại tài sản hoặc trả lệ phí để kéo dài thêm thời hạn thì tài sản trên sẽ thuộc quyền sở hữu của Bên cho vay. Bên cho vay không có nghĩa vụ thông báo với Bên vay. Lúc đó, Hợp đồng này có giá trị như giấy bán tài sản của tôi. Bên cho vay được toàn quyền thanh lý để thu hồi vốn và toàn bộ số tiền thu được từ việc thanh lý.</li>
+                        {isUnsecuredPrint ? (
+                          <li>Tôi cam kết các thông tin nhân thân đã xuất trình là bản gốc chính xác và hoàn toàn chịu trách nhiệm trước pháp luật nếu có hành vi gian dối, trốn nợ.</li>
+                        ) : (
+                          <li>Tôi cam kết tài sản thuộc quyền sở hữu hợp pháp của tôi và các giấy tờ đã xuất trình là bản gốc do các cơ quan quản lý nhà nước cấp. Nếu sai, tôi hoàn toàn chịu trách nhiệm trước pháp luật.</li>
+                        )}
+                        {isUnsecuredPrint ? (
+                          <li>Tôi cam kết hoàn trả đầy đủ số tiền gốc vay và lệ phí đúng kỳ hạn đã ký kết. Trường hợp chậm trả quá hạn, Bên cho vay có quyền áp dụng các biện pháp thu hồi nợ theo thỏa thuận dân sự đã thống nhất.</li>
+                        ) : (
+                          <li>Tôi cam kết trả gốc và lệ phí đúng hạn. Hết thời hạn trên, tôi không đến chuộc lại tài sản hoặc trả lệ phí để kéo dài thêm thời hạn thì tài sản trên sẽ thuộc quyền sở hữu của Bên cho vay. Bên cho vay không có nghĩa vụ thông báo với Bên vay. Lúc đó, Hợp đồng này có giá trị như giấy bán tài sản của tôi. Bên cho vay được toàn quyền thanh lý để thu hồi vốn và toàn bộ số tiền thu được từ việc thanh lý.</li>
+                        )}
                         <li>Tôi thực hiện việc lập Hợp đồng này trong trạng thái tinh thần hoàn toàn minh mẫn, đã đọc kỹ và hiểu toàn bộ trách nhiệm và nghĩa vụ trả nợ vay số tiền trên. Tôi cam kết thực hiện tất cả các nội dung trong Hợp đồng này, ký tên và điểm chỉ dưới đây để làm bằng chứng.</li>
                       </ol>
 
