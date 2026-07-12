@@ -17,7 +17,7 @@ export const ContractSummaryGrid: React.FC<ContractSummaryGridProps> = ({ leftIt
     return (
       <div
         key={idx}
-        className="flex justify-between items-center border-b border-dashed border-slate-200 pb-1.5 last:border-none last:pb-0 text-xs"
+        className="flex justify-between items-center border-b border-dashed border-slate-200 pb-1.5 last:border-none last:pb-0 text-sm"
       >
         <span className="text-slate-400 font-medium">{item.label}</span>
         <span className={`font-bold ${item.isRed ? "text-red-500" : "text-slate-800"} ${item.valueClass || ""}`}>

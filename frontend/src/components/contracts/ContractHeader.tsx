@@ -83,7 +83,7 @@ export const ContractHeader: React.FC<ContractHeaderProps> = ({
             </span>
           </h1>
           {(customerName || loanDate) && (
-            <p className="text-slate-500 text-xs mt-1">
+            <p className="text-slate-500 text-sm mt-1">
               {customerName && (
                 <>
                   Khách hàng: <span className="text-slate-700 font-bold">{customerName}</span>

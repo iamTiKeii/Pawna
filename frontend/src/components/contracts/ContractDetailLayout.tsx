@@ -24,7 +24,7 @@ export const ContractDetailLayout: React.FC<ContractDetailLayoutProps> = ({
   isModal = false,
 }) => {
   const content = (
-    <div className="space-y-5 text-sm">
+    <div className="space-y-5 text-[15px]">
       {/* Header Section */}
       {!isModal && header}
 
