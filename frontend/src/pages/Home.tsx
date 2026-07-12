@@ -32,36 +32,6 @@ export const Home: React.FC = () => {
         </ul>
       </div>
 
-      {/* Announcement Card */}
-      <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
-        <h3 className="text-slate-800 font-bold text-sm mb-2">Thông báo:</h3>
-        <div className="text-slate-600 text-sm space-y-1">
-          <p>
-            Quý Khách hàng có thể sử dụng giao diện cũ ở link{" "}
-            <a
-              href="http://old.2gold.biz"
-              target="_blank"
-              rel="noreferrer"
-              className="text-[#0056b3] font-medium hover:underline"
-            >
-              old.2gold.biz
-            </a>
-          </p>
-          <p>
-            Link{" "}
-            <a
-              href="http://old.2gold.biz"
-              target="_blank"
-              rel="noreferrer"
-              className="text-[#0056b3] font-medium hover:underline"
-            >
-              old.2gold.biz
-            </a>{" "}
-            sẽ dừng hoạt động vào ngày{" "}
-            <span className="text-[#dc2626] font-bold">31/12/2026</span>
-          </p>
-        </div>
-      </div>
 
       {/* Central Graphic Section */}
       <div className="flex flex-col items-center justify-center py-16">

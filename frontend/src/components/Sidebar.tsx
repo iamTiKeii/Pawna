@@ -16,9 +16,6 @@ import {
   ChevronDown,
   ChevronRight,
   Shield,
-  MessageSquare,
-  Send,
-  PhoneCall,
   LayoutDashboard
 } from "lucide-react";
 
@@ -517,56 +514,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen }) => {
         </ul>
       </div>
 
-      {/* Bottom Support Widget */}
-      {/* {isOpen ? (
-        <div className="p-4 mx-3 mb-4 bg-slate-50 rounded-2xl border border-slate-200/60 text-xs flex flex-col gap-2.5">
-          <div className="flex items-center justify-between text-slate-500 font-medium">
-            <span>Hỗ trợ hệ thống:</span>
-          </div>
-          <div className="flex items-center gap-2 font-medium text-slate-800">
-            <PhoneCall className="w-3.5 h-3.5 text-amber-500" />
-            <span>0976.862.823</span>
-          </div>
-          <div className="text-[11px] text-slate-500">
-            Hạn dùng: <span className="text-green-600 font-medium">07/04/2027</span>
-          </div>
-          <div className="grid grid-cols-2 gap-2 mt-1">
-            <a 
-              href="https://t.me/2gold_support" 
-              target="_blank" 
-              rel="noreferrer" 
-              className="flex items-center justify-center gap-1.5 py-1.5 px-2 bg-white border border-slate-200 hover:bg-slate-50 rounded-lg text-[11px] font-medium text-slate-700 transition-all text-center shadow-sm"
-            >
-              <Send className="w-3 h-3 text-[#0088cc]" />
-              <span>Telegram</span>
-            </a>
-            <a 
-              href="https://zalo.me/0976862823" 
-              target="_blank" 
-              rel="noreferrer" 
-              className="flex items-center justify-center gap-1.5 py-1.5 px-2 bg-white border border-slate-200 hover:bg-slate-50 rounded-lg text-[11px] font-medium text-slate-700 transition-all text-center shadow-sm"
-            >
-              <MessageSquare className="w-3 h-3 text-[#0068ff]" />
-              <span>Zalo</span>
-            </a>
-          </div>
-          <a 
-            href="mailto:gopy@2gold.biz" 
-            className="w-full block text-center py-1.5 bg-amber-500 hover:bg-amber-600 rounded-lg text-[11px] font-medium text-slate-950 transition-all shadow-sm shadow-amber-500/10"
-          >
-            Góp Ý Tính Năng
-          </a>
-        </div>
-      ) : (
-        <div className="py-4 flex flex-col items-center gap-4 border-t border-slate-200/80">
-          <div title="SĐT Hỗ trợ: 0976862823">
-            <PhoneCall className="w-5 h-5 text-amber-500 hover:scale-110 cursor-pointer transition-transform" />
-          </div>
-          <div title="Hạn dùng: 07/04/2027">
-            <Shield className="w-5 h-5 text-slate-500" />
-          </div>
-        </div>
-      )}  */}
+
     </aside>
   );
 };
