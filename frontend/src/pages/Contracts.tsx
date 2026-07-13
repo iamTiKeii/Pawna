@@ -105,14 +105,15 @@ export const Contracts: React.FC = () => {
   const [unsecuredSortField, setUnsecuredSortField] = useState<string | null>(null);
   const [unsecuredSortOrder, setUnsecuredSortOrder] = useState<"asc" | "desc">("asc");
 
-  const fetchContracts = async (pageVal = currentPage) => {
+  const fetchContracts = async (pageVal?: number | any) => {
     if (!activeStore) return;
     try {
       setLoading(true);
+      const actualPage = typeof pageVal === "number" ? pageVal : currentPage;
       const params = new URLSearchParams();
       if (search) params.append("search", search);
       if (statusFilter) params.append("status", statusFilter);
-      params.append("page", pageVal.toString());
+      params.append("page", actualPage.toString());
       params.append("limit", limit.toString());
 
       let res;
