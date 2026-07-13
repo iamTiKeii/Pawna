@@ -28,6 +28,22 @@ router.get("/categories/expense", async (req, res) => {
         return res.status(500).json({ error: error.message });
     }
 });
+router.get("/categories", async (req, res) => {
+    try {
+        const { type } = req.query;
+        if (type === "expense") {
+            const cats = await prisma.expenseCategory.findMany({ orderBy: { name: "asc" } });
+            return res.json(cats);
+        }
+        else {
+            const cats = await prisma.incomeCategory.findMany({ orderBy: { name: "asc" } });
+            return res.json(cats);
+        }
+    }
+    catch (error) {
+        return res.status(500).json({ error: error.message });
+    }
+});
 // 2. Get Receipts (PT) list
 router.get("/receipts", async (req, res) => {
     try {
@@ -110,6 +126,59 @@ router.get("/payments", async (req, res) => {
         return res.status(500).json({ error: error.message });
     }
 });
+router.get("/", async (req, res) => {
+    try {
+        const { search, startDate, endDate, category_id, type } = req.query;
+        const whereClause = {
+            store_id: req.user.store_id,
+            status: "active",
+        };
+        if (category_id) {
+            whereClause.category_id = category_id;
+        }
+        if (search) {
+            const searchStr = search.trim();
+            whereClause.OR = [
+                { voucher_code: { contains: searchStr, mode: "insensitive" } },
+                { recipient_name: { contains: searchStr, mode: "insensitive" } },
+            ];
+        }
+        if (startDate || endDate) {
+            whereClause.voucher_date = {};
+            if (startDate) {
+                whereClause.voucher_date.gte = (0, cash_1.normalizeToMidnight)(startDate);
+            }
+            if (endDate) {
+                whereClause.voucher_date.lte = (0, cash_1.normalizeToMidnight)(endDate);
+            }
+        }
+        if (type === "expense") {
+            const payments = await prisma.paymentVoucher.findMany({
+                where: whereClause,
+                include: {
+                    category: true,
+                    employee: { select: { full_name: true, username: true } },
+                },
+                orderBy: { created_at: "desc" },
+            });
+            return res.json(payments);
+        }
+        else {
+            const receipts = await prisma.receiptVoucher.findMany({
+                where: whereClause,
+                include: {
+                    category: true,
+                    employee: { select: { full_name: true, username: true } },
+                },
+                orderBy: { created_at: "desc" },
+            });
+            return res.json(receipts);
+        }
+    }
+    catch (error) {
+        return res.status(500).json({ error: error.message });
+    }
+});
 // 4. Create Receipt Voucher (PT)
 router.post("/receipts", (0, permission_1.requirePermission)(["VOUCHERS_MANAGE"]), async (req, res) => {
     try {
@@ -183,6 +252,66 @@ router.post("/payments", (0, permission_1.requirePermission)(["VOUCHERS_MANAGE"]
             return voucher;
         });
         return res.status(201).json(result);
+    }
+    catch (error) {
+        return res.status(500).json({ error: error.message });
+    }
+});
+router.post("/", (0, permission_1.requirePermission)(["VOUCHERS_MANAGE"]), async (req, res) => {
+    try {
+        const storeId = req.user.store_id;
+        const employeeId = req.user.id;
+        const { category_id, amount, recipient_name, notes, voucher_date, type } = req.body;
+        if (!category_id || !amount || !recipient_name || !notes) {
+            return res.status(400).json({ error: "Missing required fields" });
+        }
+        const value = Number(amount);
+        if (isNaN(value) || value <= 0) {
+            return res.status(400).json({ error: "Amount must be greater than 0" });
+        }
+        const dateToUse = voucher_date ? new Date(voucher_date) : new Date();
+        if (type === "expense") {
+            const result = await prisma.$transaction(async (tx) => {
+                const code = await (0, codeGen_1.generateVoucherCode)(tx, "payment");
+                const voucher = await tx.paymentVoucher.create({
+                    data: {
+                        store_id: storeId,
+                        voucher_code: code,
+                        category_id,
+                        amount: value,
+                        recipient_name,
+                        notes,
+                        voucher_date: dateToUse,
+                        employee_id: employeeId,
+                        status: "active",
+                    },
+                });
+                await (0, cash_1.adjustDailyCash)(tx, storeId, dateToUse, -value, "payment_voucher", employeeId, `Chi tiền theo phiếu chi ${code}. Lý do: ${notes}`);
+                return voucher;
+            });
+            return res.status(201).json(result);
+        }
+        else {
+            const result = await prisma.$transaction(async (tx) => {
+                const code = await (0, codeGen_1.generateVoucherCode)(tx, "receipt");
+                const voucher = await tx.receiptVoucher.create({
+                    data: {
+                        store_id: storeId,
+                        voucher_code: code,
+                        category_id,
+                        amount: value,
+                        recipient_name,
+                        notes,
+                        voucher_date: dateToUse,
+                        employee_id: employeeId,
+                        status: "active",
+                    },
+                });
+                await (0, cash_1.adjustDailyCash)(tx, storeId, dateToUse, value, "receipt_voucher", employeeId, `Thu tiền theo phiếu thu ${code}. Lý do: ${notes}`);
+                return voucher;
+            });
+            return res.status(201).json(result);
+        }
     }
     catch (error) {
         return res.status(500).json({ error: error.message });
@@ -348,6 +477,38 @@ router.post("/payments/:id/void", (0, permission_1.requirePermission)(["FUNDS_MA
             return await cancelPaymentVoucher(tx, voucher, employeeId);
         });
         return res.json({ message: "Payment voucher voided successfully", voucher: result });
+    }
+    catch (error) {
+        return res.status(500).json({ error: error.message });
+    }
+});
+router.delete("/:id", (0, permission_1.requirePermission)(["VOUCHERS_MANAGE", "FUNDS_MANAGE"]), async (req, res) => {
+    try {
+        const id = req.params.id;
+        const employeeId = req.user.id;
+        // Check if it's a receipt voucher
+        const receipt = await prisma.receiptVoucher.findUnique({ where: { id } });
+        if (receipt) {
+            if (receipt.status === "cancelled") {
+                return res.status(400).json({ error: "Voucher is already cancelled" });
+            }
+            const result = await prisma.$transaction(async (tx) => {
+                return await cancelReceiptVoucher(tx, receipt, employeeId);
+            });
+            return res.json({ message: "Receipt voucher cancelled successfully", voucher: result });
+        }
+        // Check if it's a payment voucher
+        const payment = await prisma.paymentVoucher.findUnique({ where: { id } });
+        if (payment) {
+            if (payment.status === "cancelled") {
+                return res.status(400).json({ error: "Voucher is already cancelled" });
+            }
+            const result = await prisma.$transaction(async (tx) => {
+                return await cancelPaymentVoucher(tx, payment, employeeId);
+            });
+            return res.json({ message: "Payment voucher cancelled successfully", voucher: result });
+        }
+        return res.status(404).json({ error: "Voucher not found" });
     }
     catch (error) {
         return res.status(500).json({ error: error.message });
