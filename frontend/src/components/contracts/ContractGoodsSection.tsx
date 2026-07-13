@@ -39,8 +39,12 @@ export const ContractGoodsSection: React.FC<GoodsSectionProps> = ({
                 const c = commodities.find((item) => item.id === cid);
                 onChange({
                   commodityId: cid,
-                  interestPeriod: c?.default_interest_period || state.interestPeriod,
-                  interestRate: c?.default_interest_rate || state.interestRate,
+                  loanAmount: c ? String(c.default_amount) : state.loanAmount,
+                  interestRate: c ? c.default_interest_rate : state.interestRate,
+                  interestPeriod: c ? c.default_period_value : state.interestPeriod,
+                  loanDays: c ? c.default_loan_days : state.loanDays,
+                  interestType: c ? c.interest_type_id : state.interestType,
+                  isUpfrontInterest: c ? !!c.is_upfront_interest : state.isUpfrontInterest,
                 });
               }}
               className="select select-bordered w-full max-w-md bg-white border-slate-200 rounded-lg text-slate-800 font-semibold focus:outline-none h-10 text-sm"

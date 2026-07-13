@@ -50,13 +50,14 @@ JWT_SECRET="your-super-secret-jwt-key"
 
 Tất cả các lệnh quản trị cơ sở dữ liệu đều được chạy từ thư mục **`backend/`**.
 
-### 1. Triển khai sạch cho khách hàng mới (Fresh Deploy)
-Khi triển khai hệ thống mới cho khách hàng, lệnh này sẽ:
+### 1. Triển khai sạch hoàn toàn (Fresh Deploy)
+Sử dụng khi bắt đầu triển khai hệ thống mới hoặc khi muốn **xóa sạch toàn bộ cấu trúc bảng cũ và xây dựng lại từ đầu**:
 1. Xóa sạch toàn bộ dữ liệu & cấu trúc bảng cũ trong database.
 2. Thiết lập lại cấu trúc bảng mới từ schema.
 3. Nạp danh mục tĩnh (Seed data: quyền hạn, các gói lãi suất mặc định, danh mục thu chi).
-4. Tạo mới 1 Chi nhánh chính (`Hùng Tín - Chi nhánh 1`).
-5. Tạo mới tài khoản Quản Trị Viên cấp cao nhất gán toàn bộ quyền của hệ thống.
+4. Khởi tạo lại tất cả các số tự tăng (database sequences) về 1.
+5. Tạo mới 1 Chi nhánh chính (`Hùng Tín - Chi nhánh 1`).
+6. Tạo mới tài khoản Quản Trị Viên cấp cao nhất gán toàn bộ quyền của hệ thống.
 
 ```bash
 cd backend
@@ -69,15 +70,17 @@ npm run db:fresh-deploy
 
 ---
 
-### 2. Dọn dẹp dữ liệu giao dịch (Clean Transactions Only)
-Sử dụng khi bạn muốn dọn dẹp toàn bộ dữ liệu giao dịch phát sinh (Hợp đồng, Khách hàng, Phiếu thu/chi, Dòng tiền) nhưng muốn **giữ nguyên cấu trúc bảng cơ sở dữ liệu hiện tại**:
+### 2. Khôi phục cài đặt gốc (Factory Reset)
+Sử dụng khi bàn giao hệ thống cho **một khách hàng mới**. Lệnh này sẽ đưa database về trạng thái sạch sẽ các giao dịch phát sinh nhưng **giữ nguyên toàn bộ cấu hình danh mục gốc**:
+- Xóa sạch 100% **dữ liệu phát sinh (transactional data)** như Hợp đồng, Khách hàng, Cổ đông, Chứng từ thu/chi, Công nợ, Lịch sử đóng tiền, Dòng tiền két nước, v.v.
+- **Giữ nguyên toàn bộ dữ liệu danh mục (master data)** như thông tin Cửa hàng (Stores), Nhân viên (Employees), Quyền hạn (Permissions), Cài đặt hệ thống (System Settings), các hình thức tính lãi (Interest Types), và danh mục hàng hóa (Commodities).
+- Reset toàn bộ AUTO INCREMENT / IDENTITY / SEQUENCE của các bảng dữ liệu phát sinh về 1.
+- **Không** tự động khởi tạo thêm hoặc seed lại dữ liệu mẫu nào sau khi chạy.
 
 ```bash
 cd backend
 npm run db:clean
 ```
-
-*(Lưu ý: Lệnh này cũng tự động khôi phục tài khoản quản trị mặc định `admin`/`admin123` nếu tài khoản này bị thay đổi hoặc xóa trước đó)*
 
 ---
 
