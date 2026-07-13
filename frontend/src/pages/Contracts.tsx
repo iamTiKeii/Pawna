@@ -1519,7 +1519,7 @@ export const Contracts: React.FC = () => {
           setIsHistoryOpen(true);
         }}
         defaultCodeNumber={pawnList.reduce((max, item) => {
-          const match = item.contract_code?.match(/\\d+/);
+          const match = item.contract_code?.match(/\d+/);
           const num = match ? Number(match[0]) : 0;
           return num > max ? num : max;
         }, 0) + 1}
@@ -1545,7 +1545,7 @@ export const Contracts: React.FC = () => {
           setIsHistoryOpen(true);
         }}
         defaultCodeNumber={unsecuredList.reduce((max, item) => {
-          const match = item.contract_code?.match(/\\d+/);
+          const match = item.contract_code?.match(/\d+/);
           const num = match ? Number(match[0]) : 0;
           return num > max ? num : max;
         }, 0) + 1}
@@ -1571,7 +1571,7 @@ export const Contracts: React.FC = () => {
           setIsHistoryOpen(true);
         }}
         defaultCodeNumber={installmentList.reduce((max, item) => {
-          const match = item.contract_code?.match(/\\d+/);
+          const match = item.contract_code?.match(/\d+/);
           const num = match ? Number(match[0]) : 0;
           return num > max ? num : max;
         }, 0) + 1}
