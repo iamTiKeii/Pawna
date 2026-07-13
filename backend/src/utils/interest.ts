@@ -8,21 +8,22 @@ export interface InterestCycle {
 }
 
 export interface PaymentScheduleItem {
-  cycle_number: number;
+  period: number;
   from_date: Date;
   to_date: Date;
   expected_days: number;
-  expected_interest: number;
-  expected_principal: number;
-  total_due: number;
-  remaining_principal: number;
+  beginningBalance: number;
+  principal: number;
+  interest: number;
+  totalPayment: number;
+  endingBalance: number;
 }
 
 export interface InterestCalculationResult {
   schedule: PaymentScheduleItem[];
-  totalInterest: number;
-  totalPrincipal: number;
-  totalExpectedPay: number;
+  totalOriginalPrincipal: number;
+  totalInterestPayable: number;
+  totalAmountPayable: number;
 }
 
 export interface CalculatorParams {
@@ -81,31 +82,32 @@ export class DailyPerMillionInterestCalculator implements IInterestCalculator {
     const { loanAmount, interestRate, loanDays, periodValue, loanDateInput } = params;
     const dateCycles = getCycleDates(loanDateInput, loanDays, periodValue);
     const schedule: PaymentScheduleItem[] = [];
-    let totalInterest = 0;
+    let totalInterestPayable = 0;
 
     for (const cycle of dateCycles) {
       const dailyRate = this.getDailyRate(loanAmount, interestRate, periodValue);
       const expectedInterest = Math.round(dailyRate * cycle.expected_days);
       const expectedPrincipal = 0;
-      totalInterest += expectedInterest;
+      totalInterestPayable += expectedInterest;
 
       schedule.push({
-        cycle_number: cycle.cycle_number,
+        period: cycle.cycle_number,
         from_date: cycle.from_date,
         to_date: cycle.to_date,
         expected_days: cycle.expected_days,
-        expected_interest: expectedInterest,
-        expected_principal: expectedPrincipal,
-        total_due: expectedInterest + expectedPrincipal,
-        remaining_principal: loanAmount,
+        beginningBalance: loanAmount,
+        principal: expectedPrincipal,
+        interest: expectedInterest,
+        totalPayment: expectedInterest + expectedPrincipal,
+        endingBalance: loanAmount,
       });
     }
 
     return {
       schedule,
-      totalInterest,
-      totalPrincipal: 0,
-      totalExpectedPay: loanAmount + totalInterest,
+      totalOriginalPrincipal: loanAmount,
+      totalInterestPayable,
+      totalAmountPayable: loanAmount + totalInterestPayable,
     };
   }
 
@@ -120,31 +122,32 @@ export class DailyFixedInterestCalculator implements IInterestCalculator {
     const { loanAmount, interestRate, loanDays, periodValue, loanDateInput } = params;
     const dateCycles = getCycleDates(loanDateInput, loanDays, periodValue);
     const schedule: PaymentScheduleItem[] = [];
-    let totalInterest = 0;
+    let totalInterestPayable = 0;
 
     for (const cycle of dateCycles) {
       const dailyRate = this.getDailyRate(loanAmount, interestRate, periodValue);
       const expectedInterest = Math.round(dailyRate * cycle.expected_days);
       const expectedPrincipal = 0;
-      totalInterest += expectedInterest;
+      totalInterestPayable += expectedInterest;
 
       schedule.push({
-        cycle_number: cycle.cycle_number,
+        period: cycle.cycle_number,
         from_date: cycle.from_date,
         to_date: cycle.to_date,
         expected_days: cycle.expected_days,
-        expected_interest: expectedInterest,
-        expected_principal: expectedPrincipal,
-        total_due: expectedInterest + expectedPrincipal,
-        remaining_principal: loanAmount,
+        beginningBalance: loanAmount,
+        principal: expectedPrincipal,
+        interest: expectedInterest,
+        totalPayment: expectedInterest + expectedPrincipal,
+        endingBalance: loanAmount,
       });
     }
 
     return {
       schedule,
-      totalInterest,
-      totalPrincipal: 0,
-      totalExpectedPay: loanAmount + totalInterest,
+      totalOriginalPrincipal: loanAmount,
+      totalInterestPayable,
+      totalAmountPayable: loanAmount + totalInterestPayable,
     };
   }
 
@@ -154,36 +157,37 @@ export class DailyFixedInterestCalculator implements IInterestCalculator {
 }
 
 // 3. Lãi tháng (%) (30 ngày)
-export class MonthlyPercentInterestCalculator implements IInterestCalculator {
+export class MonthlyPercentStandardInterestCalculator implements IInterestCalculator {
   calculate(params: CalculatorParams): InterestCalculationResult {
     const { loanAmount, interestRate, loanDays, periodValue, loanDateInput } = params;
     const dateCycles = getCycleDates(loanDateInput, loanDays, periodValue);
     const schedule: PaymentScheduleItem[] = [];
-    let totalInterest = 0;
+    let totalInterestPayable = 0;
 
     for (const cycle of dateCycles) {
       const dailyRate = this.getDailyRate(loanAmount, interestRate, periodValue);
       const expectedInterest = Math.round(dailyRate * cycle.expected_days);
       const expectedPrincipal = 0;
-      totalInterest += expectedInterest;
+      totalInterestPayable += expectedInterest;
 
       schedule.push({
-        cycle_number: cycle.cycle_number,
+        period: cycle.cycle_number,
         from_date: cycle.from_date,
         to_date: cycle.to_date,
         expected_days: cycle.expected_days,
-        expected_interest: expectedInterest,
-        expected_principal: expectedPrincipal,
-        total_due: expectedInterest + expectedPrincipal,
-        remaining_principal: loanAmount,
+        beginningBalance: loanAmount,
+        principal: expectedPrincipal,
+        interest: expectedInterest,
+        totalPayment: expectedInterest + expectedPrincipal,
+        endingBalance: loanAmount,
       });
     }
 
     return {
       schedule,
-      totalInterest,
-      totalPrincipal: 0,
-      totalExpectedPay: loanAmount + totalInterest,
+      totalOriginalPrincipal: loanAmount,
+      totalInterestPayable,
+      totalAmountPayable: loanAmount + totalInterestPayable,
     };
   }
 
@@ -193,36 +197,37 @@ export class MonthlyPercentInterestCalculator implements IInterestCalculator {
 }
 
 // 4. Lãi tháng (%) (Định kỳ)
-export class MonthlyPeriodicInterestCalculator implements IInterestCalculator {
+export class MonthlyPercentPeriodicInterestCalculator implements IInterestCalculator {
   calculate(params: CalculatorParams): InterestCalculationResult {
     const { loanAmount, interestRate, loanDays, periodValue, loanDateInput } = params;
     const dateCycles = getCycleDates(loanDateInput, loanDays, periodValue);
     const schedule: PaymentScheduleItem[] = [];
-    let totalInterest = 0;
+    let totalInterestPayable = 0;
 
     for (const cycle of dateCycles) {
       const dailyRate = this.getDailyRate(loanAmount, interestRate, periodValue);
       const expectedInterest = Math.round(dailyRate * cycle.expected_days);
       const expectedPrincipal = 0;
-      totalInterest += expectedInterest;
+      totalInterestPayable += expectedInterest;
 
       schedule.push({
-        cycle_number: cycle.cycle_number,
+        period: cycle.cycle_number,
         from_date: cycle.from_date,
         to_date: cycle.to_date,
         expected_days: cycle.expected_days,
-        expected_interest: expectedInterest,
-        expected_principal: expectedPrincipal,
-        total_due: expectedInterest + expectedPrincipal,
-        remaining_principal: loanAmount,
+        beginningBalance: loanAmount,
+        principal: expectedPrincipal,
+        interest: expectedInterest,
+        totalPayment: expectedInterest + expectedPrincipal,
+        endingBalance: loanAmount,
       });
     }
 
     return {
       schedule,
-      totalInterest,
-      totalPrincipal: 0,
-      totalExpectedPay: loanAmount + totalInterest,
+      totalOriginalPrincipal: loanAmount,
+      totalInterestPayable,
+      totalAmountPayable: loanAmount + totalInterestPayable,
     };
   }
 
@@ -233,36 +238,37 @@ export class MonthlyPeriodicInterestCalculator implements IInterestCalculator {
 }
 
 // 5. Lãi tháng (VNĐ) (Định kỳ)
-export class MonthlyFixedInterestCalculator implements IInterestCalculator {
+export class MonthlyFixedPeriodicInterestCalculator implements IInterestCalculator {
   calculate(params: CalculatorParams): InterestCalculationResult {
     const { loanAmount, interestRate, loanDays, periodValue, loanDateInput } = params;
     const dateCycles = getCycleDates(loanDateInput, loanDays, periodValue);
     const schedule: PaymentScheduleItem[] = [];
-    let totalInterest = 0;
+    let totalInterestPayable = 0;
 
     for (const cycle of dateCycles) {
       const dailyRate = this.getDailyRate(loanAmount, interestRate, periodValue);
       const expectedInterest = Math.round(dailyRate * cycle.expected_days);
       const expectedPrincipal = 0;
-      totalInterest += expectedInterest;
+      totalInterestPayable += expectedInterest;
 
       schedule.push({
-        cycle_number: cycle.cycle_number,
+        period: cycle.cycle_number,
         from_date: cycle.from_date,
         to_date: cycle.to_date,
         expected_days: cycle.expected_days,
-        expected_interest: expectedInterest,
-        expected_principal: expectedPrincipal,
-        total_due: expectedInterest + expectedPrincipal,
-        remaining_principal: loanAmount,
+        beginningBalance: loanAmount,
+        principal: expectedPrincipal,
+        interest: expectedInterest,
+        totalPayment: expectedInterest + expectedPrincipal,
+        endingBalance: loanAmount,
       });
     }
 
     return {
       schedule,
-      totalInterest,
-      totalPrincipal: 0,
-      totalExpectedPay: loanAmount + totalInterest,
+      totalOriginalPrincipal: loanAmount,
+      totalInterestPayable,
+      totalAmountPayable: loanAmount + totalInterestPayable,
     };
   }
 
@@ -277,31 +283,32 @@ export class WeeklyPercentInterestCalculator implements IInterestCalculator {
     const { loanAmount, interestRate, loanDays, periodValue, loanDateInput } = params;
     const dateCycles = getCycleDates(loanDateInput, loanDays, periodValue);
     const schedule: PaymentScheduleItem[] = [];
-    let totalInterest = 0;
+    let totalInterestPayable = 0;
 
     for (const cycle of dateCycles) {
       const dailyRate = this.getDailyRate(loanAmount, interestRate, periodValue);
       const expectedInterest = Math.round(dailyRate * cycle.expected_days);
       const expectedPrincipal = 0;
-      totalInterest += expectedInterest;
+      totalInterestPayable += expectedInterest;
 
       schedule.push({
-        cycle_number: cycle.cycle_number,
+        period: cycle.cycle_number,
         from_date: cycle.from_date,
         to_date: cycle.to_date,
         expected_days: cycle.expected_days,
-        expected_interest: expectedInterest,
-        expected_principal: expectedPrincipal,
-        total_due: expectedInterest + expectedPrincipal,
-        remaining_principal: loanAmount,
+        beginningBalance: loanAmount,
+        principal: expectedPrincipal,
+        interest: expectedInterest,
+        totalPayment: expectedInterest + expectedPrincipal,
+        endingBalance: loanAmount,
       });
     }
 
     return {
       schedule,
-      totalInterest,
-      totalPrincipal: 0,
-      totalExpectedPay: loanAmount + totalInterest,
+      totalOriginalPrincipal: loanAmount,
+      totalInterestPayable,
+      totalAmountPayable: loanAmount + totalInterestPayable,
     };
   }
 
@@ -317,31 +324,32 @@ export class WeeklyFixedInterestCalculator implements IInterestCalculator {
     const { loanAmount, interestRate, loanDays, periodValue, loanDateInput } = params;
     const dateCycles = getCycleDates(loanDateInput, loanDays, periodValue);
     const schedule: PaymentScheduleItem[] = [];
-    let totalInterest = 0;
+    let totalInterestPayable = 0;
 
     for (const cycle of dateCycles) {
       const dailyRate = this.getDailyRate(loanAmount, interestRate, periodValue);
       const expectedInterest = Math.round(dailyRate * cycle.expected_days);
       const expectedPrincipal = 0;
-      totalInterest += expectedInterest;
+      totalInterestPayable += expectedInterest;
 
       schedule.push({
-        cycle_number: cycle.cycle_number,
+        period: cycle.cycle_number,
         from_date: cycle.from_date,
         to_date: cycle.to_date,
         expected_days: cycle.expected_days,
-        expected_interest: expectedInterest,
-        expected_principal: expectedPrincipal,
-        total_due: expectedInterest + expectedPrincipal,
-        remaining_principal: loanAmount,
+        beginningBalance: loanAmount,
+        principal: expectedPrincipal,
+        interest: expectedInterest,
+        totalPayment: expectedInterest + expectedPrincipal,
+        endingBalance: loanAmount,
       });
     }
 
     return {
       schedule,
-      totalInterest,
-      totalPrincipal: 0,
-      totalExpectedPay: loanAmount + totalInterest,
+      totalOriginalPrincipal: loanAmount,
+      totalInterestPayable,
+      totalAmountPayable: loanAmount + totalInterestPayable,
     };
   }
 
@@ -361,7 +369,7 @@ export class FlatMonthlyInterestCalculator implements IInterestCalculator {
     const expectedInterest = Math.round(loanAmount * (interestRate / 100));
     const standardPrincipal = Math.round(loanAmount / totalCycles);
     let remainingPrincipal = loanAmount;
-    let totalInterest = 0;
+    let totalInterestPayable = 0;
     let totalPrincipal = 0;
 
     for (let index = 0; index < totalCycles; index++) {
@@ -372,27 +380,29 @@ export class FlatMonthlyInterestCalculator implements IInterestCalculator {
         expectedPrincipal = remainingPrincipal;
       }
 
+      const beginningBalance = remainingPrincipal;
       remainingPrincipal -= expectedPrincipal;
-      totalInterest += expectedInterest;
+      totalInterestPayable += expectedInterest;
       totalPrincipal += expectedPrincipal;
 
       schedule.push({
-        cycle_number: cycle.cycle_number,
+        period: cycle.cycle_number,
         from_date: cycle.from_date,
         to_date: cycle.to_date,
         expected_days: cycle.expected_days,
-        expected_interest: expectedInterest,
-        expected_principal: expectedPrincipal,
-        total_due: expectedInterest + expectedPrincipal,
-        remaining_principal: remainingPrincipal,
+        beginningBalance,
+        principal: expectedPrincipal,
+        interest: expectedInterest,
+        totalPayment: expectedInterest + expectedPrincipal,
+        endingBalance: remainingPrincipal,
       });
     }
 
     return {
       schedule,
-      totalInterest,
-      totalPrincipal,
-      totalExpectedPay: totalPrincipal + totalInterest,
+      totalOriginalPrincipal: loanAmount,
+      totalInterestPayable,
+      totalAmountPayable: totalPrincipal + totalInterestPayable,
     };
   }
 
@@ -412,7 +422,7 @@ export class FlatDailyInterestCalculator implements IInterestCalculator {
 
     const standardPrincipal = Math.round(loanAmount / totalCycles);
     let remainingPrincipal = loanAmount;
-    let totalInterest = 0;
+    let totalInterestPayable = 0;
     let totalPrincipal = 0;
 
     for (let index = 0; index < totalCycles; index++) {
@@ -425,27 +435,29 @@ export class FlatDailyInterestCalculator implements IInterestCalculator {
         expectedPrincipal = remainingPrincipal;
       }
 
+      const beginningBalance = remainingPrincipal;
       remainingPrincipal -= expectedPrincipal;
-      totalInterest += expectedInterest;
+      totalInterestPayable += expectedInterest;
       totalPrincipal += expectedPrincipal;
 
       schedule.push({
-        cycle_number: cycle.cycle_number,
+        period: cycle.cycle_number,
         from_date: cycle.from_date,
         to_date: cycle.to_date,
         expected_days: cycle.expected_days,
-        expected_interest: expectedInterest,
-        expected_principal: expectedPrincipal,
-        total_due: expectedInterest + expectedPrincipal,
-        remaining_principal: remainingPrincipal,
+        beginningBalance,
+        principal: expectedPrincipal,
+        interest: expectedInterest,
+        totalPayment: expectedInterest + expectedPrincipal,
+        endingBalance: remainingPrincipal,
       });
     }
 
     return {
       schedule,
-      totalInterest,
-      totalPrincipal,
-      totalExpectedPay: totalPrincipal + totalInterest,
+      totalOriginalPrincipal: loanAmount,
+      totalInterestPayable,
+      totalAmountPayable: totalPrincipal + totalInterestPayable,
     };
   }
 
@@ -471,7 +483,7 @@ export class ReducingBalanceEMICalculator implements IInterestCalculator {
     }
 
     let remainingPrincipal = loanAmount;
-    let totalInterest = 0;
+    let totalInterestPayable = 0;
     let totalPrincipal = 0;
 
     for (let index = 0; index < totalCycles; index++) {
@@ -483,29 +495,31 @@ export class ReducingBalanceEMICalculator implements IInterestCalculator {
         expectedPrincipal = remainingPrincipal;
       }
 
+      const beginningBalance = remainingPrincipal;
       remainingPrincipal -= expectedPrincipal;
       if (remainingPrincipal < 0) remainingPrincipal = 0;
 
-      totalInterest += expectedInterest;
+      totalInterestPayable += expectedInterest;
       totalPrincipal += expectedPrincipal;
 
       schedule.push({
-        cycle_number: cycle.cycle_number,
+        period: cycle.cycle_number,
         from_date: cycle.from_date,
         to_date: cycle.to_date,
         expected_days: cycle.expected_days,
-        expected_interest: expectedInterest,
-        expected_principal: expectedPrincipal,
-        total_due: expectedInterest + expectedPrincipal,
-        remaining_principal: remainingPrincipal,
+        beginningBalance,
+        principal: expectedPrincipal,
+        interest: expectedInterest,
+        totalPayment: expectedInterest + expectedPrincipal,
+        endingBalance: remainingPrincipal,
       });
     }
 
     return {
       schedule,
-      totalInterest,
-      totalPrincipal,
-      totalExpectedPay: totalPrincipal + totalInterest,
+      totalOriginalPrincipal: loanAmount,
+      totalInterestPayable,
+      totalAmountPayable: totalPrincipal + totalInterestPayable,
     };
   }
 
@@ -524,7 +538,7 @@ export class ReducingBalanceFixedPrincipalCalculator implements IInterestCalcula
 
     const standardPrincipal = Math.round(loanAmount / totalCycles);
     let remainingPrincipal = loanAmount;
-    let totalInterest = 0;
+    let totalInterestPayable = 0;
     let totalPrincipal = 0;
 
     for (let index = 0; index < totalCycles; index++) {
@@ -535,30 +549,32 @@ export class ReducingBalanceFixedPrincipalCalculator implements IInterestCalcula
         expectedPrincipal = remainingPrincipal;
       }
 
+      const beginningBalance = remainingPrincipal;
       const expectedInterest = Math.round(remainingPrincipal * (interestRate / 100));
       remainingPrincipal -= expectedPrincipal;
       if (remainingPrincipal < 0) remainingPrincipal = 0;
 
-      totalInterest += expectedInterest;
+      totalInterestPayable += expectedInterest;
       totalPrincipal += expectedPrincipal;
 
       schedule.push({
-        cycle_number: cycle.cycle_number,
+        period: cycle.cycle_number,
         from_date: cycle.from_date,
         to_date: cycle.to_date,
         expected_days: cycle.expected_days,
-        expected_interest: expectedInterest,
-        expected_principal: expectedPrincipal,
-        total_due: expectedInterest + expectedPrincipal,
-        remaining_principal: remainingPrincipal,
+        beginningBalance,
+        principal: expectedPrincipal,
+        interest: expectedInterest,
+        totalPayment: expectedInterest + expectedPrincipal,
+        endingBalance: remainingPrincipal,
       });
     }
 
     return {
       schedule,
-      totalInterest,
-      totalPrincipal,
-      totalExpectedPay: totalPrincipal + totalInterest,
+      totalOriginalPrincipal: loanAmount,
+      totalInterestPayable,
+      totalAmountPayable: totalPrincipal + totalInterestPayable,
     };
   }
 
@@ -576,11 +592,11 @@ export class InterestCalculatorFactory {
       case "daily_k_day":
         return new DailyFixedInterestCalculator();
       case "monthly_percent_30":
-        return new MonthlyPercentInterestCalculator();
+        return new MonthlyPercentStandardInterestCalculator();
       case "monthly_percent_periodic":
-        return new MonthlyPeriodicInterestCalculator();
+        return new MonthlyPercentPeriodicInterestCalculator();
       case "monthly_amount_periodic":
-        return new MonthlyFixedInterestCalculator();
+        return new MonthlyFixedPeriodicInterestCalculator();
       case "weekly_percent":
         return new WeeklyPercentInterestCalculator();
       case "weekly_amount":
@@ -620,11 +636,11 @@ export function generateInterestSchedule(
   });
 
   return result.schedule.map((item) => ({
-    cycle_number: item.cycle_number,
+    cycle_number: item.period,
     from_date: item.from_date,
     to_date: item.to_date,
     expected_days: item.expected_days,
-    expected_interest: item.expected_interest,
-    expected_principal: item.expected_principal,
+    expected_interest: item.interest,
+    expected_principal: item.principal,
   }));
 }
