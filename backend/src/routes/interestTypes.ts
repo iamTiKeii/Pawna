@@ -1,9 +1,8 @@
 import { Router, Response } from "express";
-import { PrismaClient } from "@prisma/client";
+import { prisma } from "../utils/db";
 import { authenticateToken, AuthenticatedRequest } from "../middleware/auth";
 
 const router = Router();
-const prisma = new PrismaClient();
 
 // Authenticate all requests to this router
 router.use(authenticateToken as any);
@@ -12,7 +11,15 @@ router.use(authenticateToken as any);
 router.get("/", async (req: AuthenticatedRequest, res: Response) => {
   try {
     const types = await prisma.interestType.findMany({
-      orderBy: { name: "asc" },
+      select: {
+        id: true,
+        code: true,
+        name: true,
+        description: true,
+        is_system: true,
+        calculation_method: true
+      },
+      orderBy: { code: "asc" },
     });
     return res.json(types);
   } catch (error: any) {

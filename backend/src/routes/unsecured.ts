@@ -1,5 +1,5 @@
 import { Router, Response } from "express";
-import { PrismaClient, Prisma } from "@prisma/client";
+import { Prisma, prisma } from "../utils/db";
 import { authenticateToken, AuthenticatedRequest } from "../middleware/auth";
 import { requirePermission } from "../middleware/permission";
 import { generateContractCode } from "../utils/codeGen";
@@ -8,7 +8,6 @@ import { adjustDailyCash, normalizeToMidnight, checkDailyCashLock } from "../uti
 import { calculateDailyInterestRate } from "./pawn";
 
 const router = Router();
-const prisma = new PrismaClient();
 
 router.use(authenticateToken as any);
 

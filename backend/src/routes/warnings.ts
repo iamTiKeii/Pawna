@@ -1,9 +1,8 @@
 import { Router, Response } from "express";
-import { PrismaClient } from "@prisma/client";
+import { prisma } from "../utils/db";
 import { authenticateToken, AuthenticatedRequest } from "../middleware/auth";
 
 const router = Router();
-const prisma = new PrismaClient();
 
 // Apply auth middleware to all warning endpoints
 router.use(authenticateToken as any);

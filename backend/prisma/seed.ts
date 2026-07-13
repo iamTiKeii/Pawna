@@ -124,23 +124,129 @@ async function main() {
 
   // 2. Seed Interest Types
   const interestTypesData = [
-    { code: "daily_k_million", name: "Lãi ngày (k/triệu)", calculation_method: "daily_k_million", is_principal_included: false, notes: "Lãi tính theo số tiền (k) trên 1 triệu đồng mỗi ngày" },
-    { code: "daily_k_day", name: "Lãi ngày (k/ngày)", calculation_method: "daily_k_day", is_principal_included: false, notes: "Lãi tính cố định số tiền (k) mỗi ngày" },
-    { code: "monthly_percent_30", name: "Lãi tháng (%) (30 ngày)", calculation_method: "monthly_percent_30", is_principal_included: false, notes: "Lãi tính theo tỷ lệ phần trăm mỗi tháng, coi 1 tháng có 30 ngày" },
-    { code: "monthly_percent_periodic", name: "Lãi tháng (%) (Định kỳ)", calculation_method: "monthly_percent_periodic", is_principal_included: false, notes: "Lãi tính theo tỷ lệ phần trăm mỗi tháng, thanh toán cùng ngày hàng tháng" },
-    { code: "monthly_amount_periodic", name: "Lãi tháng (VNĐ) (Định kỳ)", calculation_method: "monthly_amount_periodic", is_principal_included: false, notes: "Lãi tính cố định số tiền (VNĐ) mỗi tháng, thanh toán cùng ngày hàng tháng" },
-    { code: "weekly_percent", name: "Lãi tuần (%)", calculation_method: "weekly_percent", is_principal_included: false, notes: "Lãi tính theo tỷ lệ phần trăm mỗi tuần" },
-    { code: "weekly_amount", name: "Lãi tuần (VNĐ)", calculation_method: "weekly_amount", is_principal_included: false, notes: "Lãi tính cố định số tiền (VNĐ) mỗi tuần" },
-    { code: "flat_rate_monthly", name: "Lãi phẳng (tháng)", calculation_method: "flat_rate_monthly", is_principal_included: true, notes: "Góp gốc lãi đều hàng tháng, lãi tính cố định theo gốc ban đầu" },
-    { code: "flat_rate_daily", name: "Lãi phẳng (ngày)", calculation_method: "flat_rate_daily", is_principal_included: true, notes: "Góp gốc lãi đều hàng ngày, lãi tính cố định theo gốc ban đầu" },
-    { code: "reducing_balance_fixed_installment", name: "Dư nợ giảm dần (Gốc lãi cố định)", calculation_method: "reducing_balance_fixed_installment", is_principal_included: true, notes: "Tổng số tiền đóng mỗi kỳ (gốc + lãi) cố định, lãi tính trên dư nợ thực tế giảm dần" },
-    { code: "reducing_balance_fixed_principal", name: "Dư nợ giảm dần (Gốc cố định)", calculation_method: "reducing_balance_fixed_principal", is_principal_included: true, notes: "Số tiền gốc đóng mỗi kỳ cố định, lãi tính trên dư nợ thực tế giảm dần nên tổng tiền đóng giảm dần" },
+    {
+      id: "4a1d8b9e-5b2c-4f1a-8c3d-6e4f5a7b8c9d",
+      code: "daily_k_million",
+      name: "Lãi ngày (k/triệu)",
+      calculation_method: "daily_k_million",
+      is_principal_included: false,
+      notes: "Lãi tính theo số tiền (k) trên 1 triệu đồng mỗi ngày",
+      description: "Lãi tính theo số tiền (nghìn đồng) trên mỗi triệu tiền vay mỗi ngày. Ví dụ: nhập 3 nghĩa là 3.000đ/triệu/ngày.",
+      is_system: true
+    },
+    {
+      id: "5b2c9d8e-6c3d-4f2b-9d4e-7f5a6b8c9d0e",
+      code: "daily_k_day",
+      name: "Lãi ngày (k/ngày)",
+      calculation_method: "daily_k_day",
+      is_principal_included: false,
+      notes: "Lãi tính cố định số tiền (k) mỗi ngày",
+      description: "Số tiền lãi cố định mỗi ngày, không phụ thuộc vào số tiền vay. Ví dụ: nhập 50 nghĩa là 50.000đ/ngày.",
+      is_system: true
+    },
+    {
+      id: "6c3d0e9f-7d4e-4f3c-0e5f-8f6a7b8c9d0e",
+      code: "monthly_percent_30",
+      name: "Lãi tháng (%) (30 ngày)",
+      calculation_method: "monthly_percent_30",
+      is_principal_included: false,
+      notes: "Lãi tính theo tỷ lệ phần trăm mỗi tháng, coi 1 tháng có 30 ngày",
+      description: "Lãi suất tính theo % mỗi tháng, quy ước mặc định 1 tháng có 30 ngày để tính ngày lẻ.",
+      is_system: true
+    },
+    {
+      id: "7d4e1f0a-8e5f-4f4d-1f6a-9f7a8b9c0d1e",
+      code: "monthly_percent_periodic",
+      name: "Lãi tháng (%) (Định kỳ)",
+      calculation_method: "monthly_percent_periodic",
+      is_principal_included: false,
+      notes: "Lãi tính theo tỷ lệ phần trăm mỗi tháng, thanh toán cùng ngày hàng tháng",
+      description: "Lãi suất tính theo % mỗi tháng, đóng tiền theo chu kỳ linh hoạt (ví dụ: 7 ngày, 15 ngày, 30 ngày).",
+      is_system: true
+    },
+    {
+      id: "8e5f2a1b-9f6a-4f5e-2a7b-0f8a9b0c1d2e",
+      code: "monthly_amount_periodic",
+      name: "Lãi tháng (VNĐ) (Định kỳ)",
+      calculation_method: "monthly_amount_periodic",
+      is_principal_included: false,
+      notes: "Lãi tính cố định số tiền (VNĐ) mỗi tháng, thanh toán cùng ngày hàng tháng",
+      description: "Số tiền lãi cố định bằng VNĐ cho mỗi tháng, tự động quy đổi dựa trên số ngày thực tế của kỳ thu.",
+      is_system: true
+    },
+    {
+      id: "9f6a3b2c-0a7b-4f6f-3b8c-1f9a0b1c2d3e",
+      code: "weekly_percent",
+      name: "Lãi tuần (%)",
+      calculation_method: "weekly_percent",
+      is_principal_included: false,
+      notes: "Lãi tính theo tỷ lệ phần trăm mỗi tuần",
+      description: "Lãi suất tính theo % mỗi tuần (1 tuần = 7 ngày).",
+      is_system: true
+    },
+    {
+      id: "0a7b4c3d-1b8c-4f7a-4c9d-2f0a1b2c3d4e",
+      code: "weekly_amount",
+      name: "Lãi tuần (VNĐ)",
+      calculation_method: "weekly_amount",
+      is_principal_included: false,
+      notes: "Lãi tính cố định số tiền (VNĐ) mỗi tuần",
+      description: "Số tiền lãi cố định bằng VNĐ cho mỗi tuần, không phụ thuộc tiền vay.",
+      is_system: true
+    },
+    {
+      id: "1b8c5d4e-2c9d-4f8b-5d0e-3f1a2b3c4d5e",
+      code: "flat_rate_monthly",
+      name: "Lãi phẳng (tháng)",
+      calculation_method: "flat_rate_monthly",
+      is_principal_included: true,
+      notes: "Góp gốc lãi đều hàng tháng, lãi tính cố định theo gốc ban đầu",
+      description: "Lãi suất %/tháng tính trên dư nợ gốc ban đầu. Gốc trả đều mỗi kỳ tháng.",
+      is_system: true
+    },
+    {
+      id: "2c9d6e5f-3d0e-4f9c-6e1f-4f2a3b4c5d6e",
+      code: "flat_rate_daily",
+      name: "Lãi phẳng (ngày)",
+      calculation_method: "flat_rate_daily",
+      is_principal_included: true,
+      notes: "Góp gốc lãi đều hàng ngày, lãi tính cố định theo gốc ban đầu",
+      description: "Lãi suất %/ngày tính trên dư nợ gốc ban đầu. Gốc trả đều mỗi kỳ ngày.",
+      is_system: true
+    },
+    {
+      id: "3d0e7f6a-4e1f-4fa0-7f2a-5f3a4b5c6d7e",
+      code: "reducing_balance_fixed_installment",
+      name: "Dư nợ giảm dần (Gốc lãi cố định)",
+      calculation_method: "reducing_balance_fixed_installment",
+      is_principal_included: true,
+      notes: "Tổng số tiền đóng mỗi kỳ (gốc + lãi) cố định, lãi tính trên dư nợ thực tế giảm dần",
+      description: "Dư nợ giảm dần gốc lãi cố định (EMI). Tổng tiền đóng mỗi kỳ bằng nhau.",
+      is_system: true
+    },
+    {
+      id: "4e1f8a7b-5f2a-4fb1-8f3b-6f4a5b6c7d8e",
+      code: "reducing_balance_fixed_principal",
+      name: "Dư nợ giảm dần (Gốc cố định)",
+      calculation_method: "reducing_balance_fixed_principal",
+      is_principal_included: true,
+      notes: "Số tiền gốc đóng mỗi kỳ cố định, lãi tính trên dư nợ thực tế giảm dần nên tổng tiền đóng giảm dần",
+      description: "Dư nợ giảm dần gốc cố định. Tiền gốc chia đều, lãi tính trên dư nợ giảm dần.",
+      is_system: true
+    }
   ];
 
   for (const it of interestTypesData) {
     await prisma.interestType.upsert({
       where: { code: it.code },
-      update: { name: it.name, calculation_method: it.calculation_method, is_principal_included: it.is_principal_included, notes: it.notes },
+      update: {
+        name: it.name,
+        calculation_method: it.calculation_method,
+        is_principal_included: it.is_principal_included,
+        notes: it.notes,
+        description: it.description,
+        is_system: it.is_system
+      },
       create: it,
     });
   }

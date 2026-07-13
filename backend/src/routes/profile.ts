@@ -2,11 +2,10 @@ import { Router, Response } from "express";
 import bcrypt from "bcryptjs";
 import speakeasy from "speakeasy";
 import qrcode from "qrcode";
-import { PrismaClient } from "@prisma/client";
+import { prisma } from "../utils/db";
 import { authenticateToken, AuthenticatedRequest } from "../middleware/auth";
 
 const router = Router();
-const prisma = new PrismaClient();
 
 // Use authentication middleware for all profile endpoints
 router.use(authenticateToken as any);
