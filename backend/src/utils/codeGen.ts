@@ -5,15 +5,36 @@ export async function generateVoucherCode(
   type: "receipt" | "payment"
 ): Promise<string> {
   const prefix = type === "receipt" ? "PT" : "PC";
-  let count = 0;
-  if (type === "receipt") {
-    count = await tx.receiptVoucher.count();
-  } else {
-    count = await tx.paymentVoucher.count();
+  const model = type === "receipt" ? "receiptVoucher" : "paymentVoucher";
+
+  const records = await (tx as any)[model].findMany({
+    where: {
+      voucher_code: {
+        startsWith: prefix,
+      },
+    },
+    orderBy: {
+      voucher_code: "desc",
+    },
+    take: 50,
+    select: {
+      voucher_code: true,
+    },
+  });
+
+  let maxNum = 0;
+  for (const r of records) {
+    const code = r.voucher_code;
+    const numPart = code.substring(prefix.length);
+    const num = parseInt(numPart, 10);
+    if (!isNaN(num) && /^\d+$/.test(numPart)) {
+      if (num > maxNum) {
+        maxNum = num;
+      }
+    }
   }
-  
-  // Pad with 0 for at least 4 digits, but let it grow naturally
-  const seq = String(count + 1).padStart(4, "0");
+
+  const seq = String(maxNum + 1).padStart(4, "0");
   return `${prefix}${seq}`;
 }
 
@@ -22,19 +43,46 @@ export async function generateContractCode(
   type: "pawn" | "unsecured" | "installment"
 ): Promise<string> {
   let prefix = "HD";
-  let count = 0;
+  let model = "pawnContract";
 
   if (type === "pawn") {
     prefix = "HD";
-    count = await tx.pawnContract.count();
+    model = "pawnContract";
   } else if (type === "unsecured") {
     prefix = "TC";
-    count = await tx.unsecuredContract.count();
+    model = "unsecuredContract";
   } else {
     prefix = "TG";
-    count = await tx.installmentContract.count();
+    model = "installmentContract";
   }
 
-  const seq = String(count + 1).padStart(4, "0");
+  const records = await (tx as any)[model].findMany({
+    where: {
+      contract_code: {
+        startsWith: prefix,
+      },
+    },
+    orderBy: {
+      contract_code: "desc",
+    },
+    take: 50,
+    select: {
+      contract_code: true,
+    },
+  });
+
+  let maxNum = 0;
+  for (const r of records) {
+    const code = r.contract_code;
+    const numPart = code.substring(prefix.length);
+    const num = parseInt(numPart, 10);
+    if (!isNaN(num) && /^\d+$/.test(numPart)) {
+      if (num > maxNum) {
+        maxNum = num;
+      }
+    }
+  }
+
+  const seq = String(maxNum + 1).padStart(4, "0");
   return `${prefix}${seq}`;
 }

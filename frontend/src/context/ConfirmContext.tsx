@@ -49,41 +49,18 @@ export const ConfirmProvider: React.FC<{ children: React.ReactNode }> = ({ child
     setSubmitting(false);
     setIsOpen(true);
 
-    if (opts.event && opts.event.currentTarget) {
+    if (opts.event) {
       opts.event.stopPropagation();
-      const rect = (opts.event.currentTarget as HTMLElement).getBoundingClientRect();
-      const scrollTop = window.scrollY || document.documentElement.scrollTop;
-      const scrollLeft = window.scrollX || document.documentElement.scrollLeft;
-
-      const popoverWidth = 320;
-      const popoverHeight = 180;
-      
-      let top = rect.bottom + scrollTop + 8;
-      let left = rect.left + scrollLeft + (rect.width / 2) - (popoverWidth / 2);
-
-      // Render above target if it cuts off at the bottom
-      const viewportHeight = window.innerHeight;
-      const spaceBelow = viewportHeight - rect.bottom;
-      if (spaceBelow < popoverHeight && rect.top > popoverHeight) {
-        top = rect.top + scrollTop - popoverHeight - 8;
-      }
-
-      setPopoverStyle({
-        position: "absolute",
-        top: `${top}px`,
-        left: `${Math.max(16, Math.min(left, window.innerWidth - popoverWidth - 16))}px`,
-        zIndex: 9999,
-      });
-    } else {
-      // Center of screen fallback (classic modal style)
-      setPopoverStyle({
-        position: "fixed",
-        top: "50%",
-        left: "50%",
-        transform: "translate(-50%, -50%)",
-        zIndex: 9999,
-      });
     }
+
+    // Always center of screen (classic modal style)
+    setPopoverStyle({
+      position: "fixed",
+      top: "50%",
+      left: "50%",
+      transform: "translate(-50%, -50%)",
+      zIndex: 9999,
+    });
   };
 
   const handleCancel = () => {
@@ -134,13 +111,13 @@ export const ConfirmProvider: React.FC<{ children: React.ReactNode }> = ({ child
       {isOpen && options && (
         <>
           <div 
-            className="fixed inset-0 z-[9998] bg-slate-900/10 transition-opacity" 
+            className="fixed inset-0 z-[9998] bg-slate-900/40 backdrop-blur-sm transition-opacity animate-[fadeIn_0.15s_ease-out]" 
             onClick={handleCancel}
           />
           <div
             ref={popoverRef}
             style={popoverStyle}
-            className="w-80 bg-white border border-slate-200/80 rounded-2xl p-5 shadow-2xl z-[9999] transition-all duration-200 transform scale-100 opacity-100 flex flex-col gap-3.5 text-xs text-slate-800"
+            className="w-[360px] max-w-[90vw] bg-white border border-slate-200/80 rounded-2xl p-6 shadow-2xl z-[9999] confirm-modal-animate flex flex-col gap-4 text-xs text-slate-800"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex gap-3">

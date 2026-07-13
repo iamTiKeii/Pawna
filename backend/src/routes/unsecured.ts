@@ -13,6 +13,23 @@ const prisma = new PrismaClient();
 router.use(authenticateToken as any);
 
 // HELPER: Recalculate future schedules when principal changes (Unsecured uses initial_loan_amount for interest base)
+export function mapUnsecuredContract(c: any) {
+  if (!c) return c;
+  const totalInterest = c.interest_payments
+    ? c.interest_payments.reduce((sum: number, p: any) => sum + Number(p.expected_interest || 0), 0)
+    : 0;
+  const totalRepayment = Number(c.loan_amount || 0) + totalInterest;
+  return {
+    ...c,
+    totalInterest,
+    totalRepayment,
+  };
+}
+
+export function mapUnsecuredContracts(contracts: any[]) {
+  return contracts.map(mapUnsecuredContract);
+}
+
 async function recalculateUnsecuredSchedule(
   tx: Prisma.TransactionClient,
   contractId: string
@@ -118,7 +135,7 @@ router.get("/", async (req: AuthenticatedRequest, res: Response) => {
       orderBy: { created_at: "desc" },
     });
 
-    return res.json(contracts);
+    return res.json(mapUnsecuredContracts(contracts));
   } catch (error: any) {
     return res.status(500).json({ error: error.message });
   }
@@ -159,7 +176,7 @@ router.get("/:id", async (req: AuthenticatedRequest, res: Response) => {
       return res.status(404).json({ error: "Unsecured contract not found" });
     }
 
-    return res.json(contract);
+    return res.json(mapUnsecuredContract(contract));
   } catch (error: any) {
     return res.status(500).json({ error: error.message });
   }
@@ -298,7 +315,18 @@ router.post("/", requirePermission(["CONTRACTS_MANAGE"]) as any, async (req: Aut
         },
       });
 
-      return contract;
+      const fullContract = await tx.unsecuredContract.findUnique({
+        where: { id: contract.id },
+        include: {
+          customer: true,
+          commodity: true,
+          interest_type: true,
+          collector: { select: { full_name: true } },
+          interest_payments: { orderBy: { cycle_number: "asc" } },
+        },
+      });
+
+      return mapUnsecuredContract(fullContract);
     });
 
     return res.status(201).json(result);
@@ -526,7 +554,14 @@ router.post("/:id/pay-down", requirePermission(["CONTRACTS_OPERATE"]) as any, as
       // Recalculate schedules
       await recalculateUnsecuredSchedule(tx, contractId);
 
-      return updatedContract;
+      const fullContract = await tx.unsecuredContract.findUnique({
+        where: { id: contractId },
+        include: {
+          interest_payments: { orderBy: { cycle_number: "asc" } },
+        },
+      });
+
+      return mapUnsecuredContract(fullContract);
     });
 
     return res.json(result);
@@ -608,7 +643,14 @@ router.post("/:id/borrow-more", requirePermission(["CONTRACTS_OPERATE"]) as any,
       // Recalculate schedules
       await recalculateUnsecuredSchedule(tx, contractId);
 
-      return updatedContract;
+      const fullContract = await tx.unsecuredContract.findUnique({
+        where: { id: contractId },
+        include: {
+          interest_payments: { orderBy: { cycle_number: "asc" } },
+        },
+      });
+
+      return mapUnsecuredContract(fullContract);
     });
 
     return res.json(result);
@@ -1132,7 +1174,14 @@ router.post("/:id/record-debt", requirePermission(["CONTRACTS_OPERATE"]) as any,
         },
       });
 
-      return updated;
+      const fullContract = await tx.unsecuredContract.findUnique({
+        where: { id: contractId },
+        include: {
+          interest_payments: { orderBy: { cycle_number: "asc" } },
+        },
+      });
+
+      return mapUnsecuredContract(fullContract);
     });
 
     return res.json(result);
@@ -1201,7 +1250,14 @@ router.post("/:id/pay-debt", requirePermission(["CONTRACTS_OPERATE"]) as any, as
         },
       });
 
-      return updated;
+      const fullContract = await tx.unsecuredContract.findUnique({
+        where: { id: contractId },
+        include: {
+          interest_payments: { orderBy: { cycle_number: "asc" } },
+        },
+      });
+
+      return mapUnsecuredContract(fullContract);
     });
 
     return res.json(result);
@@ -1494,7 +1550,18 @@ router.put("/:id", requirePermission(["CONTRACTS_MANAGE"]) as any, async (req: A
         });
       }
 
-      return updated;
+      const fullContract = await tx.unsecuredContract.findUnique({
+        where: { id: contractId },
+        include: {
+          customer: true,
+          commodity: true,
+          interest_type: true,
+          collector: { select: { full_name: true } },
+          interest_payments: { orderBy: { cycle_number: "asc" } },
+        },
+      });
+
+      return mapUnsecuredContract(fullContract);
     });
 
     return res.json(result);

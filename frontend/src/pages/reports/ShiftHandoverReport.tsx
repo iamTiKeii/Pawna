@@ -205,6 +205,7 @@ export const ShiftHandoverReport: React.FC = () => {
                     <th>Ngày Vay</th>
                     <th>Số Tiền Giải Ngân</th>
                     <th>Số Dư Dư Nợ Còn Lại</th>
+                    <th>Tổng Phải Thu</th>
                     <th>Loại Hình</th>
                   </tr>
                 </thead>
@@ -216,6 +217,7 @@ export const ShiftHandoverReport: React.FC = () => {
                       <td>{new Date(item.loan_date).toLocaleDateString("vi-VN")}</td>
                       <td>{formatCurrency(item.loan_amount)}</td>
                       <td>{formatCurrency(item.loan_amount)}</td>
+                      <td className="font-bold text-slate-700">{formatCurrency(item.totalRepayment)}</td>
                       <td><span className="badge badge-sm badge-outline badge-secondary">Tín chấp</span></td>
                     </tr>
                   ))}
@@ -226,12 +228,13 @@ export const ShiftHandoverReport: React.FC = () => {
                       <td>{new Date(item.loan_date).toLocaleDateString("vi-VN")}</td>
                       <td>{formatCurrency(item.disbursed_amount)}</td>
                       <td>{formatCurrency(item.remaining_amount)}</td>
+                      <td className="font-bold text-slate-700">{formatCurrency(item.repayment_amount)}</td>
                       <td><span className="badge badge-sm badge-outline badge-primary">Trả góp</span></td>
                     </tr>
                   ))}
                   {data.assets.unsecured.length === 0 && data.assets.installment.length === 0 && (
                     <tr>
-                      <td colSpan={6} className="text-center py-4 text-slate-500">Không có hồ sơ nào đang quản lý.</td>
+                      <td colSpan={7} className="text-center py-4 text-slate-500">Không có hồ sơ nào đang quản lý.</td>
                     </tr>
                   )}
                 </tbody>

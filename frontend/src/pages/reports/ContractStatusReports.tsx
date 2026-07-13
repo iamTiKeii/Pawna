@@ -299,6 +299,7 @@ export const ContractStatusReports: React.FC<{ overrideCategory?: string }> = ({
                     <th>Gói Hàng Hóa</th>
                     <th>Ngày Vay</th>
                     <th>Tiền Cho Vay</th>
+                    <th>Tổng Phải Thu</th>
                     <th>Lãi Suất</th>
                     <th>Trạng Thái</th>
                     <th className="text-right">Chức Năng</th>
@@ -307,7 +308,7 @@ export const ContractStatusReports: React.FC<{ overrideCategory?: string }> = ({
                 <tbody>
                   {currentList.length === 0 ? (
                     <tr>
-                      <td colSpan={9} className="text-center py-8 text-slate-500">
+                      <td colSpan={10} className="text-center py-8 text-slate-500">
                         Không có hợp đồng tín chấp nào trong danh mục này.
                       </td>
                     </tr>
@@ -325,6 +326,7 @@ export const ContractStatusReports: React.FC<{ overrideCategory?: string }> = ({
                         <td>{c.commodity?.name || "Tín chấp"}</td>
                         <td>{new Date(c.loan_date).toLocaleDateString("vi-VN")}</td>
                         <td className="text-amber-600 font-extrabold">{formatCurrency(c.loan_amount)}</td>
+                        <td className="text-amber-600 font-extrabold">{formatCurrency(c.totalRepayment)}</td>
                         <td>{c.interest_rate}% / {c.period_value} ngày ({c.interest_type.name})</td>
                         <td>
                           <span

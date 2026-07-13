@@ -229,10 +229,12 @@ export const buildLoanContractPrintData = (
     contract.interest_rate !== undefined && contract.interest_rate !== null
       ? `${contract.interest_rate}% / ${contract.period_value || 30} ngày`
       : "Thỏa thuận";
-
   const loanAmt = Number(contract.loan_amount || 0);
   const loanAmountStr = formatCurrency(loanAmt);
   const loanAmountText = convertNumberToVietnameseWords(loanAmt);
+
+  const totalInterestVal = Number(contract.totalInterest || 0);
+  const totalRepaymentVal = Number(contract.totalRepayment || 0);
 
   return {
     ContractCode: contract.contract_code || "",
@@ -256,6 +258,9 @@ export const buildLoanContractPrintData = (
     InterestRate: interestRateVal,
     AssetType: assetType,
     AssetDetail: "—",
+    TotalInterest: formatCurrency(totalInterestVal),
+    TotalRepayment: formatCurrency(totalRepaymentVal),
+    TotalRepaymentText: convertNumberToVietnameseWords(totalRepaymentVal),
   };
 };
 

@@ -1157,6 +1157,7 @@ export const UnsecuredDetail: React.FC<UnsecuredDetailProps> = ({ idProp, onClos
               ),
             },
             { label: "Tiền vay:", value: formatCurrency(contract.loan_amount) },
+            { label: "Tổng phải thu:", value: formatCurrency(contract.totalRepayment), valueClass: "text-blue-600 font-black" },
             { label: "Lãi suất:", value: rateLabel },
             {
               label: "Vay từ ngày:",

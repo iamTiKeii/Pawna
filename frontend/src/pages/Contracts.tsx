@@ -91,6 +91,9 @@ export const Contracts: React.FC = () => {
   // Details Modal Popup State
   const [selectedDetailId, setSelectedDetailId] = useState<string | null>(null);
   const [detailDefaultTab, setDetailDefaultTab] = useState<string>("interest");
+  
+  const [unsecuredSortField, setUnsecuredSortField] = useState<string | null>(null);
+  const [unsecuredSortOrder, setUnsecuredSortOrder] = useState<"asc" | "desc">("asc");
 
   const fetchContracts = async () => {
     if (!activeStore) return;
@@ -158,8 +161,8 @@ export const Contracts: React.FC = () => {
       filename = "Hop_Dong_Tin_Chap";
       headers = [
         "Mã HĐ", "Khách hàng", "SĐT Khách hàng", "Tài sản", "Tiền vay (VNĐ)", 
-        "Ngày vay", "Lãi đã đóng (VNĐ)", "Nợ cũ (VNĐ)", "Lãi đến hôm nay (VNĐ)", 
-        "Ngày phải đóng", "Trạng thái"
+        "Tổng phải thu (VNĐ)", "Ngày vay", "Lãi đã đóng (VNĐ)", "Nợ cũ (VNĐ)", 
+        "Lãi đến hôm nay (VNĐ)", "Ngày phải đóng", "Trạng thái"
       ];
       rows = unsecuredList.map((item) => {
         const nextPayDate = getNextPaymentDate(item);
@@ -171,6 +174,7 @@ export const Contracts: React.FC = () => {
           item.customer?.phone || "",
           item.commodity?.name?.split("|")[0] || "Tín chấp",
           Number(item.loan_amount || 0),
+          Number(item.totalRepayment || 0),
           item.loan_date ? new Date(item.loan_date).toLocaleDateString("vi-VN") : "",
           paidInt,
           Number(item.debt_amount || 0),
@@ -682,11 +686,31 @@ export const Contracts: React.FC = () => {
     return true;
   });
 
+  const sortedUnsecuredList = React.useMemo(() => {
+    if (!unsecuredSortField) return filteredUnsecuredList;
+    const sorted = [...filteredUnsecuredList];
+    sorted.sort((a, b) => {
+      let aVal = 0;
+      let bVal = 0;
+      if (unsecuredSortField === "totalRepayment") {
+        aVal = a.totalRepayment || 0;
+        bVal = b.totalRepayment || 0;
+      }
+      if (unsecuredSortOrder === "asc") {
+        return aVal - bVal;
+      } else {
+        return bVal - aVal;
+      }
+    });
+    return sorted;
+  }, [filteredUnsecuredList, unsecuredSortField, unsecuredSortOrder]);
+
   // Unsecured stats calculations
   const totalUnsecuredLent = filteredUnsecuredList.filter(item => item.status === "active").reduce((sum, item) => sum + Number(item.loan_amount || 0), 0);
   const totalUnsecuredDebt = filteredUnsecuredList.filter(item => item.status === "active").reduce((sum, item) => sum + Number(item.debt_amount || 0), 0);
   const totalUnsecuredExpectedInterest = filteredUnsecuredList.filter(item => item.status === "active").reduce((sum, item) => sum + getAccruedInterest(item), 0);
   const totalUnsecuredPaidInterest = filteredUnsecuredList.reduce((sum, item) => sum + getPaidInterest(item), 0);
+  const totalUnsecuredRepayment = filteredUnsecuredList.reduce((sum, item) => sum + Number(item.totalRepayment || 0), 0);
 
   // Local filtering logic for Installment Contracts
   const filteredInstallmentList = installmentList.filter((item) => {
@@ -1093,7 +1117,6 @@ export const Contracts: React.FC = () => {
                 </tbody>
               </table>
             )}
-
             {activeTab === "unsecured" && (
               <table className="table w-full text-slate-600 text-xs">
                 <thead>
@@ -1103,6 +1126,19 @@ export const Contracts: React.FC = () => {
                     <th>Khách hàng</th>
                     <th>Tài sản</th>
                     <th>VNĐ</th>
+                    <th 
+                      className="text-right cursor-pointer hover:bg-slate-100 select-none"
+                      onClick={() => {
+                        if (unsecuredSortField === "totalRepayment") {
+                          setUnsecuredSortOrder(unsecuredSortOrder === "asc" ? "desc" : "asc");
+                        } else {
+                          setUnsecuredSortField("totalRepayment");
+                          setUnsecuredSortOrder("asc");
+                        }
+                      }}
+                    >
+                      Tổng phải thu {unsecuredSortField === "totalRepayment" ? (unsecuredSortOrder === "asc" ? "▲" : "▼") : ""}
+                    </th>
                     <th>Ngày vay</th>
                     <th>Lãi đã đóng</th>
                     <th>Nợ cũ</th>
@@ -1113,7 +1149,7 @@ export const Contracts: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredUnsecuredList.map((item, index) => {
+                  {sortedUnsecuredList.map((item, index) => {
                     const nextPayDate = getNextPaymentDate(item);
                     const accruedInt = getAccruedInterest(item);
                     const elapsedDays = getAccruedDays(item);
@@ -1140,6 +1176,9 @@ export const Contracts: React.FC = () => {
                         <td>
                           <div className="font-black text-slate-800">{formatCurrency(item.loan_amount).replace("₫", "")}</div>
                           {interestLabel && <div className="text-[10px] text-red-500 font-bold mt-0.5">{interestLabel}</div>}
+                        </td>
+                        <td className="text-right font-black text-blue-600">
+                          {formatCurrency(item.totalRepayment || 0).replace("₫", "")}
                         </td>
                         <td>
                           <div>{new Date(item.loan_date).toLocaleDateString("vi-VN")}</div>
@@ -1233,6 +1272,7 @@ export const Contracts: React.FC = () => {
                     <tr className="bg-slate-50/50 border-t border-b border-slate-200 text-xs font-extrabold">
                       <td colSpan={4} className="text-right py-3.5 text-red-600">Tổng tiền:</td>
                       <td className="text-red-600">{formatCurrency(totalUnsecuredLent).replace("₫", "")}</td>
+                      <td className="text-right text-red-600">{formatCurrency(totalUnsecuredRepayment).replace("₫", "")}</td>
                       <td></td>
                       <td className="text-red-600">{formatCurrency(totalUnsecuredPaidInterest).replace("₫", "")}</td>
                       <td className="text-red-600">{formatCurrency(totalUnsecuredDebt).replace("₫", "")}</td>

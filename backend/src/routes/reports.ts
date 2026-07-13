@@ -725,6 +725,18 @@ router.get("/contracts", async (req: AuthenticatedRequest, res: Response) => {
       return res.status(400).json({ error: "Invalid report category" });
     }
 
+    const mapUnsecuredContract = (c: any) => {
+      const totalInterest = c.interest_payments
+        ? c.interest_payments.reduce((sum: number, p: any) => sum + Number(p.expected_interest || 0), 0)
+        : 0;
+      const totalRepayment = Number(c.loan_amount || 0) + totalInterest;
+      return {
+        ...c,
+        totalInterest,
+        totalRepayment,
+      };
+    };
+
     // Fetch lists
     pawnContracts = await prisma.pawnContract.findMany({
       where: pawnFilter,
@@ -732,7 +744,7 @@ router.get("/contracts", async (req: AuthenticatedRequest, res: Response) => {
     });
     unsecuredContracts = await prisma.unsecuredContract.findMany({
       where: unsecuredFilter,
-      include: { customer: true, commodity: true, interest_type: true },
+      include: { customer: true, commodity: true, interest_type: true, interest_payments: true },
     });
     installmentContracts = await prisma.installmentContract.findMany({
       where: installmentFilter,
@@ -741,7 +753,7 @@ router.get("/contracts", async (req: AuthenticatedRequest, res: Response) => {
 
     return res.json({
       pawn: pawnContracts,
-      unsecured: unsecuredContracts,
+      unsecured: unsecuredContracts.map(mapUnsecuredContract),
       installment: installmentContracts,
     });
   } catch (error: any) {
@@ -797,7 +809,19 @@ router.get("/shift-handover", async (req: AuthenticatedRequest, res: Response) =
 
     const unsecuredAssets = await prisma.unsecuredContract.findMany({
       where: { store_id: storeId, status: { in: ["active", "overdue"] } },
-      include: { customer: true, commodity: true },
+      include: { customer: true, commodity: true, interest_payments: true },
+    });
+
+    const mappedUnsecuredAssets = unsecuredAssets.map((c) => {
+      const totalInterest = c.interest_payments
+        ? c.interest_payments.reduce((sum: number, p: any) => sum + Number(p.expected_interest || 0), 0)
+        : 0;
+      const totalRepayment = Number(c.loan_amount || 0) + totalInterest;
+      return {
+        ...c,
+        totalInterest,
+        totalRepayment,
+      };
     });
 
     const installmentContracts = await prisma.installmentContract.findMany({
@@ -816,6 +840,7 @@ router.get("/shift-handover", async (req: AuthenticatedRequest, res: Response) =
         loan_date: c.loan_date,
         disbursed_amount: Number(c.disbursed_amount),
         remaining_amount: Math.max(0, totalRepay - totalPaid),
+        repayment_amount: totalRepay,
       };
     });
 
@@ -832,7 +857,7 @@ router.get("/shift-handover", async (req: AuthenticatedRequest, res: Response) =
       },
       assets: {
         pawn: pawnAssets,
-        unsecured: unsecuredAssets,
+        unsecured: mappedUnsecuredAssets,
         installment: installmentAssets,
       },
     });
