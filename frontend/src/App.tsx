@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useLocation, Link } from "react-router-dom";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { ConfirmProvider } from "./context/ConfirmContext";
 import { Header } from "./components/Header";
@@ -53,8 +53,28 @@ import { ProfileModal } from "./components/modals/ProfileModal";
 import { ChangePasswordModal } from "./components/modals/ChangePasswordModal";
 import { TwoFactorModal } from "./components/modals/TwoFactorModal";
 
-const PrivateLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { token, loading } = useAuth();
+const ForbiddenPage: React.FC = () => {
+  return (
+    <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-6 text-center">
+      <div className="max-w-md bg-white border border-slate-200 rounded-2xl p-8 shadow-sm">
+        <h1 className="text-6xl font-extrabold text-amber-500 mb-4">403</h1>
+        <h2 className="text-xl font-bold text-slate-800 mb-2">Truy cập bị từ chối</h2>
+        <p className="text-sm text-slate-500 mb-6">
+          Bạn không có quyền truy cập vào chức năng hoặc báo cáo này. Vui lòng liên hệ quản trị viên để được phân quyền.
+        </p>
+        <Link
+          to="/dashboard"
+          className="btn bg-amber-500 hover:bg-amber-600 border-none text-white font-bold px-6 h-10 min-h-[40px] rounded-lg transition-all"
+        >
+          Quay lại Bảng điều khiển
+        </Link>
+      </div>
+    </div>
+  );
+};
+
+const PrivateLayout: React.FC<{ children: React.ReactNode; requiredPermission?: string | string[] }> = ({ children, requiredPermission }) => {
+  const { token, loading, hasPermission } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [profileOpen, setProfileOpen] = useState(false);
   const [passwordOpen, setPasswordOpen] = useState(false);
@@ -70,6 +90,16 @@ const PrivateLayout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
 
   if (!token) {
     return <Navigate to="/login" replace />;
+  }
+
+  if (requiredPermission) {
+    const hasAny = Array.isArray(requiredPermission)
+      ? requiredPermission.some((p) => hasPermission(p))
+      : hasPermission(requiredPermission);
+
+    if (!hasAny) {
+      return <Navigate to="/403" replace />;
+    }
   }
 
   return (
@@ -193,6 +223,10 @@ function App() {
               </PublicRoute>
             }
           />
+          <Route
+            path="/403"
+            element={<ForbiddenPage />}
+          />
 
           {/* Private default redirect */}
           <Route path="/" element={<Navigate to="/home" replace />} />
@@ -221,7 +255,7 @@ function App() {
           <Route
             path="/contract/pawn"
             element={
-              <PrivateLayout>
+              <PrivateLayout requiredPermission={["CONTRACTS_MANAGE", "CONTRACTS_OPERATE"]}>
                 <Contracts />
               </PrivateLayout>
             }
@@ -229,7 +263,7 @@ function App() {
           <Route
             path="/contract/loan"
             element={
-              <PrivateLayout>
+              <PrivateLayout requiredPermission={["CONTRACTS_MANAGE", "CONTRACTS_OPERATE"]}>
                 <Contracts />
               </PrivateLayout>
             }
@@ -237,7 +271,7 @@ function App() {
           <Route
             path="/contract/installment"
             element={
-              <PrivateLayout>
+              <PrivateLayout requiredPermission={["CONTRACTS_MANAGE", "CONTRACTS_OPERATE"]}>
                 <Contracts />
               </PrivateLayout>
             }
@@ -250,7 +284,7 @@ function App() {
           <Route
             path="/contracts/pawn/:id"
             element={
-              <PrivateLayout>
+              <PrivateLayout requiredPermission={["CONTRACTS_MANAGE", "CONTRACTS_OPERATE"]}>
                 <PawnDetail />
               </PrivateLayout>
             }
@@ -258,7 +292,7 @@ function App() {
           <Route
             path="/contracts/unsecured/:id"
             element={
-              <PrivateLayout>
+              <PrivateLayout requiredPermission={["CONTRACTS_MANAGE", "CONTRACTS_OPERATE"]}>
                 <UnsecuredDetail />
               </PrivateLayout>
             }
@@ -266,7 +300,7 @@ function App() {
           <Route
             path="/contracts/installment/:id"
             element={
-              <PrivateLayout>
+              <PrivateLayout requiredPermission={["CONTRACTS_MANAGE", "CONTRACTS_OPERATE"]}>
                 <InstallmentDetail />
               </PrivateLayout>
             }
@@ -276,7 +310,7 @@ function App() {
           <Route
             path="/customer-list"
             element={
-              <PrivateLayout>
+              <PrivateLayout requiredPermission={["CONTRACTS_MANAGE", "CONTRACTS_OPERATE"]}>
                 <Customers />
               </PrivateLayout>
             }
@@ -284,7 +318,7 @@ function App() {
           <Route
             path="/collaborator"
             element={
-              <PrivateLayout>
+              <PrivateLayout requiredPermission="COLLABORATORS_MANAGE">
                 <Collaborators />
               </PrivateLayout>
             }
@@ -297,7 +331,7 @@ function App() {
           <Route
             path="/summary-report-shop"
             element={
-              <PrivateLayout>
+              <PrivateLayout requiredPermission={["STORES_MANAGE", "SETTINGS_MANAGE"]}>
                 <ShopsSummaryReport />
               </PrivateLayout>
             }
@@ -305,7 +339,7 @@ function App() {
           <Route
             path="/shop-detail"
             element={
-              <PrivateLayout>
+              <PrivateLayout requiredPermission={["STORES_DETAIL", "STORES_MANAGE"]}>
                 <ShopDetail />
               </PrivateLayout>
             }
@@ -313,7 +347,7 @@ function App() {
           <Route
             path="/shop-list"
             element={
-              <PrivateLayout>
+              <PrivateLayout requiredPermission="STORES_MANAGE">
                 <Stores />
               </PrivateLayout>
             }
@@ -321,7 +355,7 @@ function App() {
           <Route
             path="/category-list"
             element={
-              <PrivateLayout>
+              <PrivateLayout requiredPermission="SETTINGS_MANAGE">
                 <Commodities />
               </PrivateLayout>
             }
@@ -329,7 +363,7 @@ function App() {
           <Route
             path="/cash-fund"
             element={
-              <PrivateLayout>
+              <PrivateLayout requiredPermission="FUNDS_MANAGE">
                 <BeginningCash />
               </PrivateLayout>
             }
@@ -341,7 +375,7 @@ function App() {
           <Route
             path="/cash"
             element={
-              <PrivateLayout>
+              <PrivateLayout requiredPermission="FUNDS_MANAGE">
                 <CashFund />
               </PrivateLayout>
             }
@@ -351,7 +385,7 @@ function App() {
           <Route
             path="/manage-expense"
             element={
-              <PrivateLayout>
+              <PrivateLayout requiredPermission="VOUCHERS_MANAGE">
                 <Vouchers />
               </PrivateLayout>
             }
@@ -359,7 +393,7 @@ function App() {
           <Route
             path="/manage-income"
             element={
-              <PrivateLayout>
+              <PrivateLayout requiredPermission="VOUCHERS_MANAGE">
                 <Vouchers />
               </PrivateLayout>
             }
@@ -370,7 +404,7 @@ function App() {
           <Route
             path="/contract/capital"
             element={
-              <PrivateLayout>
+              <PrivateLayout requiredPermission="CAPITAL_MANAGE">
                 <CapitalContracts />
               </PrivateLayout>
             }
@@ -381,7 +415,7 @@ function App() {
           <Route
             path="/staff"
             element={
-              <PrivateLayout>
+              <PrivateLayout requiredPermission="EMPLOYEES_LIST">
                 <Employees />
               </PrivateLayout>
             }
@@ -389,7 +423,7 @@ function App() {
           <Route
             path="/staff-permission"
             element={
-              <PrivateLayout>
+              <PrivateLayout requiredPermission="EMPLOYEES_PERMISSIONS">
                 <StaffPermission />
               </PrivateLayout>
             }
@@ -400,7 +434,7 @@ function App() {
           <Route
             path="/report-balance"
             element={
-              <PrivateLayout>
+              <PrivateLayout requiredPermission="REPORT_TRANSACTIONS">
                 <TransactionsSummaryReport />
               </PrivateLayout>
             }
@@ -408,7 +442,7 @@ function App() {
           <Route
             path="/report-profit"
             element={
-              <PrivateLayout>
+              <PrivateLayout requiredPermission="REPORT_PROFIT">
                 <ProfitSummaryReport />
               </PrivateLayout>
             }
@@ -416,7 +450,7 @@ function App() {
           <Route
             path="/report-interest-detail"
             element={
-              <PrivateLayout>
+              <PrivateLayout requiredPermission="REPORT_INTEREST">
                 <InterestDetailReport />
               </PrivateLayout>
             }
@@ -424,7 +458,7 @@ function App() {
           <Route
             path="/payment-history"
             element={
-              <PrivateLayout>
+              <PrivateLayout requiredPermission="REPORT_COLLECTIONS">
                 <EmployeeCollectionReport />
               </PrivateLayout>
             }
@@ -432,7 +466,7 @@ function App() {
           <Route
             path="/report-pawn-holding"
             element={
-              <PrivateLayout>
+              <PrivateLayout requiredPermission="REPORT_ACTIVE_LOANS">
                 <ContractStatusReports overrideCategory="active-loans" />
               </PrivateLayout>
             }
@@ -440,7 +474,7 @@ function App() {
           <Route
             path="/report-warehouse-liquidation"
             element={
-              <PrivateLayout>
+              <PrivateLayout requiredPermission="REPORT_LIQUIDATION_WAITING">
                 <ContractStatusReports overrideCategory="waiting-liquidation" />
               </PrivateLayout>
             }
@@ -448,7 +482,7 @@ function App() {
           <Route
             path="/report-pawn-new-repurchase"
             element={
-              <PrivateLayout>
+              <PrivateLayout requiredPermission="REPORT_REDEMPTIONS">
                 <ContractStatusReports overrideCategory="redeemed" />
               </PrivateLayout>
             }
@@ -456,7 +490,7 @@ function App() {
           <Route
             path="/report-pawn-new-liquidation"
             element={
-              <PrivateLayout>
+              <PrivateLayout requiredPermission="REPORT_LIQUIDATED">
                 <ContractStatusReports overrideCategory="liquidated" />
               </PrivateLayout>
             }
@@ -464,7 +498,7 @@ function App() {
           <Route
             path="/report-contract-cancel"
             element={
-              <PrivateLayout>
+              <PrivateLayout requiredPermission="REPORT_DELETED_CONTRACTS">
                 <ContractStatusReports overrideCategory="cancelled" />
               </PrivateLayout>
             }
@@ -472,7 +506,7 @@ function App() {
           <Route
             path="/report-shift-handover"
             element={
-              <PrivateLayout>
+              <PrivateLayout requiredPermission="REPORT_HANDOVER">
                 <ShiftHandoverReport />
               </PrivateLayout>
             }
@@ -480,7 +514,7 @@ function App() {
           <Route
             path="/report-cash-flow-daily"
             element={
-              <PrivateLayout>
+              <PrivateLayout requiredPermission="REPORT_DAILY_CASH">
                 <DailyCashFlowReport />
               </PrivateLayout>
             }
@@ -488,7 +522,7 @@ function App() {
           <Route
             path="/report-affiliate"
             element={
-              <PrivateLayout>
+              <PrivateLayout requiredPermission="REPORT_COLLABORATORS">
                 <CollaboratorReport />
               </PrivateLayout>
             }
@@ -515,7 +549,7 @@ function App() {
           <Route
             path="/settings"
             element={
-              <PrivateLayout>
+              <PrivateLayout requiredPermission="SETTINGS_MANAGE">
                 <SettingsPage />
               </PrivateLayout>
             }

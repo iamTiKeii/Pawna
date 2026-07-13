@@ -119,7 +119,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const hasPermission = (code: string): boolean => {
     if (!user) return false;
-    return user.permissions.includes(code);
+    return user.permissions.includes(code) || user.permissions.includes("SETTINGS_MANAGE");
   };
 
   return (

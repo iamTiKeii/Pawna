@@ -2,6 +2,7 @@ import { Router, Response } from "express";
 import { prisma } from "../utils/db";
 import { authenticateToken, AuthenticatedRequest } from "../middleware/auth";
 import { normalizeToMidnight } from "../utils/cash";
+import { requirePermission } from "../middleware/permission";
 
 const router = Router();
 
@@ -14,7 +15,21 @@ function getDaysDifference(date1: Date, date2: Date): number {
 }
 
 // 1. Overview across all shops (Tổng quát các cửa hàng)
-router.get("/overview", async (req: AuthenticatedRequest, res: Response) => {
+router.get("/overview", requirePermission([
+  "SETTINGS_MANAGE",
+  "REPORT_TRANSACTIONS",
+  "REPORT_PROFIT",
+  "REPORT_INTEREST",
+  "REPORT_COLLECTIONS",
+  "REPORT_LIQUIDATION_WAITING",
+  "REPORT_REDEMPTIONS",
+  "REPORT_ACTIVE_LOANS",
+  "REPORT_LIQUIDATED",
+  "REPORT_DELETED_CONTRACTS",
+  "REPORT_HANDOVER",
+  "REPORT_DAILY_CASH",
+  "REPORT_COLLABORATORS",
+]) as any, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const today = normalizeToMidnight(new Date());
     const stores = await prisma.store.findMany({
@@ -118,7 +133,7 @@ router.get("/overview", async (req: AuthenticatedRequest, res: Response) => {
 });
 
 // 2. Transactions Summary & Sổ cái chi tiết (Tổng kết giao dịch)
-router.get("/transactions", async (req: AuthenticatedRequest, res: Response) => {
+router.get("/transactions", requirePermission(["REPORT_TRANSACTIONS"]) as any, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const storeId = req.user!.store_id;
     const { startDate, endDate } = req.query;
@@ -341,7 +356,7 @@ router.get("/transactions", async (req: AuthenticatedRequest, res: Response) => 
 });
 
 // 3. Profit Summary (Tổng kết lợi nhuận)
-router.get("/profit", async (req: AuthenticatedRequest, res: Response) => {
+router.get("/profit", requirePermission(["REPORT_PROFIT"]) as any, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const storeId = req.user!.store_id;
     const { startDate, endDate } = req.query;
@@ -489,7 +504,7 @@ router.get("/profit", async (req: AuthenticatedRequest, res: Response) => {
 });
 
 // 4. Interest Details (Chi tiết tiền lãi & Tổng hợp tháng)
-router.get("/interest", async (req: AuthenticatedRequest, res: Response) => {
+router.get("/interest", requirePermission(["REPORT_INTEREST"]) as any, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const storeId = req.user!.store_id;
     const { year, type } = req.query;
@@ -598,7 +613,7 @@ router.get("/interest", async (req: AuthenticatedRequest, res: Response) => {
 });
 
 // 5. Employee Money Collection Statistics (Thống kê thu tiền nhân viên)
-router.get("/collection", async (req: AuthenticatedRequest, res: Response) => {
+router.get("/collection", requirePermission(["REPORT_COLLECTIONS"]) as any, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const storeId = req.user!.store_id;
     const { startDate, endDate } = req.query;
@@ -666,6 +681,25 @@ router.get("/contracts", async (req: AuthenticatedRequest, res: Response) => {
 
     if (!category) {
       return res.status(400).json({ error: "Category query is required" });
+    }
+
+    let requiredPermission = "";
+    if (category === "active-loans") {
+      requiredPermission = "REPORT_ACTIVE_LOANS";
+    } else if (category === "waiting-liquidation") {
+      requiredPermission = "REPORT_LIQUIDATION_WAITING";
+    } else if (category === "redeemed") {
+      requiredPermission = "REPORT_REDEMPTIONS";
+    } else if (category === "liquidated") {
+      requiredPermission = "REPORT_LIQUIDATED";
+    } else if (category === "cancelled") {
+      requiredPermission = "REPORT_DELETED_CONTRACTS";
+    } else {
+      return res.status(400).json({ error: "Invalid report category" });
+    }
+
+    if (!req.user || (!req.user.permissions.includes(requiredPermission) && !req.user.permissions.includes("SETTINGS_MANAGE"))) {
+      return res.status(403).json({ error: `Forbidden: Lacks required permission ${requiredPermission}` });
     }
 
     const today = normalizeToMidnight(new Date());
@@ -761,7 +795,7 @@ router.get("/contracts", async (req: AuthenticatedRequest, res: Response) => {
 });
 
 // 7. Shift Handover (Biên bản bàn giao ca)
-router.get("/shift-handover", async (req: AuthenticatedRequest, res: Response) => {
+router.get("/shift-handover", requirePermission(["REPORT_HANDOVER"]) as any, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const storeId = req.user!.store_id;
     const { date } = req.query;
@@ -866,7 +900,7 @@ router.get("/shift-handover", async (req: AuthenticatedRequest, res: Response) =
 });
 
 // 8. Daily Cash Flow Ledger (Dòng tiền theo ngày)
-router.get("/cashflow", async (req: AuthenticatedRequest, res: Response) => {
+router.get("/cashflow", requirePermission(["REPORT_DAILY_CASH"]) as any, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const storeId = req.user!.store_id;
     const { startDate, endDate } = req.query;
@@ -971,7 +1005,7 @@ router.get("/cashflow", async (req: AuthenticatedRequest, res: Response) => {
 });
 
 // 9. Collaborator Report (Báo cáo CTV)
-router.get("/collaborators", async (req: AuthenticatedRequest, res: Response) => {
+router.get("/collaborators", requirePermission(["REPORT_COLLABORATORS"]) as any, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const storeId = req.user!.store_id;
 
