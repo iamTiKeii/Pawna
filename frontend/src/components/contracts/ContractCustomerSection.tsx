@@ -139,7 +139,6 @@ export const ContractCustomerSection: React.FC<CustomerSectionProps> = ({
                     customerIdCardPlace: "",
                     customerPhone: "",
                     customerAddress: "",
-                    customerSearchQuery: "",
                   });
                 }}
                 required
