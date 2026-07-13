@@ -7,28 +7,53 @@ export interface InterestCycle {
   expected_principal: number;
 }
 
-export function generateInterestSchedule(
-  loanAmount: number,
-  interestRate: number, // rate percentage or fixed cash depending on type
-  loanDays: number,
-  periodValue: number,
-  interestTypeCode: string,
+export interface PaymentScheduleItem {
+  cycle_number: number;
+  from_date: Date;
+  to_date: Date;
+  expected_days: number;
+  expected_interest: number;
+  expected_principal: number;
+  total_due: number;
+  remaining_principal: number;
+}
+
+export interface InterestCalculationResult {
+  schedule: PaymentScheduleItem[];
+  totalInterest: number;
+  totalPrincipal: number;
+  totalExpectedPay: number;
+}
+
+export interface CalculatorParams {
+  loanAmount: number;
+  interestRate: number;
+  loanDays: number;
+  periodValue: number;
+  loanDateInput: Date | string;
+  isUpfront: boolean;
+}
+
+export interface IInterestCalculator {
+  calculate(params: CalculatorParams): InterestCalculationResult;
+  getDailyRate(loanAmount: number, interestRate: number, periodValue: number): number;
+}
+
+// HELPER: Generate cycle dates
+export function getCycleDates(
   loanDateInput: Date | string,
-  isUpfront: boolean
-): InterestCycle[] {
+  loanDays: number,
+  periodValue: number
+) {
   const loanDate = new Date(loanDateInput);
   const totalCycles = Math.ceil(loanDays / periodValue);
-  const cycles: InterestCycle[] = [];
-
-  let remainingPrincipal = loanAmount;
+  const cycles = [];
 
   for (let k = 1; k <= totalCycles; k++) {
-    // 1. Calculate dates
     const cycleStart = new Date(loanDate);
     cycleStart.setDate(loanDate.getDate() + (k - 1) * periodValue);
 
     const cycleEnd = new Date(loanDate);
-    // If it's the last cycle, make sure it matches the exact contract maturity
     if (k === totalCycles) {
       cycleEnd.setDate(loanDate.getDate() + loanDays);
     } else {
@@ -40,118 +65,566 @@ export function generateInterestSchedule(
       Math.round((cycleEnd.getTime() - cycleStart.getTime()) / (1000 * 60 * 60 * 24))
     );
 
-    let expectedInterest = 0;
-    let expectedPrincipal = 0;
-
-    const rate = interestRate; // e.g. percent rate or amount
-
-    switch (interestTypeCode) {
-      case "daily_k_million":
-        // rate is k per million per day. e.g. 2k/million/day = 0.002 of principal per day.
-        expectedInterest = (remainingPrincipal / 1000000) * rate * expectedDays;
-        break;
-
-      case "daily_k_day":
-        // rate is fixed cash amount per day
-        expectedInterest = rate * expectedDays;
-        break;
-
-      case "monthly_percent_30":
-        // rate is monthly percentage, 1 month = 30 days
-        expectedInterest = remainingPrincipal * ((rate / 100) / 30) * expectedDays;
-        break;
-
-      case "monthly_percent_periodic":
-        // rate is monthly percentage, flat for the cycle
-        expectedInterest = remainingPrincipal * (rate / 100);
-        break;
-
-      case "monthly_amount_periodic":
-        // rate is fixed cash amount per month cycle
-        expectedInterest = rate;
-        break;
-
-      case "weekly_percent":
-        // rate is weekly percentage, flat for the cycle
-        expectedInterest = remainingPrincipal * (rate / 100);
-        break;
-
-      case "weekly_amount":
-        // rate is fixed cash amount per week cycle
-        expectedInterest = rate;
-        break;
-
-      case "flat_rate_monthly":
-        // flat monthly interest and equal principal split
-        expectedInterest = loanAmount * (rate / 100);
-        expectedPrincipal = loanAmount / totalCycles;
-        break;
-
-      case "flat_rate_daily":
-        // daily flat interest and equal principal split
-        expectedInterest = loanAmount * (rate / 100) * expectedDays;
-        expectedPrincipal = loanAmount / totalCycles;
-        break;
-
-      case "reducing_balance_fixed_installment": {
-        // Equal monthly payment (Amortization): A = P * [r(1+r)^n] / [(1+r)^n - 1]
-        const r = rate / 100;
-        if (r === 0) {
-          expectedPrincipal = loanAmount / totalCycles;
-          expectedInterest = 0;
-        } else {
-          const totalPayment =
-            loanAmount *
-            ((r * Math.pow(1 + r, totalCycles)) / (Math.pow(1 + r, totalCycles) - 1));
-          expectedInterest = remainingPrincipal * r;
-          expectedPrincipal = totalPayment - expectedInterest;
-        }
-        break;
-      }
-
-      case "reducing_balance_fixed_principal":
-        // Equal principal, interest on remaining principal
-        expectedPrincipal = loanAmount / totalCycles;
-        expectedInterest = remainingPrincipal * (rate / 100);
-        break;
-
-      default:
-        break;
-    }
-
-    // Rounding to nearest VNĐ (integer)
-    expectedInterest = Math.round(expectedInterest);
-    expectedPrincipal = Math.round(expectedPrincipal);
-
     cycles.push({
       cycle_number: k,
       from_date: cycleStart,
       to_date: cycleEnd,
       expected_days: expectedDays,
-      expected_interest: expectedInterest,
-      expected_principal: expectedPrincipal,
     });
+  }
+  return cycles;
+}
 
-    // Update remaining principal for reducing balance methods
-    if (
-      interestTypeCode === "reducing_balance_fixed_installment" ||
-      interestTypeCode === "reducing_balance_fixed_principal"
-    ) {
+// 1. Lãi ngày (k/triệu)
+export class DailyPerMillionInterestCalculator implements IInterestCalculator {
+  calculate(params: CalculatorParams): InterestCalculationResult {
+    const { loanAmount, interestRate, loanDays, periodValue, loanDateInput } = params;
+    const dateCycles = getCycleDates(loanDateInput, loanDays, periodValue);
+    const schedule: PaymentScheduleItem[] = [];
+    let totalInterest = 0;
+
+    for (const cycle of dateCycles) {
+      const dailyRate = this.getDailyRate(loanAmount, interestRate, periodValue);
+      const expectedInterest = Math.round(dailyRate * cycle.expected_days);
+      const expectedPrincipal = 0;
+      totalInterest += expectedInterest;
+
+      schedule.push({
+        cycle_number: cycle.cycle_number,
+        from_date: cycle.from_date,
+        to_date: cycle.to_date,
+        expected_days: cycle.expected_days,
+        expected_interest: expectedInterest,
+        expected_principal: expectedPrincipal,
+        total_due: expectedInterest + expectedPrincipal,
+        remaining_principal: loanAmount,
+      });
+    }
+
+    return {
+      schedule,
+      totalInterest,
+      totalPrincipal: 0,
+      totalExpectedPay: loanAmount + totalInterest,
+    };
+  }
+
+  getDailyRate(loanAmount: number, interestRate: number, periodValue: number): number {
+    return (loanAmount / 1000000) * (interestRate * 1000);
+  }
+}
+
+// 2. Lãi ngày (k/ngày)
+export class DailyFixedInterestCalculator implements IInterestCalculator {
+  calculate(params: CalculatorParams): InterestCalculationResult {
+    const { loanAmount, interestRate, loanDays, periodValue, loanDateInput } = params;
+    const dateCycles = getCycleDates(loanDateInput, loanDays, periodValue);
+    const schedule: PaymentScheduleItem[] = [];
+    let totalInterest = 0;
+
+    for (const cycle of dateCycles) {
+      const dailyRate = this.getDailyRate(loanAmount, interestRate, periodValue);
+      const expectedInterest = Math.round(dailyRate * cycle.expected_days);
+      const expectedPrincipal = 0;
+      totalInterest += expectedInterest;
+
+      schedule.push({
+        cycle_number: cycle.cycle_number,
+        from_date: cycle.from_date,
+        to_date: cycle.to_date,
+        expected_days: cycle.expected_days,
+        expected_interest: expectedInterest,
+        expected_principal: expectedPrincipal,
+        total_due: expectedInterest + expectedPrincipal,
+        remaining_principal: loanAmount,
+      });
+    }
+
+    return {
+      schedule,
+      totalInterest,
+      totalPrincipal: 0,
+      totalExpectedPay: loanAmount + totalInterest,
+    };
+  }
+
+  getDailyRate(loanAmount: number, interestRate: number, periodValue: number): number {
+    return interestRate * 1000;
+  }
+}
+
+// 3. Lãi tháng (%) (30 ngày)
+export class MonthlyPercentInterestCalculator implements IInterestCalculator {
+  calculate(params: CalculatorParams): InterestCalculationResult {
+    const { loanAmount, interestRate, loanDays, periodValue, loanDateInput } = params;
+    const dateCycles = getCycleDates(loanDateInput, loanDays, periodValue);
+    const schedule: PaymentScheduleItem[] = [];
+    let totalInterest = 0;
+
+    for (const cycle of dateCycles) {
+      const dailyRate = this.getDailyRate(loanAmount, interestRate, periodValue);
+      const expectedInterest = Math.round(dailyRate * cycle.expected_days);
+      const expectedPrincipal = 0;
+      totalInterest += expectedInterest;
+
+      schedule.push({
+        cycle_number: cycle.cycle_number,
+        from_date: cycle.from_date,
+        to_date: cycle.to_date,
+        expected_days: cycle.expected_days,
+        expected_interest: expectedInterest,
+        expected_principal: expectedPrincipal,
+        total_due: expectedInterest + expectedPrincipal,
+        remaining_principal: loanAmount,
+      });
+    }
+
+    return {
+      schedule,
+      totalInterest,
+      totalPrincipal: 0,
+      totalExpectedPay: loanAmount + totalInterest,
+    };
+  }
+
+  getDailyRate(loanAmount: number, interestRate: number, periodValue: number): number {
+    return loanAmount * ((interestRate / 100) / 30);
+  }
+}
+
+// 4. Lãi tháng (%) (Định kỳ)
+export class MonthlyPeriodicInterestCalculator implements IInterestCalculator {
+  calculate(params: CalculatorParams): InterestCalculationResult {
+    const { loanAmount, interestRate, loanDays, periodValue, loanDateInput } = params;
+    const dateCycles = getCycleDates(loanDateInput, loanDays, periodValue);
+    const schedule: PaymentScheduleItem[] = [];
+    let totalInterest = 0;
+
+    for (const cycle of dateCycles) {
+      const dailyRate = this.getDailyRate(loanAmount, interestRate, periodValue);
+      const expectedInterest = Math.round(dailyRate * cycle.expected_days);
+      const expectedPrincipal = 0;
+      totalInterest += expectedInterest;
+
+      schedule.push({
+        cycle_number: cycle.cycle_number,
+        from_date: cycle.from_date,
+        to_date: cycle.to_date,
+        expected_days: cycle.expected_days,
+        expected_interest: expectedInterest,
+        expected_principal: expectedPrincipal,
+        total_due: expectedInterest + expectedPrincipal,
+        remaining_principal: loanAmount,
+      });
+    }
+
+    return {
+      schedule,
+      totalInterest,
+      totalPrincipal: 0,
+      totalExpectedPay: loanAmount + totalInterest,
+    };
+  }
+
+  getDailyRate(loanAmount: number, interestRate: number, periodValue: number): number {
+    const monthlyInterest = loanAmount * (interestRate / 100);
+    return monthlyInterest / 30;
+  }
+}
+
+// 5. Lãi tháng (VNĐ) (Định kỳ)
+export class MonthlyFixedInterestCalculator implements IInterestCalculator {
+  calculate(params: CalculatorParams): InterestCalculationResult {
+    const { loanAmount, interestRate, loanDays, periodValue, loanDateInput } = params;
+    const dateCycles = getCycleDates(loanDateInput, loanDays, periodValue);
+    const schedule: PaymentScheduleItem[] = [];
+    let totalInterest = 0;
+
+    for (const cycle of dateCycles) {
+      const dailyRate = this.getDailyRate(loanAmount, interestRate, periodValue);
+      const expectedInterest = Math.round(dailyRate * cycle.expected_days);
+      const expectedPrincipal = 0;
+      totalInterest += expectedInterest;
+
+      schedule.push({
+        cycle_number: cycle.cycle_number,
+        from_date: cycle.from_date,
+        to_date: cycle.to_date,
+        expected_days: cycle.expected_days,
+        expected_interest: expectedInterest,
+        expected_principal: expectedPrincipal,
+        total_due: expectedInterest + expectedPrincipal,
+        remaining_principal: loanAmount,
+      });
+    }
+
+    return {
+      schedule,
+      totalInterest,
+      totalPrincipal: 0,
+      totalExpectedPay: loanAmount + totalInterest,
+    };
+  }
+
+  getDailyRate(loanAmount: number, interestRate: number, periodValue: number): number {
+    return interestRate / 30;
+  }
+}
+
+// 6. Lãi tuần (%)
+export class WeeklyPercentInterestCalculator implements IInterestCalculator {
+  calculate(params: CalculatorParams): InterestCalculationResult {
+    const { loanAmount, interestRate, loanDays, periodValue, loanDateInput } = params;
+    const dateCycles = getCycleDates(loanDateInput, loanDays, periodValue);
+    const schedule: PaymentScheduleItem[] = [];
+    let totalInterest = 0;
+
+    for (const cycle of dateCycles) {
+      const dailyRate = this.getDailyRate(loanAmount, interestRate, periodValue);
+      const expectedInterest = Math.round(dailyRate * cycle.expected_days);
+      const expectedPrincipal = 0;
+      totalInterest += expectedInterest;
+
+      schedule.push({
+        cycle_number: cycle.cycle_number,
+        from_date: cycle.from_date,
+        to_date: cycle.to_date,
+        expected_days: cycle.expected_days,
+        expected_interest: expectedInterest,
+        expected_principal: expectedPrincipal,
+        total_due: expectedInterest + expectedPrincipal,
+        remaining_principal: loanAmount,
+      });
+    }
+
+    return {
+      schedule,
+      totalInterest,
+      totalPrincipal: 0,
+      totalExpectedPay: loanAmount + totalInterest,
+    };
+  }
+
+  getDailyRate(loanAmount: number, interestRate: number, periodValue: number): number {
+    const weeklyInterest = loanAmount * (interestRate / 100);
+    return weeklyInterest / 7;
+  }
+}
+
+// 7. Lãi tuần (VNĐ)
+export class WeeklyFixedInterestCalculator implements IInterestCalculator {
+  calculate(params: CalculatorParams): InterestCalculationResult {
+    const { loanAmount, interestRate, loanDays, periodValue, loanDateInput } = params;
+    const dateCycles = getCycleDates(loanDateInput, loanDays, periodValue);
+    const schedule: PaymentScheduleItem[] = [];
+    let totalInterest = 0;
+
+    for (const cycle of dateCycles) {
+      const dailyRate = this.getDailyRate(loanAmount, interestRate, periodValue);
+      const expectedInterest = Math.round(dailyRate * cycle.expected_days);
+      const expectedPrincipal = 0;
+      totalInterest += expectedInterest;
+
+      schedule.push({
+        cycle_number: cycle.cycle_number,
+        from_date: cycle.from_date,
+        to_date: cycle.to_date,
+        expected_days: cycle.expected_days,
+        expected_interest: expectedInterest,
+        expected_principal: expectedPrincipal,
+        total_due: expectedInterest + expectedPrincipal,
+        remaining_principal: loanAmount,
+      });
+    }
+
+    return {
+      schedule,
+      totalInterest,
+      totalPrincipal: 0,
+      totalExpectedPay: loanAmount + totalInterest,
+    };
+  }
+
+  getDailyRate(loanAmount: number, interestRate: number, periodValue: number): number {
+    return interestRate / 7;
+  }
+}
+
+// 8. Lãi phẳng (Kỳ lãi theo tháng)
+export class FlatMonthlyInterestCalculator implements IInterestCalculator {
+  calculate(params: CalculatorParams): InterestCalculationResult {
+    const { loanAmount, interestRate, loanDays, periodValue, loanDateInput } = params;
+    const dateCycles = getCycleDates(loanDateInput, loanDays, periodValue);
+    const totalCycles = dateCycles.length;
+    const schedule: PaymentScheduleItem[] = [];
+
+    const expectedInterest = Math.round(loanAmount * (interestRate / 100));
+    const standardPrincipal = Math.round(loanAmount / totalCycles);
+    let remainingPrincipal = loanAmount;
+    let totalInterest = 0;
+    let totalPrincipal = 0;
+
+    for (let index = 0; index < totalCycles; index++) {
+      const cycle = dateCycles[index];
+      let expectedPrincipal = standardPrincipal;
+
+      if (index === totalCycles - 1) {
+        expectedPrincipal = remainingPrincipal;
+      }
+
+      remainingPrincipal -= expectedPrincipal;
+      totalInterest += expectedInterest;
+      totalPrincipal += expectedPrincipal;
+
+      schedule.push({
+        cycle_number: cycle.cycle_number,
+        from_date: cycle.from_date,
+        to_date: cycle.to_date,
+        expected_days: cycle.expected_days,
+        expected_interest: expectedInterest,
+        expected_principal: expectedPrincipal,
+        total_due: expectedInterest + expectedPrincipal,
+        remaining_principal: remainingPrincipal,
+      });
+    }
+
+    return {
+      schedule,
+      totalInterest,
+      totalPrincipal,
+      totalExpectedPay: totalPrincipal + totalInterest,
+    };
+  }
+
+  getDailyRate(loanAmount: number, interestRate: number, periodValue: number): number {
+    const monthlyInterest = loanAmount * (interestRate / 100);
+    return monthlyInterest / 30;
+  }
+}
+
+// 9. Lãi phẳng (Kỳ lãi theo ngày)
+export class FlatDailyInterestCalculator implements IInterestCalculator {
+  calculate(params: CalculatorParams): InterestCalculationResult {
+    const { loanAmount, interestRate, loanDays, periodValue, loanDateInput } = params;
+    const dateCycles = getCycleDates(loanDateInput, loanDays, periodValue);
+    const totalCycles = dateCycles.length;
+    const schedule: PaymentScheduleItem[] = [];
+
+    const standardPrincipal = Math.round(loanAmount / totalCycles);
+    let remainingPrincipal = loanAmount;
+    let totalInterest = 0;
+    let totalPrincipal = 0;
+
+    for (let index = 0; index < totalCycles; index++) {
+      const cycle = dateCycles[index];
+      const dailyRate = this.getDailyRate(loanAmount, interestRate, periodValue);
+      const expectedInterest = Math.round(dailyRate * cycle.expected_days);
+      let expectedPrincipal = standardPrincipal;
+
+      if (index === totalCycles - 1) {
+        expectedPrincipal = remainingPrincipal;
+      }
+
+      remainingPrincipal -= expectedPrincipal;
+      totalInterest += expectedInterest;
+      totalPrincipal += expectedPrincipal;
+
+      schedule.push({
+        cycle_number: cycle.cycle_number,
+        from_date: cycle.from_date,
+        to_date: cycle.to_date,
+        expected_days: cycle.expected_days,
+        expected_interest: expectedInterest,
+        expected_principal: expectedPrincipal,
+        total_due: expectedInterest + expectedPrincipal,
+        remaining_principal: remainingPrincipal,
+      });
+    }
+
+    return {
+      schedule,
+      totalInterest,
+      totalPrincipal,
+      totalExpectedPay: totalPrincipal + totalInterest,
+    };
+  }
+
+  getDailyRate(loanAmount: number, interestRate: number, periodValue: number): number {
+    return loanAmount * (interestRate / 100);
+  }
+}
+
+// 10. Dư nợ giảm dần (Gốc lãi cố định - EMI)
+export class ReducingBalanceEMICalculator implements IInterestCalculator {
+  calculate(params: CalculatorParams): InterestCalculationResult {
+    const { loanAmount, interestRate, loanDays, periodValue, loanDateInput } = params;
+    const dateCycles = getCycleDates(loanDateInput, loanDays, periodValue);
+    const totalCycles = dateCycles.length;
+    const schedule: PaymentScheduleItem[] = [];
+
+    const r = interestRate / 100;
+    let emi = 0;
+    if (r === 0) {
+      emi = loanAmount / totalCycles;
+    } else {
+      emi = loanAmount * ((r * Math.pow(1 + r, totalCycles)) / (Math.pow(1 + r, totalCycles) - 1));
+    }
+
+    let remainingPrincipal = loanAmount;
+    let totalInterest = 0;
+    let totalPrincipal = 0;
+
+    for (let index = 0; index < totalCycles; index++) {
+      const cycle = dateCycles[index];
+      let expectedInterest = Math.round(remainingPrincipal * r);
+      let expectedPrincipal = Math.round(emi - expectedInterest);
+
+      if (index === totalCycles - 1) {
+        expectedPrincipal = remainingPrincipal;
+      }
+
       remainingPrincipal -= expectedPrincipal;
       if (remainingPrincipal < 0) remainingPrincipal = 0;
+
+      totalInterest += expectedInterest;
+      totalPrincipal += expectedPrincipal;
+
+      schedule.push({
+        cycle_number: cycle.cycle_number,
+        from_date: cycle.from_date,
+        to_date: cycle.to_date,
+        expected_days: cycle.expected_days,
+        expected_interest: expectedInterest,
+        expected_principal: expectedPrincipal,
+        total_due: expectedInterest + expectedPrincipal,
+        remaining_principal: remainingPrincipal,
+      });
     }
+
+    return {
+      schedule,
+      totalInterest,
+      totalPrincipal,
+      totalExpectedPay: totalPrincipal + totalInterest,
+    };
   }
 
-  // Adjust last cycle's principal to avoid rounding discrepancies
-  const totalExpectedPrincipal = cycles.reduce((sum, c) => sum + c.expected_principal, 0);
-  if (totalExpectedPrincipal > 0 && totalExpectedPrincipal !== loanAmount) {
-    const diff = loanAmount - totalExpectedPrincipal;
-    const lastCycle = cycles[cycles.length - 1];
-    if (lastCycle) {
-      lastCycle.expected_principal += diff;
-      if (lastCycle.expected_principal < 0) lastCycle.expected_principal = 0;
+  getDailyRate(loanAmount: number, interestRate: number, periodValue: number): number {
+    return loanAmount * (interestRate / 100) / 30;
+  }
+}
+
+// 11. Dư nợ giảm dần (Gốc cố định)
+export class ReducingBalanceFixedPrincipalCalculator implements IInterestCalculator {
+  calculate(params: CalculatorParams): InterestCalculationResult {
+    const { loanAmount, interestRate, loanDays, periodValue, loanDateInput } = params;
+    const dateCycles = getCycleDates(loanDateInput, loanDays, periodValue);
+    const totalCycles = dateCycles.length;
+    const schedule: PaymentScheduleItem[] = [];
+
+    const standardPrincipal = Math.round(loanAmount / totalCycles);
+    let remainingPrincipal = loanAmount;
+    let totalInterest = 0;
+    let totalPrincipal = 0;
+
+    for (let index = 0; index < totalCycles; index++) {
+      const cycle = dateCycles[index];
+      let expectedPrincipal = standardPrincipal;
+
+      if (index === totalCycles - 1) {
+        expectedPrincipal = remainingPrincipal;
+      }
+
+      const expectedInterest = Math.round(remainingPrincipal * (interestRate / 100));
+      remainingPrincipal -= expectedPrincipal;
+      if (remainingPrincipal < 0) remainingPrincipal = 0;
+
+      totalInterest += expectedInterest;
+      totalPrincipal += expectedPrincipal;
+
+      schedule.push({
+        cycle_number: cycle.cycle_number,
+        from_date: cycle.from_date,
+        to_date: cycle.to_date,
+        expected_days: cycle.expected_days,
+        expected_interest: expectedInterest,
+        expected_principal: expectedPrincipal,
+        total_due: expectedInterest + expectedPrincipal,
+        remaining_principal: remainingPrincipal,
+      });
     }
+
+    return {
+      schedule,
+      totalInterest,
+      totalPrincipal,
+      totalExpectedPay: totalPrincipal + totalInterest,
+    };
   }
 
-  return cycles;
+  getDailyRate(loanAmount: number, interestRate: number, periodValue: number): number {
+    return loanAmount * (interestRate / 100) / 30;
+  }
+}
+
+// FACTORY
+export class InterestCalculatorFactory {
+  static getCalculator(interestTypeCode: string): IInterestCalculator {
+    switch (interestTypeCode) {
+      case "daily_k_million":
+        return new DailyPerMillionInterestCalculator();
+      case "daily_k_day":
+        return new DailyFixedInterestCalculator();
+      case "monthly_percent_30":
+        return new MonthlyPercentInterestCalculator();
+      case "monthly_percent_periodic":
+        return new MonthlyPeriodicInterestCalculator();
+      case "monthly_amount_periodic":
+        return new MonthlyFixedInterestCalculator();
+      case "weekly_percent":
+        return new WeeklyPercentInterestCalculator();
+      case "weekly_amount":
+        return new WeeklyFixedInterestCalculator();
+      case "flat_rate_monthly":
+        return new FlatMonthlyInterestCalculator();
+      case "flat_rate_daily":
+        return new FlatDailyInterestCalculator();
+      case "reducing_balance_fixed_installment":
+        return new ReducingBalanceEMICalculator();
+      case "reducing_balance_fixed_principal":
+        return new ReducingBalanceFixedPrincipalCalculator();
+      default:
+        throw new Error(`Unsupported interest type code: ${interestTypeCode}`);
+    }
+  }
+}
+
+// WRAPPER (Backward Compatibility)
+export function generateInterestSchedule(
+  loanAmount: number,
+  interestRate: number, // rate percentage or fixed cash depending on type
+  loanDays: number,
+  periodValue: number,
+  interestTypeCode: string,
+  loanDateInput: Date | string,
+  isUpfront: boolean
+): InterestCycle[] {
+  const calculator = InterestCalculatorFactory.getCalculator(interestTypeCode);
+  const result = calculator.calculate({
+    loanAmount,
+    interestRate,
+    loanDays,
+    periodValue,
+    loanDateInput,
+    isUpfront,
+  });
+
+  return result.schedule.map((item) => ({
+    cycle_number: item.cycle_number,
+    from_date: item.from_date,
+    to_date: item.to_date,
+    expected_days: item.expected_days,
+    expected_interest: item.expected_interest,
+    expected_principal: item.expected_principal,
+  }));
 }

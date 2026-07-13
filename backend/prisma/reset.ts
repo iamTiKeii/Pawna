@@ -1,5 +1,4 @@
 import { PrismaClient } from "@prisma/client";
-import bcrypt from "bcryptjs";
 
 const prisma = new PrismaClient();
 
@@ -11,7 +10,10 @@ const transactionalTables = [
   "unsecured_interest_payments",
   "unsecured_contract_extensions",
   "unsecured_principal_transactions",
+  "unsecured_redemptions",
+  "unsecured_debt_history",
   "unsecured_contracts",
+
   "pawn_contract_reminders",
   "pawn_transaction_ledger",
   "pawn_debt_reminders",
@@ -19,7 +21,10 @@ const transactionalTables = [
   "pawn_interest_payments",
   "pawn_contract_extensions",
   "pawn_principal_transactions",
+  "pawn_redemptions",
+  "pawn_debt_history",
   "pawn_contracts",
+
   "installment_contract_reminders",
   "installment_transaction_ledger",
   "installment_debt_reminders",
@@ -27,101 +32,74 @@ const transactionalTables = [
   "installment_interest_payments",
   "installment_contract_extensions",
   "installment_principal_transactions",
+  "installment_redemptions",
+  "installment_debt_history",
   "installment_contracts",
+
   "capital_transactions",
-  "shareholders",
-  "vouchers",
-  "cash_handover_reports",
-  "daily_cash_ledgers",
+  "capital_contracts",
+  "payment_vouchers",
+  "receipt_vouchers",
+  "cash_fund_history",
+  "daily_cash",
+  "customer_blacklist",
   "customers",
   "collaborators",
-  "commodities",
-  "warnings_reminders",
-  "employee_permissions",
-  "employees",
-  "stores",
-  "system_settings",
+  "warnings_reminders"
 ];
 
-async function main() {
-  console.log("==================================================");
-  console.log("DỌN DẸP DỮ LIỆU & RESET HỆ THỐNG CHO KHÁCH HÀNG MỚI...");
-  console.log("==================================================");
+const masterTables = [
+  "stores",
+  "employees",
+  "permissions",
+  "employee_permissions",
+  "system_settings",
+  "interest_types",
+  "commodities",
+  "expense_categories",
+  "income_categories"
+];
 
-  // Clean all transactional tables
+async function truncateTransactionalTables() {
   for (const table of transactionalTables) {
     try {
-      await prisma.$executeRawUnsafe(`TRUNCATE TABLE "${table}" CASCADE;`);
-      console.log(`[OK] Đã xóa dữ liệu bảng: ${table}`);
+      await prisma.$executeRawUnsafe(`TRUNCATE TABLE "${table}" RESTART IDENTITY CASCADE;`);
+      console.log(`[OK] ${table}`);
     } catch (err: any) {
-      // Fallback: delete raw query if truncate fails or cascade isn't fully supported
       try {
         await prisma.$executeRawUnsafe(`DELETE FROM "${table}";`);
-        console.log(`[WARN] Dùng DELETE thay thế cho bảng: ${table}`);
+        console.log(`[WARN] Fallback DELETE on ${table}`);
       } catch (innerErr: any) {
-        console.log(`[ERROR] Không thể dọn dẹp bảng ${table}: ${innerErr.message}`);
+        console.log(`[ERROR] Failed to clear table ${table}: ${innerErr.message}`);
       }
     }
   }
+}
 
-  console.log("\nKhởi tạo lại các thông tin cấu hình ban đầu...");
-
-  // 1. Tạo Store mặc định
-  const defaultStore = await prisma.store.create({
-    data: {
-      name: "Hùng Tín - Chi nhánh 1",
-      address: "123 Đường chính, Hà Nội",
-      phone: "0976862823",
-      opening_date: new Date(),
-    },
-  });
-  console.log(`[OK] Đã tạo chi nhánh mặc định: ${defaultStore.name}`);
-
-  // 2. Tạo tài khoản Admin cao nhất
-  const passwordHash = await bcrypt.hash("admin123", 10);
-  const defaultAdmin = await prisma.employee.create({
-    data: {
-      store_id: defaultStore.id,
-      username: "admin",
-      password_hash: passwordHash,
-      full_name: "Quản Trị Viên",
-      phone: "0976862823",
-      status: "active",
-    },
-  });
-  console.log(`[OK] Đã tạo tài khoản quản trị admin/admin123`);
-
-  // 3. Gán toàn bộ quyền cho tài khoản Admin
-  const allPermissions = await prisma.permission.findMany();
-  if (allPermissions.length > 0) {
-    await prisma.employeePermission.createMany({
-      data: allPermissions.map((perm) => ({
-        employee_id: defaultAdmin.id,
-        permission_id: perm.id,
-      })),
-    });
-    console.log(`[OK] Đã gán tất cả ${allPermissions.length} quyền cho tài khoản admin`);
-  }
-
-  // 4. Tạo cấu hình hệ thống mặc định
-  const defaultSettings = [
-    { key: "system_name", value: "Hùng Tín" },
-    { key: "system_hotline", value: "0976.862.823" },
-    { key: "system_email", value: "support@hungtin.vn" },
-  ];
-
-  for (const setting of defaultSettings) {
-    await prisma.systemSetting.create({
-      data: setting,
-    });
-  }
-  console.log("[OK] Đã khởi tạo cấu hình hệ thống mặc định");
-
+async function main() {
   console.log("==================================================");
-  console.log("RESET HỆ THỐNG THÀNH CÔNG!");
-  console.log("Tài khoản đăng nhập quản trị mặc định:");
-  console.log("Tên đăng nhập: admin");
-  console.log("Mật khẩu: admin123");
+  console.log("FACTORY RESET");
+  console.log("==================================================");
+  console.log("");
+  console.log("Đang xóa dữ liệu phát sinh...");
+  console.log("");
+
+  await truncateTransactionalTables();
+
+  console.log("");
+  console.log("Bỏ qua Master Data...");
+  console.log("");
+
+  for (const table of masterTables) {
+    console.log(`[SKIP] ${table}`);
+  }
+
+  console.log("");
+  console.log("==================================================");
+  console.log("FACTORY RESET THÀNH CÔNG");
+  console.log("- Đã xóa toàn bộ dữ liệu phát sinh.");
+  console.log("- Đã giữ nguyên toàn bộ Master Data.");
+  console.log("Hệ thống sẵn sàng cho khách hàng mới.");
   console.log("==================================================");
 }
 

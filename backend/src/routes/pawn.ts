@@ -3,7 +3,7 @@ import { PrismaClient, Prisma } from "@prisma/client";
 import { authenticateToken, AuthenticatedRequest } from "../middleware/auth";
 import { requirePermission } from "../middleware/permission";
 import { generateContractCode, generateVoucherCode } from "../utils/codeGen";
-import { generateInterestSchedule, InterestCycle } from "../utils/interest";
+import { generateInterestSchedule, InterestCycle, InterestCalculatorFactory } from "../utils/interest";
 import { adjustDailyCash, normalizeToMidnight, checkDailyCashLock } from "../utils/cash";
 
 const router = Router();
@@ -91,30 +91,11 @@ export function calculateDailyInterestRate(
   periodValue: number,
   interestTypeCode: string
 ): number {
-  switch (interestTypeCode) {
-    case "daily_k_million":
-      return (principal / 1000000) * rate;
-    case "daily_k_day":
-      return rate;
-    case "monthly_percent_30":
-      return principal * ((rate / 100) / 30);
-    case "monthly_percent_periodic":
-      return (principal * (rate / 100)) / periodValue;
-    case "monthly_amount_periodic":
-      return rate / periodValue;
-    case "weekly_percent":
-      return (principal * (rate / 100)) / 7;
-    case "weekly_amount":
-      return rate / 7;
-    case "flat_rate_monthly":
-      return (principal * (rate / 100)) / 30; // assume 30 days
-    case "flat_rate_daily":
-      return principal * (rate / 100);
-    case "reducing_balance_fixed_installment":
-    case "reducing_balance_fixed_principal":
-      return (principal * (rate / 100)) / 30; // simple approximation
-    default:
-      return 0;
+  try {
+    const calculator = InterestCalculatorFactory.getCalculator(interestTypeCode);
+    return calculator.getDailyRate(principal, rate, periodValue);
+  } catch (e) {
+    return 0;
   }
 }
 
