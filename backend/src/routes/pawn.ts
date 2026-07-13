@@ -203,14 +203,48 @@ router.post("/", requirePermission(["CONTRACTS_MANAGE"]) as any, async (req: Aut
       contract_code,
     } = req.body;
 
-    if (!customer_id || !commodity_id || !asset_name || !loan_amount || !interest_type_id || !loan_days || !period_value || !collector_id) {
+    let comm: any = null;
+    if (
+      commodity_id && (
+        loan_amount === undefined || loan_amount === null || loan_amount === "" ||
+        interest_type_id === undefined || interest_type_id === null || interest_type_id === "" ||
+        loan_days === undefined || loan_days === null || loan_days === "" ||
+        period_value === undefined || period_value === null || period_value === ""
+      )
+    ) {
+      comm = await prisma.commodity.findUnique({ where: { id: commodity_id } });
+    }
+
+    const resolvedLoanAmount = (loan_amount !== undefined && loan_amount !== null && loan_amount !== "")
+      ? loan_amount
+      : (comm ? Number(comm.default_amount) : 0);
+
+    const resolvedInterestTypeId = interest_type_id || comm?.interest_type_id;
+
+    const resolvedLoanDays = (loan_days !== undefined && loan_days !== null && loan_days !== "")
+      ? loan_days
+      : (comm ? comm.default_loan_days : 30);
+
+    const resolvedPeriodValue = (period_value !== undefined && period_value !== null && period_value !== "")
+      ? period_value
+      : (comm ? comm.default_period_value : 15);
+
+    const resolvedInterestRate = (interest_rate !== undefined && interest_rate !== null && interest_rate !== "")
+      ? interest_rate
+      : (comm ? Number(comm.default_interest_rate) : 0);
+
+    const resolvedIsUpfront = is_upfront_interest !== undefined && is_upfront_interest !== null
+      ? !!is_upfront_interest
+      : (comm ? comm.is_upfront_interest : false);
+
+    if (!customer_id || !commodity_id || !asset_name || !resolvedLoanAmount || !resolvedInterestTypeId || !resolvedLoanDays || !resolvedPeriodValue || !collector_id) {
       return res.status(400).json({ error: "Missing required fields" });
     }
 
-    const principal = Number(loan_amount);
-    const rate = Number(interest_rate) || 0;
-    const days = Number(loan_days);
-    const pValue = Number(period_value);
+    const principal = Number(resolvedLoanAmount);
+    const rate = Number(resolvedInterestRate) || 0;
+    const days = Number(resolvedLoanDays);
+    const pValue = Number(resolvedPeriodValue);
 
     // Verify customer blacklist
     const customer = await prisma.customer.findUnique({ where: { id: customer_id } });
@@ -223,7 +257,7 @@ router.post("/", requirePermission(["CONTRACTS_MANAGE"]) as any, async (req: Aut
       const normalizedLoanDate = normalizeToMidnight(loan_date || new Date());
 
       const interestType = await tx.interestType.findUnique({
-        where: { id: interest_type_id },
+        where: { id: resolvedInterestTypeId },
       });
 
       if (!interestType) {
@@ -238,7 +272,7 @@ router.post("/", requirePermission(["CONTRACTS_MANAGE"]) as any, async (req: Aut
         pValue,
         interestType.code,
         normalizedLoanDate,
-        !!is_upfront_interest
+        resolvedIsUpfront
       );
 
       // Create contract
@@ -250,8 +284,8 @@ router.post("/", requirePermission(["CONTRACTS_MANAGE"]) as any, async (req: Aut
           commodity_id,
           asset_name,
           loan_amount: principal,
-          interest_type_id,
-          is_upfront_interest: !!is_upfront_interest,
+          interest_type_id: resolvedInterestTypeId,
+          is_upfront_interest: resolvedIsUpfront,
           loan_days: days,
           period_value: pValue,
           interest_rate: rate,
@@ -278,16 +312,16 @@ router.post("/", requirePermission(["CONTRACTS_MANAGE"]) as any, async (req: Aut
             expected_interest: c.expected_interest,
             expected_principal: c.expected_principal,
             // If upfront is checked, the first cycle is already paid
-            is_paid: c.cycle_number === 1 && !!is_upfront_interest,
-            actual_paid: (c.cycle_number === 1 && !!is_upfront_interest) ? c.expected_interest : 0,
-            paid_date: (c.cycle_number === 1 && !!is_upfront_interest) ? normalizedLoanDate : null,
+            is_paid: c.cycle_number === 1 && resolvedIsUpfront,
+            actual_paid: (c.cycle_number === 1 && resolvedIsUpfront) ? c.expected_interest : 0,
+            paid_date: (c.cycle_number === 1 && resolvedIsUpfront) ? normalizedLoanDate : null,
           })),
         });
       }
 
       // Calculate initial cash disbursement
       let upfrontInterest = 0;
-      if (is_upfront_interest && cycles.length > 0) {
+      if (resolvedIsUpfront && cycles.length > 0) {
         upfrontInterest = cycles[0].expected_interest;
       }
       const netDisbursement = principal - upfrontInterest;
