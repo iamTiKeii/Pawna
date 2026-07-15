@@ -27,32 +27,32 @@ export const ContractInterestSection: React.FC<InterestSectionProps> = ({
     const code = selectedInterestType.code;
     switch (code) {
       case "daily_k_million":
-        return { label: "Lãi phí (k/triệu/ngày)", suffix: "k/triệu" };
+        return { label: "Lãi phí (k/triệu/ngày)", suffix: "k/triệu", placeholder: "VD: 3 (3.000đ)" };
       case "daily_k_day":
-        return { label: "Lãi phí (k/ngày)", suffix: "k/ngày" };
+        return { label: "Lãi phí (k/ngày)", suffix: "k/ngày", placeholder: "VD: 5 (5.000đ)" };
       case "monthly_percent_30":
-        return { label: "Lãi suất (%/tháng)", suffix: "%/tháng" };
+        return { label: "Lãi suất (%/tháng)", suffix: "%/tháng", placeholder: "1" };
       case "monthly_percent_periodic":
-        return { label: "Lãi suất (%/tháng)", suffix: "%/tháng" };
+        return { label: "Lãi suất (%/tháng)", suffix: "%/tháng", placeholder: "1" };
       case "monthly_amount_periodic":
-        return { label: "Lãi phí (VNĐ/tháng)", suffix: "VNĐ/tháng" };
+        return { label: "Lãi phí (k/tháng)", suffix: "k/tháng", placeholder: "VD: 500 (500.000đ)" };
       case "weekly_percent":
-        return { label: "Lãi suất (%/tuần)", suffix: "%/tuần" };
+        return { label: "Lãi suất (%/tuần)", suffix: "%/tuần", placeholder: "1" };
       case "weekly_amount":
-        return { label: "Lãi phí (VNĐ/tuần)", suffix: "VNĐ/tuần" };
+        return { label: "Lãi phí (k/tuần)", suffix: "k/tuần", placeholder: "VD: 5 (5.000đ)" };
       case "flat_rate_monthly":
-        return { label: "Lãi suất (%/tháng)", suffix: "%/tháng" };
+        return { label: "Lãi suất (%/tháng)", suffix: "%/tháng", placeholder: "1" };
       case "flat_rate_daily":
-        return { label: "Lãi suất (%/ngày)", suffix: "%/ngày" };
+        return { label: "Lãi suất (%/ngày)", suffix: "%/ngày", placeholder: "1" };
       case "reducing_balance_fixed_installment":
       case "reducing_balance_fixed_principal":
-        return { label: "Lãi suất (%/tháng)", suffix: "%/tháng" };
+        return { label: "Lãi suất (%/tháng)", suffix: "%/tháng", placeholder: "1" };
       default:
-        return { label: "Lãi phí", suffix: "k/1 triệu" };
+        return { label: "Lãi phí", suffix: "k/1 triệu", placeholder: "1" };
     }
   };
 
-  const { label: interestLabel, suffix: interestSuffix } = getInterestConfig();
+  const { label: interestLabel, suffix: interestSuffix, placeholder: interestPlaceholder } = getInterestConfig();
 
   if (config.type === "capital") {
     return (
@@ -173,7 +173,7 @@ export const ContractInterestSection: React.FC<InterestSectionProps> = ({
               <input
                 type="number"
                 step="0.01"
-                placeholder="1"
+                placeholder={interestPlaceholder}
                 value={state.interestRate}
                 onChange={(e) =>
                   onChange({ interestRate: Number(e.target.value) })

@@ -286,7 +286,7 @@ export class MonthlyFixedPeriodicInterestCalculator implements IInterestCalculat
     const div = periodValue || 30;
 
     for (const cycle of dateCycles) {
-      const expectedInterest = Math.round(interestRate * (cycle.expected_days / div));
+      const expectedInterest = Math.round((interestRate * 1000) * (cycle.expected_days / div));
       const expectedPrincipal = 0;
       totalInterestPayable += expectedInterest;
 
@@ -312,7 +312,7 @@ export class MonthlyFixedPeriodicInterestCalculator implements IInterestCalculat
   }
 
   getDailyRate(loanAmount: number, interestRate: number, periodValue: number): number {
-    return interestRate / (periodValue || 30);
+    return (interestRate * 1000) / (periodValue || 30);
   }
 }
 
@@ -400,7 +400,7 @@ export class WeeklyFixedInterestCalculator implements IInterestCalculator {
   }
 
   getDailyRate(loanAmount: number, interestRate: number, periodValue: number): number {
-    return interestRate / 7;
+    return (interestRate * 1000) / 7;
   }
 }
 

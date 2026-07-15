@@ -9,11 +9,11 @@ export function formatInterestRateText(rate: number, typeCode: string, _periodVa
     case "monthly_percent_periodic":
       return `${rate}%/tháng`;
     case "monthly_amount_periodic":
-      return `${rate.toLocaleString("vi-VN")}đ/tháng`;
+      return `${rate}k/tháng`;
     case "weekly_percent":
       return `${rate}%/tuần`;
     case "weekly_amount":
-      return `${rate.toLocaleString("vi-VN")}đ/tuần`;
+      return `${rate}k/tuần`;
     case "flat_rate_monthly":
       return `${rate}%/tháng (lãi phẳng)`;
     case "flat_rate_daily":

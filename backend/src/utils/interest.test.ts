@@ -95,7 +95,7 @@ function runTests() {
     const calc = InterestCalculatorFactory.getCalculator("monthly_amount_periodic");
     const res = calc.calculate({
       loanAmount: 10000000,
-      interestRate: 500000, // 500,000 VND per month
+      interestRate: 500, // 500k per month (which is 500,000 VND)
       loanDays: 30,
       periodValue: 30,
       loanDateInput: "2026-07-01",
@@ -107,7 +107,7 @@ function runTests() {
     // Test partial period (e.g. 15 days out of 30)
     const resPartial = calc.calculate({
       loanAmount: 10000000,
-      interestRate: 500000,
+      interestRate: 500,
       loanDays: 15,
       periodValue: 30,
       loanDateInput: "2026-07-01",
@@ -150,7 +150,7 @@ function runTests() {
     const calc = InterestCalculatorFactory.getCalculator("weekly_amount");
     const res = calc.calculate({
       loanAmount: 10000000,
-      interestRate: 100000, // 100,000 VND per week
+      interestRate: 100, // 100k per week (which is 100,000 VND)
       loanDays: 10, // 10 days
       periodValue: 10,
       loanDateInput: "2026-07-01",
