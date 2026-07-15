@@ -23,6 +23,7 @@ import {
 import { toast } from "../lib/toast";
 import { MoneyInput } from "../components/shared/MoneyInput";
 import { useAuth } from "../context/AuthContext";
+import { LoadingOverlay } from "../components/shared/LoadingOverlay";
 import { useReactToPrint } from "react-to-print";
 import { getCompiledHtml } from "../services/print/PrintService";
 import { useRef } from "react";
@@ -1341,6 +1342,7 @@ export const InstallmentDetail: React.FC<InstallmentDetailProps> = ({
   ];
 
   return (
+    <>
     <ContractDetailLayout
       isModal={isModal}
       header={
@@ -1467,5 +1469,7 @@ export const InstallmentDetail: React.FC<InstallmentDetailProps> = ({
         />
       }
     />
+    <LoadingOverlay show={submitting} />
+    </>
   );
 };

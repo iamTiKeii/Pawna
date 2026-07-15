@@ -3,6 +3,7 @@ import axios from "axios";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { useConfirm } from "../context/ConfirmContext";
 import { formatInterestRateText } from "../utils/interestFormatter";
+import { LoadingOverlay } from "../components/shared/LoadingOverlay";
 import {
   Trash,
   Upload,
@@ -1590,6 +1591,7 @@ export const PawnDetail: React.FC<PawnDetailProps> = ({ idProp, onClose, isModal
   };
 
   return (
+    <>
     <ContractDetailLayout
       isModal={isModal}
       header={
@@ -1697,6 +1699,8 @@ export const PawnDetail: React.FC<PawnDetailProps> = ({ idProp, onClose, isModal
         />
       }
     />
+    <LoadingOverlay show={submitting} />
+    </>
   );
 };
 

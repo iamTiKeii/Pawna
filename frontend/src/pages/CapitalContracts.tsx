@@ -16,6 +16,7 @@ import { toast } from "../lib/toast";
 import { useConfirm } from "../context/ConfirmContext";
 import { MoneyInput } from "../components/shared/MoneyInput";
 import { CustomerHistoryModal } from "../components/shared/CustomerHistoryModal";
+import { LoadingOverlay } from "../components/shared/LoadingOverlay";
 import {
   ContractDetailLayout,
   ContractHeader,
@@ -81,6 +82,7 @@ export const CapitalContracts: React.FC = () => {
   const [interestTypes, setInterestTypes] = useState<InterestType[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(false);
+  const [isPending, setIsPending] = useState(false);
   const setError = (msg: string) => { if (msg) toast.error(msg); };
   const setSuccess = (msg: string) => { if (msg) toast.success(msg); };
 
@@ -183,6 +185,7 @@ export const CapitalContracts: React.FC = () => {
     }
 
     try {
+      setIsPending(true);
       setError("");
       setSuccess("");
 
@@ -213,6 +216,8 @@ export const CapitalContracts: React.FC = () => {
       fetchContracts();
     } catch (err: any) {
       setError(err.response?.data?.error || "Không thể lưu hợp đồng góp vốn.");
+    } finally {
+      setIsPending(false);
     }
   };
 
@@ -223,10 +228,17 @@ export const CapitalContracts: React.FC = () => {
       type: "danger",
       event: e,
       onConfirm: async () => {
-        setError("");
-        setSuccess("");
-        await axios.delete(`/api/contracts/capital/${id}`);
-        fetchContracts();
+        try {
+          setIsPending(true);
+          setError("");
+          setSuccess("");
+          await axios.delete(`/api/contracts/capital/${id}`);
+          fetchContracts();
+        } catch (err: any) {
+          setError(err.response?.data?.error || "Không thể hủy hợp đồng.");
+        } finally {
+          setIsPending(false);
+        }
       },
       successMessage: "Hủy hợp đồng góp vốn thành công!",
     });
@@ -264,6 +276,7 @@ export const CapitalContracts: React.FC = () => {
     e.preventDefault();
     if (!selectedContractDetail) return;
     try {
+      setIsPending(true);
       setError("");
       setSuccess("");
       const amountVal = type === "withdraw_all" ? Number(selectedContractDetail.amount) : txAmount;
@@ -285,6 +298,8 @@ export const CapitalContracts: React.FC = () => {
       setTxNotes("");
     } catch (err: any) {
       window.alert(err.response?.data?.error || "Giao dịch không thành công.");
+    } finally {
+      setIsPending(false);
     }
   };
 
@@ -625,6 +640,7 @@ export const CapitalContracts: React.FC = () => {
 
       {/* LEDGER DETAILS MODAL (Bảng chi tiết hợp đồng nguồn vốn - Images 4 & 5) */}
       {renderDetailLedgerModal()}
+      <LoadingOverlay show={isPending} />
     </div>
   );
 

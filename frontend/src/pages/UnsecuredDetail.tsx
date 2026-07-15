@@ -3,6 +3,7 @@ import axios from "axios";
 import { useParams, Link } from "react-router-dom";
 import { useConfirm } from "../context/ConfirmContext";
 import { formatInterestRateText } from "../utils/interestFormatter";
+import { LoadingOverlay } from "../components/shared/LoadingOverlay";
 import {
   Upload,
   X,
@@ -1129,6 +1130,7 @@ export const UnsecuredDetail: React.FC<UnsecuredDetailProps> = ({ idProp, onClos
   };
 
   return (
+    <>
     <ContractDetailLayout
       isModal={isModal}
       header={
@@ -1212,6 +1214,8 @@ export const UnsecuredDetail: React.FC<UnsecuredDetailProps> = ({ idProp, onClos
         />
       }
     />
+    <LoadingOverlay show={submitting} />
+    </>
   );
 };
 

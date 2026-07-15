@@ -11,6 +11,7 @@ import {
 import { toast } from "../lib/toast";
 import { MoneyInput } from "../components/shared/MoneyInput";
 import { normalizeNumericInput } from "../utils/interestFormatter";
+import { LoadingOverlay } from "../components/shared/LoadingOverlay";
 import { useConfirm } from "../context/ConfirmContext";
 
 interface InterestType {
@@ -81,6 +82,7 @@ export const Commodities: React.FC = () => {
   const [defaultPeriodValue, setDefaultPeriodValue] = useState("10");
   const [defaultLoanDays, setDefaultLoanDays] = useState("30");
   const [liquidationAfterDays, setLiquidationAfterDays] = useState("5");
+  const [isPending, setIsPending] = useState(false);
 
   // Attribute inputs
   const [attributes, setAttributes] = useState<string[]>([]);
@@ -174,6 +176,7 @@ export const Commodities: React.FC = () => {
     }
 
     try {
+      setIsPending(true);
 
       // Serialize attributes into name
       const cleanAttrs = attributes.filter(a => a.trim() !== "");
@@ -207,6 +210,8 @@ export const Commodities: React.FC = () => {
       fetchData();
     } catch (err: any) {
       toast.error(err.response?.data?.error || "Không thể lưu cấu hình.");
+    } finally {
+      setIsPending(false);
     }
   };
 
@@ -218,8 +223,15 @@ export const Commodities: React.FC = () => {
       type: "danger",
       event: e,
       onConfirm: async () => {
-        await axios.delete(`/api/commodities/${comm.id}`);
-        fetchData();
+        try {
+          setIsPending(true);
+          await axios.delete(`/api/commodities/${comm.id}`);
+          fetchData();
+        } catch (err: any) {
+          toast.error(err.response?.data?.error || "Không thể xóa hàng hóa.");
+        } finally {
+          setIsPending(false);
+        }
       },
       successMessage: `Đã xóa cấu hình hàng hóa ${cleanName} thành công!`,
     });
@@ -814,6 +826,7 @@ export const Commodities: React.FC = () => {
           </div>
         </div>
       )}
+      <LoadingOverlay show={isPending} />
     </div>
   );
 };

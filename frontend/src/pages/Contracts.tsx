@@ -29,6 +29,7 @@ import { toast } from "../lib/toast";
 import { CustomerHistoryModal } from "../components/shared/CustomerHistoryModal";
 import { useConfirm } from "../context/ConfirmContext";
 import { formatInterestRateText, normalizeNumericInput } from "../utils/interestFormatter";
+import { LoadingOverlay } from "../components/shared/LoadingOverlay";
 import { getCompiledHtml } from "../services/print/PrintService";
 import { ContractForm, contractConfigs } from "../components/contracts";
 
@@ -68,6 +69,7 @@ export const Contracts: React.FC = () => {
   const [commodityIdFilter, setCommodityIdFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("all_active"); // all_active, closed, overdue, all
   const [loading, setLoading] = useState(false);
+  const [isPending, setIsPending] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalRecords, setTotalRecords] = useState(0);
@@ -419,9 +421,16 @@ export const Contracts: React.FC = () => {
       type: "danger",
       event: e,
       onConfirm: async () => {
-        await axios.delete(`/api/contracts/unsecured/${contractId}`);
-        fetchContracts();
-        fetchCashSummary();
+        try {
+          setIsPending(true);
+          await axios.delete(`/api/contracts/unsecured/${contractId}`);
+          fetchContracts();
+          fetchCashSummary();
+        } catch (err: any) {
+          toast.error(err.response?.data?.error || "Không thể xóa hợp đồng.");
+        } finally {
+          setIsPending(false);
+        }
       },
       successMessage: `Đã xóa hợp đồng ${contractCode} thành công!`,
     });
@@ -443,6 +452,7 @@ export const Contracts: React.FC = () => {
 
   const handleSavePawnContract = async (formData: any) => {
     try {
+      setIsPending(true);
       let finalCustomerId = formData.customerId;
       if (formData.customerType === "new") {
         if (!formData.customerName) {
@@ -501,11 +511,14 @@ export const Contracts: React.FC = () => {
       fetchCashSummary();
     } catch (err: any) {
       toast.error(err.response?.data?.error || "Lỗi lưu hợp đồng cầm đồ.");
+    } finally {
+      setIsPending(false);
     }
   };
 
   const handleSaveUnsecuredContract = async (formData: any) => {
     try {
+      setIsPending(true);
       let finalCustomerId = formData.customerId;
       if (formData.customerType === "new") {
         if (!formData.customerName) {
@@ -560,11 +573,14 @@ export const Contracts: React.FC = () => {
       fetchCashSummary();
     } catch (err: any) {
       toast.error(err.response?.data?.error || "Lỗi lưu hợp đồng tín chấp.");
+    } finally {
+      setIsPending(false);
     }
   };
 
   const handleSaveInstallmentContract = async (formData: any) => {
     try {
+      setIsPending(true);
       let finalCustomerId = formData.customerId;
       if (formData.customerType === "new") {
         if (!formData.customerName) {
@@ -618,6 +634,8 @@ export const Contracts: React.FC = () => {
       fetchCashSummary();
     } catch (err: any) {
       toast.error(err.response?.data?.error || "Lỗi lưu hợp đồng trả góp.");
+    } finally {
+      setIsPending(false);
     }
   };
 
@@ -628,9 +646,16 @@ export const Contracts: React.FC = () => {
       type: "danger",
       event: e,
       onConfirm: async () => {
-        await axios.delete(`/api/contracts/pawn/${contractId}`);
-        fetchContracts();
-        fetchCashSummary();
+        try {
+          setIsPending(true);
+          await axios.delete(`/api/contracts/pawn/${contractId}`);
+          fetchContracts();
+          fetchCashSummary();
+        } catch (err: any) {
+          toast.error(err.response?.data?.error || "Không thể xóa hợp đồng.");
+        } finally {
+          setIsPending(false);
+        }
       },
       successMessage: `Đã xóa hợp đồng ${contractCode} thành công!`,
     });
@@ -643,9 +668,16 @@ export const Contracts: React.FC = () => {
       type: "danger",
       event: e,
       onConfirm: async () => {
-        await axios.delete(`/api/contracts/installment/${contractId}`);
-        fetchContracts();
-        fetchCashSummary();
+        try {
+          setIsPending(true);
+          await axios.delete(`/api/contracts/installment/${contractId}`);
+          fetchContracts();
+          fetchCashSummary();
+        } catch (err: any) {
+          toast.error(err.response?.data?.error || "Không thể xóa hợp đồng.");
+        } finally {
+          setIsPending(false);
+        }
       },
       successMessage: `Đã xóa hợp đồng ${contractCode} thành công!`,
     });
@@ -1822,6 +1854,7 @@ export const Contracts: React.FC = () => {
         customerId={selectedHistoryCustomerId}
         customerName={selectedHistoryCustomerName}
       />
+      <LoadingOverlay show={isPending} />
     </div>
   );
 };
