@@ -171,12 +171,11 @@ export const ContractInterestSection: React.FC<InterestSectionProps> = ({
           <div className="grow">
             <div className="flex items-center border border-slate-200 rounded-lg overflow-hidden bg-white w-full max-w-md h-10">
               <input
-                type="number"
-                step="0.01"
+                type="text"
                 placeholder={interestPlaceholder}
                 value={state.interestRate}
                 onChange={(e) =>
-                  onChange({ interestRate: Number(e.target.value) })
+                  onChange({ interestRate: e.target.value })
                 }
                 className="grow px-3 text-slate-800 h-full font-bold focus:outline-none bg-white text-left text-sm border-none"
                 required

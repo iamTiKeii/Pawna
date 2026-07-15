@@ -65,7 +65,7 @@ export const ContractForm: React.FC<ContractFormProps> = ({
     chassisNumber: "",
     engineNumber: "",
 
-    interestRate: 1,
+    interestRate: "1",
     interestPeriod: 10,
     interestType: "",
     isUpfrontInterest: false,
@@ -114,7 +114,7 @@ export const ContractForm: React.FC<ContractFormProps> = ({
           chassisNumber: initialData.chassis_number || "",
           engineNumber: initialData.engine_number || "",
 
-          interestRate: initialData.interest_rate || 1,
+          interestRate: initialData.interest_rate !== undefined && initialData.interest_rate !== null ? String(initialData.interest_rate) : "1",
           interestPeriod: initialData.period_value || initialData.interest_period || 10,
           interestType: initialData.interest_type_id || "",
           isUpfrontInterest: !!(initialData.is_upfront_interest || initialData.is_upfront_collected || initialData.is_upfront_interest),
@@ -152,7 +152,7 @@ export const ContractForm: React.FC<ContractFormProps> = ({
           chassisNumber: "",
           engineNumber: "",
 
-          interestRate: 1,
+          interestRate: "1",
           interestPeriod: 10,
           interestType: "",
           isUpfrontInterest: false,

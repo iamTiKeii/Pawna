@@ -28,7 +28,7 @@ import { InstallmentDetail } from "./InstallmentDetail";
 import { toast } from "../lib/toast";
 import { CustomerHistoryModal } from "../components/shared/CustomerHistoryModal";
 import { useConfirm } from "../context/ConfirmContext";
-import { formatInterestRateText } from "../utils/interestFormatter";
+import { formatInterestRateText, normalizeNumericInput } from "../utils/interestFormatter";
 import { getCompiledHtml } from "../services/print/PrintService";
 import { ContractForm, contractConfigs } from "../components/contracts";
 
@@ -475,7 +475,7 @@ export const Contracts: React.FC = () => {
         is_upfront_interest: formData.isUpfrontInterest,
         loan_days: Number(formData.loanDays),
         period_value: Number(formData.interestPeriod),
-        interest_rate: Number(formData.interestRate),
+        interest_rate: normalizeNumericInput(formData.interestRate),
         loan_date: formData.loanDate || undefined,
         collector_id: formData.staffId,
         collaborator_id: formData.collaboratorId || undefined,
@@ -537,7 +537,7 @@ export const Contracts: React.FC = () => {
         is_upfront_interest: formData.isUpfrontInterest,
         loan_days: Number(formData.loanDays),
         period_value: Number(formData.interestPeriod),
-        interest_rate: Number(formData.interestRate),
+        interest_rate: normalizeNumericInput(formData.interestRate),
         loan_date: formData.loanDate || undefined,
         collector_id: formData.staffId,
         collaborator_id: formData.collaboratorId || undefined,

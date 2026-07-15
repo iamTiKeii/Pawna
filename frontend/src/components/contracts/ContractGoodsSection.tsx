@@ -40,7 +40,7 @@ export const ContractGoodsSection: React.FC<GoodsSectionProps> = ({
                 onChange({
                   commodityId: cid,
                   loanAmount: c ? String(c.default_amount) : state.loanAmount,
-                  interestRate: c ? c.default_interest_rate : state.interestRate,
+                  interestRate: c ? String(c.default_interest_rate) : state.interestRate,
                   interestPeriod: c ? c.default_period_value : state.interestPeriod,
                   loanDays: c ? c.default_loan_days : state.loanDays,
                   interestType: c ? c.interest_type_id : state.interestType,

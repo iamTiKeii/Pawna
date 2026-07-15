@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { toast } from "../lib/toast";
 import { MoneyInput } from "../components/shared/MoneyInput";
+import { normalizeNumericInput } from "../utils/interestFormatter";
 import { useConfirm } from "../context/ConfirmContext";
 
 interface InterestType {
@@ -188,7 +189,7 @@ export const Commodities: React.FC = () => {
         interest_type_id: interestTypeId,
         is_upfront_interest: isUpfrontInterest,
         default_amount: defaultAmount,
-        default_interest_rate: Number(defaultInterestRate) || 0,
+        default_interest_rate: normalizeNumericInput(defaultInterestRate),
         default_period_value: Number(defaultPeriodValue) || 10,
         default_loan_days: Number(defaultLoanDays) || 30,
         liquidation_after_days: Number(liquidationAfterDays) || 5,
@@ -688,8 +689,7 @@ export const Commodities: React.FC = () => {
                     </div>
                     <div className="col-span-9 relative">
                       <input
-                        type="number"
-                        step="0.01"
+                        type="text"
                         value={defaultInterestRate}
                         onChange={(e) => setDefaultInterestRate(e.target.value)}
                         className="input input-bordered input-sm w-full bg-white border-slate-200 focus:outline-none focus:border-amber-500 text-slate-800 text-xs rounded-lg pr-20"
