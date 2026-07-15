@@ -52,13 +52,13 @@ export const ShiftHandoverReport: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2 bg-white/65 border border-slate-200/80 rounded-2xl p-2 px-3 backdrop-blur-md">
-            <Calendar className="w-4 h-4 text-slate-500" />
+          <div className="flex items-center gap-2 bg-white border border-slate-200 rounded-2xl px-3 py-1.5 focus-within:border-amber-500 transition-colors shadow-sm">
+            <Calendar className="w-4 h-4 text-slate-500 shrink-0" />
             <input
               type="date"
               value={date}
               onChange={(e) => setDate(e.target.value)}
-              className="bg-transparent text-slate-700 text-xs font-semibold focus:outline-none border-none [color-scheme:dark]"
+              className="bg-transparent text-slate-800 text-xs font-bold focus:outline-none border-none cursor-pointer [color-scheme:light]"
             />
           </div>
           <button

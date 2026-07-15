@@ -52,24 +52,24 @@ export const TransactionsSummaryReport: React.FC = () => {
         </div>
 
         {/* Date Filters */}
-        <div className="flex items-center gap-3 bg-white/65 border border-slate-200/80 rounded-2xl p-3 backdrop-blur-md">
-          <div className="flex items-center gap-2">
-            <Calendar className="w-4 h-4 text-slate-500" />
+        <div className="flex items-center gap-3 bg-white/85 border border-slate-200 rounded-2xl p-2.5 shadow-sm">
+          <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 focus-within:border-amber-500 transition-colors">
+            <Calendar className="w-4 h-4 text-slate-500 shrink-0" />
             <input
               type="date"
               value={startDate}
               onChange={(e) => setStartDate(e.target.value)}
-              className="bg-transparent text-slate-700 text-xs font-semibold focus:outline-none border-none [color-scheme:dark]"
+              className="bg-transparent text-slate-800 text-xs font-bold focus:outline-none border-none cursor-pointer [color-scheme:light]"
             />
           </div>
-          <span className="text-slate-600 text-sm font-bold">đến</span>
-          <div className="flex items-center gap-2">
-            <Calendar className="w-4 h-4 text-slate-500" />
+          <span className="text-slate-500 text-xs font-bold select-none">đến</span>
+          <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 focus-within:border-amber-500 transition-colors">
+            <Calendar className="w-4 h-4 text-slate-500 shrink-0" />
             <input
               type="date"
               value={endDate}
               onChange={(e) => setEndDate(e.target.value)}
-              className="bg-transparent text-slate-700 text-xs font-semibold focus:outline-none border-none [color-scheme:dark]"
+              className="bg-transparent text-slate-800 text-xs font-bold focus:outline-none border-none cursor-pointer [color-scheme:light]"
             />
           </div>
         </div>
