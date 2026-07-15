@@ -115,7 +115,7 @@ export const ContractForm: React.FC<ContractFormProps> = ({
           engineNumber: initialData.engine_number || "",
 
           interestRate: initialData.interest_rate || 1,
-          interestPeriod: initialData.interest_period || 10,
+          interestPeriod: initialData.period_value || initialData.interest_period || 10,
           interestType: initialData.interest_type_id || "",
           isUpfrontInterest: !!(initialData.is_upfront_interest || initialData.is_upfront_collected || initialData.is_upfront_interest),
 
