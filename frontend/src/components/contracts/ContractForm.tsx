@@ -214,6 +214,7 @@ export const ContractForm: React.FC<ContractFormProps> = ({
               state={state}
               onChange={updateState}
               config={config}
+              interestTypes={interestTypes}
             />
           )}
 

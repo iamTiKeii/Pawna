@@ -5,13 +5,59 @@ export interface LoanSectionProps {
   state: any;
   onChange: (updates: any) => void;
   config: any;
+  interestTypes?: any[];
 }
 
 export const ContractLoanSection: React.FC<LoanSectionProps> = ({
   state,
   onChange,
   config,
+  interestTypes,
 }) => {
+  const getInterestPeriodType = (interestTypeCode?: string) => {
+    if (!interestTypeCode) return "daily";
+    const lower = interestTypeCode.toLowerCase();
+    if (lower.includes("monthly") || lower.includes("month") || lower.includes("flat_rate") || lower.includes("reducing_balance")) {
+      return "monthly";
+    }
+    if (lower.includes("weekly") || lower.includes("week")) {
+      return "weekly";
+    }
+    if (lower.includes("daily") || lower.includes("day") || lower.includes("million")) {
+      return "daily";
+    }
+    return "daily";
+  };
+
+  const selectedInterestType = interestTypes?.find(
+    (i) => i.id === state.interestType
+  );
+  const selectedInterestTypeCode = selectedInterestType?.code;
+  const periodType = getInterestPeriodType(selectedInterestTypeCode);
+
+  let loanDurationLabel = "Số ngày vay";
+  let loanDurationSuffix = "ngày";
+  let loanDurationPlaceholder = "Ví dụ: 30";
+
+  if (periodType === "monthly") {
+    loanDurationLabel = "Số tháng vay";
+    loanDurationSuffix = "tháng";
+    loanDurationPlaceholder = "Ví dụ: 3";
+  } else if (periodType === "weekly") {
+    loanDurationLabel = "Số tuần vay";
+    loanDurationSuffix = "tuần";
+    loanDurationPlaceholder = "Ví dụ: 4";
+  }
+
+  let installmentDurationSuffix = "ngày";
+  let installmentPeriodSuffix = "Ngày / 1 Kỳ";
+  if (state.installmentPeriodType === "weekly") {
+    installmentDurationSuffix = "tuần";
+    installmentPeriodSuffix = "Tuần / 1 Kỳ";
+  } else if (state.installmentPeriodType === "monthly") {
+    installmentDurationSuffix = "tháng";
+    installmentPeriodSuffix = "Tháng / 1 Kỳ";
+  }
   const labelClass =
     "w-[150px] text-right pr-4 font-bold text-slate-700 shrink-0 text-sm select-none";
 
@@ -112,7 +158,7 @@ export const ContractLoanSection: React.FC<LoanSectionProps> = ({
                 required
               />
               <span className="bg-slate-50 text-slate-500 px-4 h-full flex items-center border-l border-slate-200 text-xs font-bold shrink-0 select-none">
-                Ngày
+                {installmentDurationSuffix}
               </span>
             </div>
           </div>
@@ -192,7 +238,7 @@ export const ContractLoanSection: React.FC<LoanSectionProps> = ({
                 required
               />
               <span className="bg-slate-50 text-slate-500 px-4 h-full flex items-center border-l border-slate-200 text-xs font-bold shrink-0 select-none">
-                Ngày / 1 Kỳ
+                {installmentPeriodSuffix}
               </span>
             </div>
           </div>
@@ -281,20 +327,20 @@ export const ContractLoanSection: React.FC<LoanSectionProps> = ({
         {/* Loan Days */}
         <div className="flex items-center">
           <label className={labelClass}>
-            Số ngày vay <span className="text-red-500">*</span>
+            {loanDurationLabel} <span className="text-red-500">*</span>
           </label>
           <div className="grow">
             <div className="flex items-center border border-slate-200 rounded-lg overflow-hidden bg-white w-full max-w-md h-10">
               <input
                 type="number"
-                placeholder="90"
+                placeholder={loanDurationPlaceholder}
                 value={state.loanDays}
                 onChange={(e) => onChange({ loanDays: Number(e.target.value) })}
                 className="grow px-3 text-slate-800 h-full font-bold focus:outline-none bg-white text-left text-sm border-none"
                 required
               />
               <span className="bg-slate-50 text-slate-500 px-4 h-full flex items-center border-l border-slate-200 text-xs font-bold shrink-0 select-none">
-                Ngày
+                {loanDurationSuffix}
               </span>
             </div>
           </div>

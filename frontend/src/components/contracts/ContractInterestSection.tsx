@@ -22,37 +22,72 @@ export const ContractInterestSection: React.FC<InterestSectionProps> = ({
 
   const getInterestConfig = () => {
     if (!selectedInterestType) {
-      return { label: "Lãi phí", suffix: "k/1 triệu" };
+      return { label: "Lãi phí", suffix: "k / 1 triệu / ngày", placeholder: "1" };
     }
     const code = selectedInterestType.code;
     switch (code) {
       case "daily_k_million":
-        return { label: "Lãi phí (k/triệu/ngày)", suffix: "k/triệu", placeholder: "VD: 3 (3.000đ)" };
+        return { label: "Lãi phí (k/triệu/ngày)", suffix: "k / 1 triệu / ngày", placeholder: "VD: 3" };
       case "daily_k_day":
-        return { label: "Lãi phí (k/ngày)", suffix: "k/ngày", placeholder: "VD: 5 (5.000đ)" };
+        return { label: "Lãi phí (k/ngày)", suffix: "k / ngày", placeholder: "VD: 5" };
       case "monthly_percent_30":
-        return { label: "Lãi suất (%/tháng)", suffix: "%/tháng", placeholder: "1" };
+        return { label: "Lãi suất (%/tháng)", suffix: "% / tháng", placeholder: "1" };
       case "monthly_percent_periodic":
-        return { label: "Lãi suất (%/tháng)", suffix: "%/tháng", placeholder: "1" };
+        return { label: "Lãi suất (%/tháng)", suffix: "% / tháng", placeholder: "1" };
       case "monthly_amount_periodic":
-        return { label: "Lãi phí (k/tháng)", suffix: "k/tháng", placeholder: "VD: 500 (500.000đ)" };
+        return { label: "Lãi phí (đ/tháng)", suffix: "đ / tháng", placeholder: "VD: 500.000" };
       case "weekly_percent":
-        return { label: "Lãi suất (%/tuần)", suffix: "%/tuần", placeholder: "1" };
+        return { label: "Lãi suất (%/tuần)", suffix: "% / tuần", placeholder: "1" };
       case "weekly_amount":
-        return { label: "Lãi phí (k/tuần)", suffix: "k/tuần", placeholder: "VD: 5 (5.000đ)" };
+        return { label: "Lãi phí (đ/tuần)", suffix: "đ / tuần", placeholder: "VD: 50.000" };
       case "flat_rate_monthly":
-        return { label: "Lãi suất (%/tháng)", suffix: "%/tháng", placeholder: "1" };
+        return { label: "Lãi suất (%/tháng)", suffix: "% / tháng", placeholder: "1" };
       case "flat_rate_daily":
-        return { label: "Lãi suất (%/ngày)", suffix: "%/ngày", placeholder: "1" };
+        return { label: "Lãi suất (%/ngày)", suffix: "% / ngày", placeholder: "1" };
       case "reducing_balance_fixed_installment":
       case "reducing_balance_fixed_principal":
-        return { label: "Lãi suất (%/tháng)", suffix: "%/tháng", placeholder: "1" };
+        return { label: "Lãi suất (%/tháng)", suffix: "% / tháng", placeholder: "1" };
       default:
-        return { label: "Lãi phí", suffix: "k/1 triệu", placeholder: "1" };
+        return { label: "Lãi phí", suffix: "k / 1 triệu / ngày", placeholder: "1" };
     }
   };
 
+  const getInterestPeriodType = (interestTypeCode?: string) => {
+    if (!interestTypeCode) return "daily";
+    const lower = interestTypeCode.toLowerCase();
+    if (lower.includes("monthly") || lower.includes("month") || lower.includes("flat_rate") || lower.includes("reducing_balance")) {
+      return "monthly";
+    }
+    if (lower.includes("weekly") || lower.includes("week")) {
+      return "weekly";
+    }
+    if (lower.includes("daily") || lower.includes("day") || lower.includes("million")) {
+      return "daily";
+    }
+    return "daily";
+  };
+
   const { label: interestLabel, suffix: interestSuffix, placeholder: interestPlaceholder } = getInterestConfig();
+
+  const selectedInterestTypeCode = selectedInterestType?.code;
+  const periodType = getInterestPeriodType(selectedInterestTypeCode);
+
+  let interestPeriodLabel = "Kỳ lãi";
+  let interestPeriodSuffix = "ngày";
+  let interestPeriodHelper = "(VD: 10 ngày đóng lãi 1 lần thì điền số 10)";
+  let interestPeriodPlaceholder = "10";
+
+  if (periodType === "monthly") {
+    interestPeriodLabel = "Kỳ lãi (tháng)";
+    interestPeriodSuffix = "tháng";
+    interestPeriodHelper = "(VD: 1 tháng đóng lãi 1 lần thì điền số 1)";
+    interestPeriodPlaceholder = "1";
+  } else if (periodType === "weekly") {
+    interestPeriodLabel = "Kỳ lãi (tuần)";
+    interestPeriodSuffix = "tuần";
+    interestPeriodHelper = "(VD: 1 tuần đóng lãi 1 lần thì điền số 1)";
+    interestPeriodPlaceholder = "1";
+  }
 
   if (config.type === "capital") {
     return (
@@ -135,13 +170,13 @@ export const ContractInterestSection: React.FC<InterestSectionProps> = ({
         {/* Interest Period */}
         <div className="flex items-center">
           <label className={labelClass}>
-            Kỳ lãi <span className="text-red-500">*</span>
+            {interestPeriodLabel} <span className="text-red-500">*</span>
           </label>
           <div className="grow">
             <div className="flex items-center border border-slate-200 rounded-lg overflow-hidden bg-white w-full max-w-md h-10">
               <input
                 type="number"
-                placeholder="10"
+                placeholder={interestPeriodPlaceholder}
                 value={state.interestPeriod}
                 onChange={(e) =>
                   onChange({ interestPeriod: Number(e.target.value) })
@@ -150,7 +185,7 @@ export const ContractInterestSection: React.FC<InterestSectionProps> = ({
                 required
               />
               <span className="bg-slate-50 text-slate-500 px-4 h-full flex items-center border-l border-slate-200 text-xs font-bold shrink-0 select-none">
-                Ngày
+                {interestPeriodSuffix}
               </span>
             </div>
           </div>
@@ -159,7 +194,7 @@ export const ContractInterestSection: React.FC<InterestSectionProps> = ({
         {/* Periodic Help Note */}
         <div className="flex items-center pl-[150px]">
           <span className="text-slate-400 text-xs italic font-semibold select-none">
-            (VD: 10 ngày đóng lãi 1 lần thì điền số 10)
+            {interestPeriodHelper}
           </span>
         </div>
 

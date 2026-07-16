@@ -87,6 +87,54 @@ export const Commodities: React.FC = () => {
   // Attribute inputs
   const [attributes, setAttributes] = useState<string[]>([]);
 
+  const getInterestPeriodType = (interestTypeCode?: string) => {
+    if (!interestTypeCode) return "daily";
+    const lower = interestTypeCode.toLowerCase();
+    if (lower.includes("monthly") || lower.includes("month") || lower.includes("flat_rate") || lower.includes("reducing_balance")) {
+      return "monthly";
+    }
+    if (lower.includes("weekly") || lower.includes("week")) {
+      return "weekly";
+    }
+    if (lower.includes("daily") || lower.includes("day") || lower.includes("million")) {
+      return "daily";
+    }
+    return "daily";
+  };
+
+  const selectedInterestType = interestTypes.find(it => it.id === interestTypeId);
+  const selectedInterestTypeCode = selectedInterestType?.code;
+  const periodType = getInterestPeriodType(selectedInterestTypeCode);
+
+  let loanDaysLabel = "Số ngày vay";
+  let loanDaysSuffix = "ngày";
+  let loanDaysPlaceholder = "Ví dụ: 30";
+
+  let periodValueLabel = "Kỳ lãi";
+  let periodValueSuffix = "ngày";
+  let periodValueHelper = "(VD : 10 ngày đóng lãi 1 lần thì điền số 10)";
+  let periodValuePlaceholder = "10";
+
+  if (periodType === "monthly") {
+    loanDaysLabel = "Số tháng vay";
+    loanDaysSuffix = "tháng";
+    loanDaysPlaceholder = "Ví dụ: 3";
+    
+    periodValueLabel = "Kỳ lãi (tháng)";
+    periodValueSuffix = "tháng";
+    periodValueHelper = "(VD : 1 tháng đóng lãi 1 lần thì điền số 1)";
+    periodValuePlaceholder = "1";
+  } else if (periodType === "weekly") {
+    loanDaysLabel = "Số tuần vay";
+    loanDaysSuffix = "tuần";
+    loanDaysPlaceholder = "Ví dụ: 4";
+    
+    periodValueLabel = "Kỳ lãi (tuần)";
+    periodValueSuffix = "tuần";
+    periodValueHelper = "(VD : 1 tuần đóng lãi 1 lần thì điền số 1)";
+    periodValuePlaceholder = "1";
+  }
+
   const fetchData = async () => {
     try {
       setLoading(true);
@@ -254,10 +302,21 @@ export const Commodities: React.FC = () => {
   const getInterestSuffix = () => {
     const selected = interestTypes.find(it => it.id === interestTypeId);
     if (!selected) return "%";
-    if (selected.code === "daily_k_million") return "k/1 triệu";
-    if (selected.code === "daily_k_day") return "k/ngày";
-    if (selected.code.includes("amount") || selected.code.includes("vnđ")) return "VNĐ";
-    if (selected.code.includes("percent") || selected.code.includes("weekly") || selected.code.includes("flat_rate") || selected.code.includes("reducing")) return "%";
+    const code = selected.code;
+    if (code === "daily_k_million") return "k / 1 triệu / ngày";
+    if (code === "daily_k_day") return "k / ngày";
+    if (code.includes("monthly") || code.includes("month") || code.includes("flat_rate") || code.includes("reducing_balance")) {
+      if (code.includes("amount") || code.includes("vnđ")) return "đ / tháng";
+      return "% / tháng";
+    }
+    if (code.includes("weekly") || code.includes("week")) {
+      if (code.includes("amount") || code.includes("vnđ")) return "đ / tuần";
+      return "% / tuần";
+    }
+    if (code.includes("daily") || code.includes("day") || code.includes("million")) {
+      if (code.includes("amount") || code.includes("vnđ")) return "đ / ngày";
+      return "% / ngày";
+    }
     return "%";
   };
 
@@ -714,33 +773,43 @@ export const Commodities: React.FC = () => {
 
                     {/* Period value */}
                     <div className="col-span-3 text-right pr-4 text-xs font-semibold text-slate-600">
-                      Kỳ lãi <span className="text-red-500">*</span>
+                      {periodValueLabel} <span className="text-red-500">*</span>
                     </div>
                     <div className="col-span-9">
-                      <input
-                        type="number"
-                        value={defaultPeriodValue}
-                        onChange={(e) => setDefaultPeriodValue(e.target.value)}
-                        className="input input-bordered input-sm w-full bg-white border-slate-200 focus:outline-none focus:border-amber-500 text-slate-800 text-xs rounded-lg"
-                        required
-                      />
+                      <div className="relative">
+                        <input
+                          type="number"
+                          placeholder={periodValuePlaceholder}
+                          value={defaultPeriodValue}
+                          onChange={(e) => setDefaultPeriodValue(e.target.value)}
+                          className="input input-bordered input-sm w-full bg-white border-slate-200 focus:outline-none focus:border-amber-500 text-slate-800 text-xs rounded-lg pr-20"
+                          required
+                        />
+                        <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[10px] text-slate-450 font-bold">
+                          {periodValueSuffix}
+                        </span>
+                      </div>
                       <p className="text-[10px] text-slate-400 mt-1 leading-relaxed">
-                        (VD : 10 ngày đóng lãi 1 lần thì điền số 10)
+                        {periodValueHelper}
                       </p>
                     </div>
 
                     {/* Loan Days */}
                     <div className="col-span-3 text-right pr-4 text-xs font-semibold text-slate-600">
-                      Số ngày vay <span className="text-red-500">*</span>
+                      {loanDaysLabel} <span className="text-red-500">*</span>
                     </div>
-                    <div className="col-span-9">
+                    <div className="col-span-9 relative">
                       <input
                         type="number"
+                        placeholder={loanDaysPlaceholder}
                         value={defaultLoanDays}
                         onChange={(e) => setDefaultLoanDays(e.target.value)}
-                        className="input input-bordered input-sm w-full bg-white border-slate-200 focus:outline-none focus:border-amber-500 text-slate-800 text-xs rounded-lg"
+                        className="input input-bordered input-sm w-full bg-white border-slate-200 focus:outline-none focus:border-amber-500 text-slate-800 text-xs rounded-lg pr-20"
                         required
                       />
+                      <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[10px] text-slate-450 font-bold">
+                        {loanDaysSuffix}
+                      </span>
                     </div>
 
                     {/* Liquidation After Days */}
