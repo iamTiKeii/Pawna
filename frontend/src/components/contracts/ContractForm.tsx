@@ -7,6 +7,8 @@ import { ContractLoanSection } from "./ContractLoanSection";
 import { ContractInterestSection } from "./ContractInterestSection";
 import { ContractFinanceSection } from "./ContractFinanceSection";
 import { ContractNoteSection } from "./ContractNoteSection";
+import { StandardLoanInfoSection } from "./StandardLoanInfoSection";
+
 
 export interface ContractFormProps {
   config: ContractFormConfig;
@@ -208,30 +210,42 @@ export const ContractForm: React.FC<ContractFormProps> = ({
                 <span>Thông tin khoản vay</span>
               </h4>
 
-              {config.showGoods && (
-                <ContractGoodsSection
+              {config.type === "pawn" || config.type === "unsecured" ? (
+                <StandardLoanInfoSection
                   state={state}
                   onChange={updateState}
+                  config={config}
                   commodities={commodities}
-                />
-              )}
-
-              {config.showLoan && (
-                <ContractLoanSection
-                  state={state}
-                  onChange={updateState}
-                  config={config}
                   interestTypes={interestTypes}
                 />
-              )}
+              ) : (
+                <>
+                  {config.showGoods && (
+                    <ContractGoodsSection
+                      state={state}
+                      onChange={updateState}
+                      commodities={commodities}
+                    />
+                  )}
 
-              {config.showInterest && (
-                <ContractInterestSection
-                  state={state}
-                  onChange={updateState}
-                  interestTypes={interestTypes}
-                  config={config}
-                />
+                  {config.showLoan && (
+                    <ContractLoanSection
+                      state={state}
+                      onChange={updateState}
+                      config={config}
+                      interestTypes={interestTypes}
+                    />
+                  )}
+
+                  {config.showInterest && (
+                    <ContractInterestSection
+                      state={state}
+                      onChange={updateState}
+                      interestTypes={interestTypes}
+                      config={config}
+                    />
+                  )}
+                </>
               )}
             </div>
           )}

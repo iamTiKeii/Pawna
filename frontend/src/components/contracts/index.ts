@@ -14,4 +14,4 @@ export * from "./ContractLoanSection";
 export * from "./ContractInterestSection";
 export * from "./ContractFinanceSection";
 export * from "./ContractNoteSection";
-
+export * from "./StandardLoanInfoSection";
