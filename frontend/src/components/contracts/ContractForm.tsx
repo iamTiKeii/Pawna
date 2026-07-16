@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { X, BookOpen, Info } from "lucide-react";
 import type { ContractFormConfig } from "./contract.config";
 import { ContractCustomerSection } from "./ContractCustomerSection";
-import { ContractGoodsSection } from "./ContractGoodsSection";
+import { ContractGoodsSection, ContractAssetAttributesSection } from "./ContractGoodsSection";
 import { ContractLoanSection } from "./ContractLoanSection";
 import { ContractInterestSection } from "./ContractInterestSection";
 import { ContractFinanceSection } from "./ContractFinanceSection";
@@ -259,6 +259,14 @@ export const ContractForm: React.FC<ContractFormProps> = ({
                 />
               )}
             </div>
+          )}
+
+          {config.showGoods && (
+            <ContractAssetAttributesSection
+              state={state}
+              onChange={updateState}
+              commodities={commodities}
+            />
           )}
 
           {/* Modal Actions Footer */}
