@@ -790,6 +790,32 @@ router.post("/:id/timers", async (req, res) => {
                     status: "active",
                 },
             });
+            // Get contract details to create a global Reminder
+            const contract = await tx.installmentContract.findUnique({
+                where: { id: contractId },
+                include: { customer: true },
+            });
+            if (contract) {
+                // Stop any pending global reminders for this contract
+                await tx.reminder.updateMany({
+                    where: { contract_code: contract.contract_code, status: "pending" },
+                    data: { status: "completed" },
+                });
+                // Create new global reminder
+                await tx.reminder.create({
+                    data: {
+                        employee_id: req.user.id,
+                        contract_code: contract.contract_code,
+                        customer_name: contract.customer.full_name,
+                        contract_type: "installment",
+                        loan_amount: Number(contract.disbursed_amount) || 0,
+                        appointment_date: new Date(reminder_date),
+                        due_date: null,
+                        content: content || "Hẹn ngày báo chuông",
+                        status: "pending",
+                    },
+                });
+            }
             return timer;
         });
         return res.status(201).json(result);
@@ -802,11 +828,24 @@ router.post("/:id/timers", async (req, res) => {
 router.put("/:id/timers/:timerId/stop", async (req, res) => {
     try {
         const timerId = req.params.timerId;
-        const updated = await db_1.prisma.installmentContractReminder.update({
-            where: { id: timerId },
-            data: { status: "stopped" },
+        const contractId = req.params.id;
+        const result = await db_1.prisma.$transaction(async (tx) => {
+            const updated = await tx.installmentContractReminder.update({
+                where: { id: timerId },
+                data: { status: "stopped" },
+            });
+            const contract = await tx.installmentContract.findUnique({
+                where: { id: contractId },
+            });
+            if (contract) {
+                await tx.reminder.updateMany({
+                    where: { contract_code: contract.contract_code, status: "pending" },
+                    data: { status: "completed" },
+                });
+            }
+            return updated;
         });
-        return res.json(updated);
+        return res.json(result);
     }
     catch (error) {
         return res.status(500).json({ error: error.message });
