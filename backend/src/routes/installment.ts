@@ -241,6 +241,7 @@ router.get("/:id", async (req: AuthenticatedRequest, res: Response) => {
   try {
     const contract = await prisma.installmentContract.findUnique({
       where: { id: req.params.id },
+      relationLoadStrategy: "join",
       include: {
         customer: true,
         collector: { select: { full_name: true } },

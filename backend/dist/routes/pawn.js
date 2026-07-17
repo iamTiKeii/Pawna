@@ -248,6 +248,7 @@ router.get("/:id", async (req, res) => {
     try {
         const contract = await db_1.prisma.pawnContract.findUnique({
             where: { id: req.params.id },
+            relationLoadStrategy: "join",
             include: {
                 customer: true,
                 commodity: true,
