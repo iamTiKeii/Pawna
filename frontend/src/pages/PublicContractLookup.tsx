@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { useSearchParams } from "react-router-dom";
 import axios from "axios";
 import { 
@@ -7,14 +7,25 @@ import {
   List,
   ArrowRight,
   Coins,
-  Activity
+  Activity,
+  Printer,
+  X
 } from "lucide-react";
+import { useReactToPrint } from "react-to-print";
+import { getCompiledHtml } from "../services/print/PrintService";
 
 export const PublicContractLookup: React.FC = () => {
   const [searchParams] = useSearchParams();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<any>(null);
+  const [isPrintModalOpen, setIsPrintModalOpen] = useState(false);
+  const printContractRef = useRef<HTMLDivElement>(null);
+
+  const handlePrintContractTrigger = useReactToPrint({
+    content: () => printContractRef.current,
+    onAfterPrint: () => setIsPrintModalOpen(false),
+  });
 
   const var1 = searchParams.get("var1"); // store_id
   const var2 = searchParams.get("var2"); // contract_id
@@ -156,7 +167,7 @@ export const PublicContractLookup: React.FC = () => {
             </div>
             <div>
               <p className="text-[11px] text-slate-400 uppercase font-black tracking-wider">Dư nợ hiện tại</p>
-              <p className="text-xl font-black text-rose-600 mt-0.5">{formatVND(data.debt_amount)}</p>
+              <p className="text-xl font-black text-rose-600 mt-0.5">{formatVND(remaining)}</p>
             </div>
           </div>
 
@@ -297,6 +308,17 @@ export const PublicContractLookup: React.FC = () => {
                   <span>{getStatusBadge(data.status)}</span>
                 </div>
               </div>
+
+              <div className="mt-5 pt-4 border-t border-slate-100 flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => setIsPrintModalOpen(true)}
+                  className="btn btn-sm btn-outline border-indigo-200 text-[#3f51b5] hover:bg-[#3f51b5] hover:text-white rounded-lg flex items-center gap-1.5 font-bold"
+                >
+                  <Printer className="w-4 h-4" />
+                  Xem bản in hợp đồng
+                </button>
+              </div>
             </div>
           </div>
 
@@ -433,6 +455,69 @@ export const PublicContractLookup: React.FC = () => {
           <p>Hệ thống tra cứu thông tin hợp đồng bảo mật tự động.</p>
           <p>© {data.store_name?.toUpperCase() || "HỆ THỐNG CỬA HÀNG"} - HỖ TRỢ KHÁCH HÀNG 24/7</p>
         </div>
+
+        {/* PRINT CONTRACT PREVIEW MODAL */}
+        {isPrintModalOpen && (() => {
+          const storeDetails = {
+            name: data.store_name || "HỆ THỐNG CỬA HÀNG",
+            phone: "",
+            address: "",
+            notes: ""
+          };
+
+          const printContractData = {
+            ...data,
+            customer: {
+              full_name: data.customer_name,
+              identity_card_number: "—",
+              identity_card_date: null,
+              phone: "—",
+              address: "—"
+            }
+          };
+
+          const compiledHtml = getCompiledHtml(data.type, printContractData, storeDetails);
+
+          return (
+            <div className="modal modal-open z-50">
+              <div className="modal-box bg-white border border-slate-200 text-slate-800 rounded-2xl max-w-3xl p-6 relative shadow-2xl">
+                <div className="flex justify-between items-center border-b border-slate-200 pb-3 mb-4">
+                  <h3 className="font-extrabold text-sm text-slate-800 flex items-center gap-2">
+                    <Printer className="w-4 h-4 text-slate-800" />
+                    Xem bản in hợp đồng
+                  </h3>
+                  <button onClick={() => setIsPrintModalOpen(false)} className="btn btn-ghost btn-circle btn-sm text-slate-400 hover:bg-slate-100" type="button">
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+
+                {/* Paper Preview area */}
+                <div className="bg-slate-100 p-4 border border-slate-200 rounded-xl max-h-[480px] overflow-y-auto">
+                  <div className="bg-white p-10 shadow-lg text-black font-serif text-[11px] leading-relaxed text-left" style={{ width: "100%", maxWidth: "800px", margin: "0 auto" }}>
+                    <div ref={printContractRef} dangerouslySetInnerHTML={{ __html: compiledHtml }} />
+                  </div>
+                </div>
+
+                <div className="modal-action border-t border-slate-150 pt-4 mt-6 flex justify-end gap-2">
+                  <button 
+                    type="button" 
+                    onClick={() => setIsPrintModalOpen(false)} 
+                    className="btn btn-outline border-slate-200 hover:bg-slate-50 text-slate-500 rounded-xl btn-sm"
+                  >
+                    Đóng
+                  </button>
+                  <button 
+                    type="button" 
+                    onClick={handlePrintContractTrigger} 
+                    className="btn btn-primary bg-[#3f51b5] border-none text-white font-bold rounded-xl btn-sm"
+                  >
+                    In Hợp Đồng
+                  </button>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
 
       </div>
     </div>
