@@ -273,9 +273,10 @@ router.post("/", (0, permission_1.requirePermission)(["CONTRACTS_MANAGE"]), asyn
             }
             const contractCode = contract_code || await (0, codeGen_1.generateContractCode)(tx, "installment");
             const normalizedLoanDate = (0, cash_1.normalizeToMidnight)(loan_date || new Date());
+            const origin = req.headers.origin || `${req.secure ? "https" : "http"}://${req.get("host") || "localhost:5001"}`;
             const contractId = (0, uuid_1.v4)();
             const lookupToken = crypto_1.default.randomBytes(16).toString("hex");
-            const lookupLink = `https://2gold.biz/DetailInstallment?var1=${storeId}&var2=${contractId}&Key=${lookupToken}`;
+            const lookupLink = `${origin}/DetailInstallment?var1=${storeId}&var2=${contractId}&Key=${lookupToken}`;
             const contract = await tx.installmentContract.create({
                 data: {
                     id: contractId,

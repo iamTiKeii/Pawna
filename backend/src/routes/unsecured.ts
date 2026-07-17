@@ -409,9 +409,10 @@ router.post("/", requirePermission(["CONTRACTS_MANAGE"]) as any, async (req: Aut
         resolvedIsUpfront
       );
 
+      const origin = req.headers.origin || `${req.secure ? "https" : "http"}://${req.get("host") || "localhost:5001"}`;
       const contractId = uuidv4();
       const lookupToken = crypto.randomBytes(16).toString("hex");
-      const lookupLink = `https://2gold.biz/DetailInstallment?var1=${storeId}&var2=${contractId}&Key=${lookupToken}`;
+      const lookupLink = `${origin}/DetailInstallment?var1=${storeId}&var2=${contractId}&Key=${lookupToken}`;
 
       // Create contract
       const contract = await tx.unsecuredContract.create({

@@ -338,9 +338,10 @@ router.post("/", (0, permission_1.requirePermission)(["CONTRACTS_MANAGE"]), asyn
             }
             // Generate expected interest payments schedule
             const cycles = (0, interest_1.generateInterestSchedule)(principal, rate, days, pValue, interestType.code, normalizedLoanDate, resolvedIsUpfront);
+            const origin = req.headers.origin || `${req.secure ? "https" : "http"}://${req.get("host") || "localhost:5001"}`;
             const contractId = (0, uuid_1.v4)();
             const lookupToken = crypto_1.default.randomBytes(16).toString("hex");
-            const lookupLink = `https://2gold.biz/DetailInstallment?var1=${storeId}&var2=${contractId}&Key=${lookupToken}`;
+            const lookupLink = `${origin}/DetailInstallment?var1=${storeId}&var2=${contractId}&Key=${lookupToken}`;
             // Create contract
             const contract = await tx.pawnContract.create({
                 data: {
