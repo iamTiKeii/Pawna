@@ -31,6 +31,7 @@ router.get("/contracts/lookup", async (req: Request, res: Response) => {
       include: {
         customer: true,
         commodity: true,
+        store: true,
         interest_payments: { orderBy: { cycle_number: "asc" } },
       },
     });
@@ -41,6 +42,7 @@ router.get("/contracts/lookup", async (req: Request, res: Response) => {
         type: "pawn",
         contract_code: pawn.contract_code,
         customer_name: maskedName,
+        store_name: pawn.store?.name,
         asset_name: pawn.asset_name,
         commodity_name: pawn.commodity?.name,
         loan_amount: Number(pawn.loan_amount),
@@ -66,6 +68,7 @@ router.get("/contracts/lookup", async (req: Request, res: Response) => {
       where: { id: contractId },
       include: {
         customer: true,
+        store: true,
         interest_payments: { orderBy: { cycle_number: "asc" } },
       },
     });
@@ -76,6 +79,7 @@ router.get("/contracts/lookup", async (req: Request, res: Response) => {
         type: "unsecured",
         contract_code: unsecured.contract_code,
         customer_name: maskedName,
+        store_name: unsecured.store?.name,
         loan_amount: Number(unsecured.loan_amount),
         loan_date: unsecured.loan_date,
         loan_days: unsecured.loan_days,
@@ -99,6 +103,7 @@ router.get("/contracts/lookup", async (req: Request, res: Response) => {
       where: { id: contractId },
       include: {
         customer: true,
+        store: true,
         payments: { orderBy: { cycle_number: "asc" } },
       },
     });
@@ -109,6 +114,7 @@ router.get("/contracts/lookup", async (req: Request, res: Response) => {
         type: "installment",
         contract_code: installment.contract_code,
         customer_name: maskedName,
+        store_name: installment.store?.name,
         repayment_amount: Number(installment.repayment_amount),
         disbursed_amount: Number(installment.disbursed_amount),
         loan_date: installment.loan_date,
