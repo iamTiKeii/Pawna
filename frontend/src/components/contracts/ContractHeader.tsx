@@ -38,6 +38,7 @@ export const ContractHeader: React.FC<ContractHeaderProps> = ({
       case "overdue_pawn_interest":
         return "bg-[#ff9800] text-white border-none";
       case "overdue_pawn_contract":
+      case "overdue_unsecured_contract":
         return "bg-[#ef4444] text-white border-none";
       case "cancelled":
         return "bg-red-500 text-white border-none";

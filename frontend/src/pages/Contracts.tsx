@@ -28,7 +28,7 @@ import { InstallmentDetail } from "./InstallmentDetail";
 import { toast } from "../lib/toast";
 import { CustomerHistoryModal } from "../components/shared/CustomerHistoryModal";
 import { useConfirm } from "../context/ConfirmContext";
-import { formatInterestRateText, normalizeNumericInput, getPawnDetailedStatus, getUnsecuredDetailedStatus } from "../utils/interestFormatter";
+import { formatInterestRateText, normalizeNumericInput, getPawnDetailedStatus, getUnsecuredDetailedStatus, getInstallmentDetailedStatus } from "../utils/interestFormatter";
 import { LoadingOverlay } from "../components/shared/LoadingOverlay";
 import { getCompiledHtml } from "../services/print/PrintService";
 import { ContractForm, contractConfigs } from "../components/contracts";
@@ -1260,6 +1260,8 @@ export const Contracts: React.FC = () => {
                               ? "bg-slate-200 text-slate-500"
                               : detailed.status === "overdue"
                               ? "bg-amber-500 text-white"
+                              : detailed.status === "overdue_unsecured_contract"
+                              ? "bg-[#ef4444] text-white"
                               : "bg-emerald-500 text-white";
                             return (
                               <span className={`badge badge-sm font-bold uppercase text-[10px] border-none px-2 rounded ${badgeColor}`}>
@@ -1377,8 +1379,6 @@ export const Contracts: React.FC = () => {
                       ? new Date(item.next_payment_date).toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit", year: "numeric" })
                       : "--";
 
-                    const isClosed = item.status === "closed";
-                    const isOverdue = item.status === "overdue" || item.is_overdue;
 
                     return (
                       <tr key={item.id} className="border-b border-slate-200/80 hover:bg-slate-50/30 text-xs">
@@ -1419,11 +1419,19 @@ export const Contracts: React.FC = () => {
                         </td>
                         <td className="text-blue-600 font-bold">{nextPayDateStr}</td>
                         <td>
-                          <span className={`badge badge-xs font-bold uppercase text-[9px] px-1.5 py-2 border-none rounded ${
-                            isClosed ? "bg-slate-100 text-slate-500" : isOverdue ? "bg-amber-500 text-white" : "bg-emerald-500 text-white"
-                          }`}>
-                            {isClosed ? "Đã đóng" : isOverdue ? "Chậm trả" : "Đang chạy"}
-                          </span>
+                          {(() => {
+                            const detailed = getInstallmentDetailedStatus(item);
+                            const badgeColor = detailed.status === "closed"
+                              ? "bg-slate-100 text-slate-500"
+                              : detailed.status === "overdue"
+                              ? "bg-amber-500 text-white"
+                              : "bg-emerald-500 text-white";
+                            return (
+                              <span className={`badge badge-xs font-bold uppercase text-[9px] px-1.5 py-2 border-none rounded ${badgeColor}`}>
+                                {detailed.label}
+                              </span>
+                            );
+                          })()}
                         </td>
                         <td className="text-right py-3.5 pr-4">
                           <div className="flex items-center justify-end gap-1.5">
