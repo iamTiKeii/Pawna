@@ -165,7 +165,7 @@ export const PawnDetail: React.FC<PawnDetailProps> = ({ idProp, onClose, isModal
         notes: `Thu lãi kỳ ${cycleNum} trực tiếp từ chi tiết`,
       });
       setSuccess(`Đã thu lãi thành công kỳ ${cycleNum}!`);
-      fetchContractDetails();
+      await fetchContractDetails();
     } catch (err: any) {
       setError(err.response?.data?.error || "Lỗi đóng lãi kỳ.");
     } finally {
@@ -180,10 +180,17 @@ export const PawnDetail: React.FC<PawnDetailProps> = ({ idProp, onClose, isModal
       type: "danger",
       event: e,
       onConfirm: async () => {
-        setError("");
-        setSuccess("");
-        await axios.post(`/api/contracts/pawn/${id}/cancel-interest`, { paymentId });
-        fetchContractDetails();
+        try {
+          setSubmitting(true);
+          setError("");
+          setSuccess("");
+          await axios.post(`/api/contracts/pawn/${id}/cancel-interest`, { paymentId });
+          await fetchContractDetails();
+        } catch (err: any) {
+          setError(err.response?.data?.error || "Lỗi hủy đóng lãi.");
+        } finally {
+          setSubmitting(false);
+        }
       },
       successMessage: `Đã hủy đóng lãi kỳ ${cycleNum} thành công.`,
     });

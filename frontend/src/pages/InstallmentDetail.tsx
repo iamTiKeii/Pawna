@@ -121,6 +121,7 @@ export const InstallmentDetail: React.FC<InstallmentDetailProps> = ({
 
   const handlePayCycleInline = async (paymentId: string, cycleNum: number) => {
     try {
+      setSubmitting(true);
       setError("");
       setSuccess("");
       const pObj = contract?.payments?.find((p: any) => p.id === paymentId);
@@ -145,9 +146,11 @@ export const InstallmentDetail: React.FC<InstallmentDetailProps> = ({
         delete copy[paymentId];
         return copy;
       });
-      fetchContractDetails();
+      await fetchContractDetails();
     } catch (err: any) {
       setError(err.response?.data?.error || "Lỗi thu góp kỳ.");
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -180,10 +183,17 @@ export const InstallmentDetail: React.FC<InstallmentDetailProps> = ({
       type: "danger",
       event: e,
       onConfirm: async () => {
-        setError("");
-        setSuccess("");
-        await axios.post(`/api/contracts/installment/${id}/cancel-pay`, { paymentId });
-        fetchContractDetails();
+        try {
+          setSubmitting(true);
+          setError("");
+          setSuccess("");
+          await axios.post(`/api/contracts/installment/${id}/cancel-pay`, { paymentId });
+          await fetchContractDetails();
+        } catch (err: any) {
+          setError(err.response?.data?.error || "Lỗi hủy thu góp kỳ.");
+        } finally {
+          setSubmitting(false);
+        }
       },
       successMessage: `Đã hủy thu kỳ góp ${cycleNum} thành công.`,
     });

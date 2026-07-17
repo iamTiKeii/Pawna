@@ -131,6 +131,7 @@ export const UnsecuredDetail: React.FC<UnsecuredDetailProps> = ({ idProp, onClos
   // Actions
   const handlePayInterestInline = async (paymentId: string, cycleNum: number) => {
     try {
+      setSubmitting(true);
       setError("");
       setSuccess("");
       const amount = payAmounts[paymentId] || "0";
@@ -143,9 +144,11 @@ export const UnsecuredDetail: React.FC<UnsecuredDetailProps> = ({ idProp, onClos
         notes: `Thu lãi kỳ ${cycleNum} trực tiếp từ chi tiết`,
       });
       setSuccess(`Đã thu lãi thành công kỳ ${cycleNum}!`);
-      fetchContractDetails();
+      await fetchContractDetails();
     } catch (err: any) {
       setError(err.response?.data?.error || "Lỗi đóng lãi kỳ.");
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -156,10 +159,17 @@ export const UnsecuredDetail: React.FC<UnsecuredDetailProps> = ({ idProp, onClos
       type: "danger",
       event: e,
       onConfirm: async () => {
-        setError("");
-        setSuccess("");
-        await axios.post(`/api/contracts/unsecured/${id}/cancel-interest`, { paymentId });
-        fetchContractDetails();
+        try {
+          setSubmitting(true);
+          setError("");
+          setSuccess("");
+          await axios.post(`/api/contracts/unsecured/${id}/cancel-interest`, { paymentId });
+          await fetchContractDetails();
+        } catch (err: any) {
+          setError(err.response?.data?.error || "Lỗi hủy đóng lãi.");
+        } finally {
+          setSubmitting(false);
+        }
       },
       successMessage: `Đã hủy đóng lãi kỳ ${cycleNum} thành công.`,
     });
