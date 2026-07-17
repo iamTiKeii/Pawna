@@ -40,6 +40,7 @@ import { StaffPermission } from "./pages/StaffPermission";
 import { TermsPage } from "./pages/settings/TermsPage";
 import { SettingsPage } from "./pages/SettingsPage";
 import { Home } from "./pages/Home";
+import { PublicContractLookup } from "./pages/PublicContractLookup";
 
 // Warnings
 import { PawnWarning } from "./pages/warnings/PawnWarning";
@@ -226,6 +227,10 @@ function App() {
           <Route
             path="/403"
             element={<ForbiddenPage />}
+          />
+          <Route
+            path="/DetailInstallment"
+            element={<PublicContractLookup />}
           />
 
           {/* Private default redirect */}

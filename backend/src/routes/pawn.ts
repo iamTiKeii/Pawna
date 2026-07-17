@@ -6,6 +6,9 @@ import { generateContractCode, generateVoucherCode, getNextContractCodeNumber } 
 import { generateInterestSchedule, InterestCycle, InterestCalculatorFactory } from "../utils/interest";
 import { adjustDailyCash, normalizeToMidnight, checkDailyCashLock } from "../utils/cash";
 
+import { v4 as uuidv4 } from "uuid";
+import crypto from "crypto";
+
 const router = Router();
 
 router.use(authenticateToken as any);
@@ -412,9 +415,14 @@ router.post("/", requirePermission(["CONTRACTS_MANAGE"]) as any, async (req: Aut
         resolvedIsUpfront
       );
 
+      const contractId = uuidv4();
+      const lookupToken = crypto.randomBytes(16).toString("hex");
+      const lookupLink = `https://2gold.biz/DetailInstallment?var1=${storeId}&var2=${contractId}&Key=${lookupToken}`;
+
       // Create contract
       const contract = await tx.pawnContract.create({
         data: {
+          id: contractId,
           store_id: storeId,
           contract_code: contractCode,
           customer_id,
@@ -434,6 +442,8 @@ router.post("/", requirePermission(["CONTRACTS_MANAGE"]) as any, async (req: Aut
           engine_number,
           notes,
           status: "active",
+          lookup_token: lookupToken,
+          lookup_link: lookupLink,
         },
       });
 

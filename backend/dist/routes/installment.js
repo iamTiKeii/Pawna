@@ -1,4 +1,7 @@
 "use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.generateInstallmentPayments = generateInstallmentPayments;
 const express_1 = require("express");
@@ -7,6 +10,8 @@ const auth_1 = require("../middleware/auth");
 const permission_1 = require("../middleware/permission");
 const codeGen_1 = require("../utils/codeGen");
 const cash_1 = require("../utils/cash");
+const uuid_1 = require("uuid");
+const crypto_1 = __importDefault(require("crypto"));
 const router = (0, express_1.Router)();
 router.use(auth_1.authenticateToken);
 // HELPER: Generate installment payments schedule based on duration and cycle
@@ -268,8 +273,12 @@ router.post("/", (0, permission_1.requirePermission)(["CONTRACTS_MANAGE"]), asyn
             }
             const contractCode = contract_code || await (0, codeGen_1.generateContractCode)(tx, "installment");
             const normalizedLoanDate = (0, cash_1.normalizeToMidnight)(loan_date || new Date());
+            const contractId = (0, uuid_1.v4)();
+            const lookupToken = crypto_1.default.randomBytes(16).toString("hex");
+            const lookupLink = `https://2gold.biz/DetailInstallment?var1=${storeId}&var2=${contractId}&Key=${lookupToken}`;
             const contract = await tx.installmentContract.create({
                 data: {
+                    id: contractId,
                     store_id: storeId,
                     contract_code: contractCode,
                     customer_id,
@@ -284,6 +293,8 @@ router.post("/", (0, permission_1.requirePermission)(["CONTRACTS_MANAGE"]), asyn
                     collaborator_id,
                     notes,
                     status: "active",
+                    lookup_token: lookupToken,
+                    lookup_link: lookupLink,
                 },
             });
             // Generate schedules

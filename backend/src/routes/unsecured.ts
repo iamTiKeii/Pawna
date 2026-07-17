@@ -7,6 +7,9 @@ import { generateInterestSchedule } from "../utils/interest";
 import { adjustDailyCash, normalizeToMidnight, checkDailyCashLock } from "../utils/cash";
 import { calculateDailyInterestRate } from "./pawn";
 
+import { v4 as uuidv4 } from "uuid";
+import crypto from "crypto";
+
 const router = Router();
 
 router.use(authenticateToken as any);
@@ -406,15 +409,20 @@ router.post("/", requirePermission(["CONTRACTS_MANAGE"]) as any, async (req: Aut
         resolvedIsUpfront
       );
 
+      const contractId = uuidv4();
+      const lookupToken = crypto.randomBytes(16).toString("hex");
+      const lookupLink = `https://2gold.biz/DetailInstallment?var1=${storeId}&var2=${contractId}&Key=${lookupToken}`;
+
       // Create contract
       const contract = await tx.unsecuredContract.create({
         data: {
+          id: contractId,
           store_id: storeId,
           contract_code: contractCode,
           customer_id,
           commodity_id,
           loan_amount: principal,
-          initial_loan_amount: principal, // interest base is initially matching
+          initial_loan_amount: principal,
           interest_type_id: resolvedInterestTypeId,
           is_upfront_interest: resolvedIsUpfront,
           loan_days: days,
@@ -425,6 +433,8 @@ router.post("/", requirePermission(["CONTRACTS_MANAGE"]) as any, async (req: Aut
           collaborator_id,
           notes,
           status: "active",
+          lookup_token: lookupToken,
+          lookup_link: lookupLink,
         },
       });
 

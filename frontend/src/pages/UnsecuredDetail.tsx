@@ -17,7 +17,8 @@ import {
   History,
   Bell,
   Printer,
-  Save
+  Save,
+  Link2
 } from "lucide-react";
 import { toast } from "../lib/toast";
 import { MoneyInput } from "../components/shared/MoneyInput";
@@ -26,7 +27,8 @@ import {
   ContractHeader,
   ContractSummaryGrid,
   ContractTabs,
-  ContractAuditInfo
+  ContractAuditInfo,
+  ContractSection
 } from "../components/contracts";
 
 
@@ -1206,6 +1208,30 @@ export const UnsecuredDetail: React.FC<UnsecuredDetailProps> = ({ idProp, onClos
             },
           ]}
         />
+      }
+      infoSections={
+        <ContractSection title="Link tra cứu khách hàng" icon={Link2}>
+          <div className="flex gap-2 items-center bg-slate-50 p-3 rounded-xl border border-slate-100">
+            <input
+              type="text"
+              readOnly
+              value={contract.lookup_link || ""}
+              className="input input-bordered input-sm flex-1 bg-white font-mono text-xs text-slate-600 focus:outline-none"
+            />
+            <button
+              type="button"
+              onClick={() => {
+                if (contract.lookup_link) {
+                  navigator.clipboard.writeText(contract.lookup_link);
+                  toast.success("Đã sao chép link tra cứu thành công!");
+                }
+              }}
+              className="btn btn-sm btn-emerald text-white font-bold rounded-lg"
+            >
+              Copy Link tra cứu
+            </button>
+          </div>
+        </ContractSection>
       }
       tabs={
         <ContractTabs

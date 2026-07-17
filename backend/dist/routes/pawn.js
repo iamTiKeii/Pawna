@@ -1,4 +1,7 @@
 "use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.recalculatePawnSchedule = recalculatePawnSchedule;
 exports.calculateDailyInterestRate = calculateDailyInterestRate;
@@ -9,6 +12,8 @@ const permission_1 = require("../middleware/permission");
 const codeGen_1 = require("../utils/codeGen");
 const interest_1 = require("../utils/interest");
 const cash_1 = require("../utils/cash");
+const uuid_1 = require("uuid");
+const crypto_1 = __importDefault(require("crypto"));
 const router = (0, express_1.Router)();
 router.use(auth_1.authenticateToken);
 // HELPER: Recalculate future schedules when principal changes
@@ -333,9 +338,13 @@ router.post("/", (0, permission_1.requirePermission)(["CONTRACTS_MANAGE"]), asyn
             }
             // Generate expected interest payments schedule
             const cycles = (0, interest_1.generateInterestSchedule)(principal, rate, days, pValue, interestType.code, normalizedLoanDate, resolvedIsUpfront);
+            const contractId = (0, uuid_1.v4)();
+            const lookupToken = crypto_1.default.randomBytes(16).toString("hex");
+            const lookupLink = `https://2gold.biz/DetailInstallment?var1=${storeId}&var2=${contractId}&Key=${lookupToken}`;
             // Create contract
             const contract = await tx.pawnContract.create({
                 data: {
+                    id: contractId,
                     store_id: storeId,
                     contract_code: contractCode,
                     customer_id,
@@ -355,6 +364,8 @@ router.post("/", (0, permission_1.requirePermission)(["CONTRACTS_MANAGE"]), asyn
                     engine_number,
                     notes,
                     status: "active",
+                    lookup_token: lookupToken,
+                    lookup_link: lookupLink,
                 },
             });
             // Save schedules

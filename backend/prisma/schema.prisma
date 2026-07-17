@@ -319,6 +319,8 @@ model PawnContract {
   notes               String?  @db.Text
   created_at          DateTime @default(now()) @db.Timestamptz
   updated_at          DateTime @default(now()) @updatedAt @db.Timestamptz
+  lookup_token        String?  @db.VarChar(100)
+  lookup_link         String?  @db.VarChar(255)
 
   interest_payments      PawnInterestPayment[]
   principal_transactions PawnPrincipalTransaction[]
@@ -510,6 +512,8 @@ model UnsecuredContract {
   notes               String?  @db.Text
   created_at          DateTime @default(now()) @db.Timestamptz
   updated_at          DateTime @default(now()) @updatedAt @db.Timestamptz
+  lookup_token        String?  @db.VarChar(100)
+  lookup_link         String?  @db.VarChar(255)
 
   interest_payments      UnsecuredInterestPayment[]
   principal_transactions UnsecuredPrincipalTransaction[]
@@ -693,6 +697,8 @@ model InstallmentContract {
   notes                String?  @db.Text
   created_at           DateTime @default(now()) @db.Timestamptz
   updated_at           DateTime @default(now()) @updatedAt @db.Timestamptz
+  lookup_token         String?  @db.VarChar(100)
+  lookup_link          String?  @db.VarChar(255)
 
   payments            InstallmentPayment[]
   redemptions         InstallmentRedemption[]
