@@ -2,14 +2,10 @@ import React, { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import axios from "axios";
 import { 
+  FileText, 
   AlertCircle, 
-  Calendar, 
-  Coins, 
-  ShieldCheck, 
-  Store, 
-  User, 
-  Briefcase, 
-  Activity
+  List,
+  ArrowRight
 } from "lucide-react";
 
 export const PublicContractLookup: React.FC = () => {
@@ -49,34 +45,34 @@ export const PublicContractLookup: React.FC = () => {
   }, [var1, var2, Key]);
 
   const formatVND = (value: number | null | undefined) => {
-    if (value === undefined || value === null) return "0 đ";
-    return value.toLocaleString("vi-VN") + " đ";
+    if (value === undefined || value === null) return "0 VNĐ";
+    return value.toLocaleString("vi-VN") + " VNĐ";
   };
 
-  const formatDate = (dateStr: string | null | undefined) => {
+  const formatDate = (dateStr: string | Date | null | undefined) => {
     if (!dateStr) return "--/--/----";
     return new Date(dateStr).toLocaleDateString("vi-VN");
   };
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center text-slate-100 p-4">
-        <span className="loading loading-ring loading-lg text-emerald-500"></span>
-        <p className="mt-4 text-sm text-slate-400 animate-pulse font-medium">Đang xác thực thông tin bảo mật...</p>
+      <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center text-slate-800 p-4">
+        <span className="loading loading-ring loading-lg text-indigo-650 text-blue-600"></span>
+        <p className="mt-4 text-sm text-slate-500 animate-pulse font-medium">Đang tải thông tin hợp đồng...</p>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4">
-        <div className="max-w-md w-full bg-slate-800/80 backdrop-blur-md border border-slate-700/50 p-8 rounded-2xl shadow-2xl text-center">
-          <div className="w-16 h-16 bg-red-950/50 border border-red-500/30 rounded-full flex items-center justify-center mx-auto mb-6">
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
+        <div className="max-w-md w-full bg-white border border-slate-200 p-8 rounded-2xl shadow-xl text-center">
+          <div className="w-16 h-16 bg-red-50 border border-red-200 rounded-full flex items-center justify-center mx-auto mb-6">
             <AlertCircle className="w-8 h-8 text-red-500" />
           </div>
-          <h2 className="text-xl font-extrabold text-white mb-2">Truy cập bị từ chối</h2>
-          <p className="text-sm text-slate-400 mb-6 leading-relaxed">{error}</p>
-          <div className="text-xs text-slate-500 border-t border-slate-700/50 pt-4">
+          <h2 className="text-xl font-extrabold text-slate-800 mb-2">Truy cập bị từ chối</h2>
+          <p className="text-sm text-slate-500 mb-6 leading-relaxed">{error}</p>
+          <div className="text-xs text-slate-450 border-t border-slate-100 pt-4">
             Mã bảo mật không khớp hoặc hợp đồng không tồn tại trên hệ thống.
           </div>
         </div>
@@ -86,221 +82,305 @@ export const PublicContractLookup: React.FC = () => {
 
   if (!data) return null;
 
-  const getContractTypeName = (type: string) => {
-    switch (type) {
-      case "pawn": return "Hợp đồng Cầm đồ";
-      case "unsecured": return "Hợp đồng Tín chấp";
-      case "installment": return "Hợp đồng Trả góp";
-      default: return "Chi tiết Hợp đồng";
+  // Calculators
+  const totalPaid = data.type === "installment" 
+    ? (data.payments?.filter((p: any) => p.is_paid).reduce((sum: number, p: any) => sum + p.actual_paid, 0) || 0)
+    : (data.interest_payments?.filter((p: any) => p.is_paid).reduce((sum: number, p: any) => sum + p.actual_paid, 0) || 0);
+
+  const remaining = data.type === "installment"
+    ? Math.max(0, Number(data.repayment_amount || 0) - totalPaid)
+    : Number(data.debt_amount || 0);
+
+  const ratio = data.type === "installment" && data.repayment_amount && data.disbursed_amount
+    ? `${((Number(data.repayment_amount) / Number(data.disbursed_amount)) * 10).toFixed(0)}-10`
+    : "--";
+
+  const totalInterest = data.type === "installment" && data.repayment_amount && data.disbursed_amount
+    ? Math.max(0, Number(data.repayment_amount) - Number(data.disbursed_amount))
+    : data.interest_payments?.reduce((sum: number, p: any) => sum + p.expected_interest, 0) || 0;
+
+  const getContractDurationText = () => {
+    if (data.type === "installment") {
+      const start = new Date(data.loan_date);
+      const end = new Date(start.getTime() + data.loan_duration * 24 * 60 * 60 * 1000);
+      return `${formatDate(data.loan_date)} ➔ ${formatDate(end)}`;
+    } else {
+      const start = new Date(data.loan_date);
+      const end = new Date(start.getTime() + data.loan_days * 24 * 60 * 60 * 1000);
+      return `${formatDate(data.loan_date)} ➔ ${formatDate(end)}`;
     }
   };
 
+  const getStatusBadge = (status: string) => {
+    const closed = status === "closed" || status === "Đã đóng" || status === "Đã tất toán";
+    const slow = status === "overdue" || status === "Chậm trả" || status === "Chậm đóng";
+    
+    let text = "Đang hoạt động";
+    if (closed) text = "Đã tất toán";
+    else if (slow) text = "Chậm trả";
+    else if (status === "active") text = "Đang hoạt động";
+    else text = status;
+
+    return (
+      <span className={`badge border-none badge-sm text-[10px] font-black uppercase rounded px-2.5 py-1.5 h-auto ${
+        closed 
+          ? "bg-slate-100 text-slate-500" 
+          : slow 
+          ? "bg-amber-500 text-white" 
+          : "bg-emerald-500 text-white"
+      }`}>
+        {text}
+      </span>
+    );
+  };
+
+  const getPaymentsCount = () => {
+    if (data.type === "installment") {
+      return `${data.payments?.length || 0} Kỳ`;
+    }
+    return `${data.interest_payments?.length || 0} Kỳ`;
+  };
+
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 font-sans antialiased pb-12 selection:bg-emerald-500 selection:text-slate-950">
-      {/* Decorative top bar */}
-      <div className="h-1.5 w-full bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500" />
-
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 pt-8">
-        {/* Header Branding */}
-        <div className="flex flex-col sm:flex-row justify-between items-center mb-8 gap-4 bg-slate-900/40 p-6 rounded-2xl border border-slate-800/60 backdrop-blur">
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 bg-emerald-500/10 rounded-xl flex items-center justify-center border border-emerald-500/25">
-              <ShieldCheck className="w-6 h-6 text-emerald-500" />
-            </div>
-            <div>
-              <h1 className="text-lg font-black tracking-tight text-white uppercase">Hệ Thống Tra Cứu Bảo Mật</h1>
-              <p className="text-xs text-emerald-500/80 font-bold flex items-center gap-1">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping inline-block" />
-                Kết nối mã hóa an toàn (End-to-End Encrypted)
-              </p>
-            </div>
+    <div className="min-h-screen bg-[#f4f6f9] text-slate-800 font-sans antialiased pb-16 selection:bg-[#3f51b5] selection:text-white">
+      <div className="max-w-5xl mx-auto px-4 pt-6 space-y-6">
+        
+        {/* Card 1: Thông Tin Hợp Đồng */}
+        <div className="bg-white rounded-xl shadow-md border border-slate-200 overflow-hidden">
+          <div className="bg-[#3f51b5] text-white px-5 py-3.5 font-bold text-[15px] flex items-center gap-2">
+            <FileText className="w-5 h-5 text-indigo-200" />
+            <span>Thông Tin Hợp Đồng</span>
           </div>
-          <div className="flex items-center gap-1.5 bg-slate-800 px-3 py-1.5 rounded-lg border border-slate-700/60 text-xs font-mono text-slate-300">
-            <Store className="w-4 h-4 text-emerald-500" />
-            <span>2GOLD.BIZ SYSTEM</span>
-          </div>
-        </div>
 
-        {/* Contract Summary Card */}
-        <div className="bg-slate-900 border border-slate-800/80 rounded-3xl p-6 sm:p-8 shadow-2xl mb-8 relative overflow-hidden">
-          {/* Subtle background glow */}
-          <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/5 rounded-full blur-3xl -mr-20 -mt-20 pointer-events-none" />
-
-          <div className="flex flex-wrap justify-between items-start gap-4 border-b border-slate-800 pb-6 mb-6">
-            <div>
-              <span className="badge badge-success bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[10px] font-black uppercase tracking-wider rounded px-2.5 py-1 mb-2">
-                {getContractTypeName(data.type)}
-              </span>
-              <h2 className="text-2xl font-black text-white tracking-tight flex items-center gap-2">
-                <span>Mã HĐ:</span>
-                <span className="font-mono text-emerald-400">{data.contract_code}</span>
-              </h2>
-            </div>
-            <div className="text-right">
-              <p className="text-xs text-slate-400 uppercase font-bold tracking-wider">Trạng thái Hợp đồng</p>
-              <span className={`badge border-none badge-sm text-[11px] font-black uppercase rounded-md px-2.5 py-1.5 h-auto mt-1 ${
-                data.status === "active" || data.status === "Đang cầm" || data.status === "Đang hoạt động"
-                  ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/20"
-                  : data.status === "closed" || data.status === "Đã đóng" || data.status === "Đã tất toán"
-                  ? "bg-slate-800 text-slate-400 border border-slate-700"
-                  : "bg-amber-500/20 text-amber-400 border border-amber-500/20"
-              }`}>
-                {data.status === "active" ? "Đang hoạt động" : data.status}
+          <div className="p-6">
+            {/* Customer Name Header */}
+            <div className="mb-4">
+              <span className="text-red-500 font-extrabold text-base block mb-3 border-b border-slate-100 pb-2">
+                {data.customer_name}
               </span>
             </div>
-          </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            <div className="flex items-center gap-3 bg-slate-950/40 p-4 rounded-2xl border border-slate-800/40">
-              <User className="w-5 h-5 text-slate-400 flex-shrink-0" />
-              <div>
-                <p className="text-[11px] text-slate-500 uppercase font-bold tracking-wider">Khách hàng</p>
-                <p className="font-bold text-white text-sm">{data.customer_name}</p>
-              </div>
-            </div>
-
-            {data.type === "pawn" && (
-              <div className="flex items-center gap-3 bg-slate-950/40 p-4 rounded-2xl border border-slate-800/40">
-                <Briefcase className="w-5 h-5 text-slate-400 flex-shrink-0" />
-                <div>
-                  <p className="text-[11px] text-slate-500 uppercase font-bold tracking-wider">Tài sản cầm cố</p>
-                  <p className="font-bold text-white text-sm truncate max-w-[180px]" title={data.asset_name}>
-                    {data.asset_name} {data.commodity_name ? `(${data.commodity_name})` : ""}
-                  </p>
+            {/* Contract Summary Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-1">
+              
+              {/* Left Column */}
+              <div className="divide-y divide-slate-100 text-sm">
+                {data.type === "installment" ? (
+                  <>
+                    <div className="py-2.5 flex justify-between items-center">
+                      <span className="text-slate-400 font-semibold">Trả góp</span>
+                      <span className="text-slate-800 font-extrabold">{formatVND(data.repayment_amount)}</span>
+                    </div>
+                    <div className="py-2.5 flex justify-between items-center">
+                      <span className="text-slate-400 font-semibold">Tỷ lệ</span>
+                      <span className="text-slate-800 font-extrabold">{ratio}</span>
+                    </div>
+                    <div className="py-2.5 flex justify-between items-center">
+                      <span className="text-slate-400 font-semibold">Thời gian</span>
+                      <span className="text-slate-800 font-extrabold">{getContractDurationText()}</span>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="py-2.5 flex justify-between items-center">
+                      <span className="text-slate-400 font-semibold">
+                        {data.type === "pawn" ? "Tiền cầm" : "Tiền vay"}
+                      </span>
+                      <span className="text-slate-800 font-extrabold">{formatVND(data.loan_amount)}</span>
+                    </div>
+                    {data.type === "pawn" && (
+                      <div className="py-2.5 flex justify-between items-center">
+                        <span className="text-slate-400 font-semibold">Tài sản cầm cố</span>
+                        <span className="text-slate-850 font-bold truncate max-w-[200px]" title={data.asset_name}>
+                          {data.asset_name} {data.commodity_name ? `(${data.commodity_name})` : ""}
+                        </span>
+                      </div>
+                    )}
+                    <div className="py-2.5 flex justify-between items-center">
+                      <span className="text-slate-400 font-semibold">Thời gian</span>
+                      <span className="text-slate-800 font-extrabold">{getContractDurationText()}</span>
+                    </div>
+                  </>
+                )}
+                <div className="py-2.5 flex justify-between items-center">
+                  <span className="text-slate-400 font-semibold">Nợ cũ KH</span>
+                  <span className="text-red-500 font-bold">0 VNĐ</span>
+                </div>
+                <div className="py-2.5 flex justify-between items-center">
+                  <span className="text-slate-400 font-semibold">Nợ cũ HĐ</span>
+                  <span className="text-red-500 font-bold">{formatVND(data.debt_amount)}</span>
                 </div>
               </div>
-            )}
 
-            {data.type === "installment" ? (
-              <>
-                <div className="flex items-center gap-3 bg-slate-950/40 p-4 rounded-2xl border border-slate-800/40">
-                  <Coins className="w-5 h-5 text-emerald-500 flex-shrink-0" />
-                  <div>
-                    <p className="text-[11px] text-slate-500 uppercase font-bold tracking-wider">Tổng tiền phải đóng</p>
-                    <p className="font-black text-emerald-400 text-base">{formatVND(data.repayment_amount)}</p>
-                  </div>
+              {/* Right Column */}
+              <div className="divide-y divide-slate-100 text-sm">
+                {data.type === "installment" ? (
+                  <>
+                    <div className="py-2.5 flex justify-between items-center">
+                      <span className="text-slate-400 font-semibold">Số tiền giao khách</span>
+                      <span className="text-slate-800 font-extrabold">{formatVND(data.disbursed_amount)}</span>
+                    </div>
+                    <div className="py-2.5 flex justify-between items-center">
+                      <span className="text-slate-400 font-semibold">Tổng tiền phải đóng</span>
+                      <span className="text-red-500 font-extrabold">{formatVND(data.repayment_amount)}</span>
+                    </div>
+                    <div className="py-2.5 flex justify-between items-center">
+                      <span className="text-slate-400 font-semibold">Đã đóng được</span>
+                      <span className="text-slate-800 font-extrabold">{formatVND(totalPaid)}</span>
+                    </div>
+                    <div className="py-2.5 flex justify-between items-center">
+                      <span className="text-slate-400 font-semibold">Còn lại phải đóng</span>
+                      <span className="text-red-500 font-extrabold">{formatVND(remaining)}</span>
+                    </div>
+                    <div className="py-2.5 flex justify-between items-center">
+                      <span className="text-slate-400 font-semibold">Tổng lãi</span>
+                      <span className="text-slate-850 font-bold">{formatVND(totalInterest)}</span>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="py-2.5 flex justify-between items-center">
+                      <span className="text-slate-400 font-semibold">Lãi suất</span>
+                      <span className="text-slate-800 font-extrabold">{data.interest_rate}% / kỳ</span>
+                    </div>
+                    <div className="py-2.5 flex justify-between items-center">
+                      <span className="text-slate-400 font-semibold">Tiền lãi đã đóng</span>
+                      <span className="text-slate-800 font-extrabold">{formatVND(totalPaid)}</span>
+                    </div>
+                    <div className="py-2.5 flex justify-between items-center">
+                      <span className="text-slate-400 font-semibold">Tổng lãi tạm tính</span>
+                      <span className="text-slate-850 font-bold">{formatVND(totalInterest)}</span>
+                    </div>
+                  </>
+                )}
+                <div className="py-2.5 flex justify-between items-center">
+                  <span className="text-slate-400 font-semibold">Trạng thái</span>
+                  <span>{getStatusBadge(data.status)}</span>
                 </div>
-                <div className="flex items-center gap-3 bg-slate-950/40 p-4 rounded-2xl border border-slate-800/40">
-                  <Coins className="w-5 h-5 text-slate-400 flex-shrink-0" />
-                  <div>
-                    <p className="text-[11px] text-slate-500 uppercase font-bold tracking-wider">Tiền đã giải ngân</p>
-                    <p className="font-bold text-white text-sm">{formatVND(data.disbursed_amount)}</p>
-                  </div>
-                </div>
-              </>
-            ) : (
-              <>
-                <div className="flex items-center gap-3 bg-slate-950/40 p-4 rounded-2xl border border-slate-800/40">
-                  <Coins className="w-5 h-5 text-emerald-500 flex-shrink-0" />
-                  <div>
-                    <p className="text-[11px] text-slate-500 uppercase font-bold tracking-wider">Tiền vay / cầm</p>
-                    <p className="font-black text-emerald-400 text-base">{formatVND(data.loan_amount)}</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3 bg-slate-950/40 p-4 rounded-2xl border border-slate-800/40">
-                  <Activity className="w-5 h-5 text-slate-400 flex-shrink-0" />
-                  <div>
-                    <p className="text-[11px] text-slate-500 uppercase font-bold tracking-wider">Lãi suất thỏa thuận</p>
-                    <p className="font-bold text-white text-sm">{data.interest_rate}% / kỳ</p>
-                  </div>
-                </div>
-              </>
-            )}
-
-            <div className="flex items-center gap-3 bg-slate-950/40 p-4 rounded-2xl border border-slate-800/40">
-              <Calendar className="w-5 h-5 text-slate-400 flex-shrink-0" />
-              <div>
-                <p className="text-[11px] text-slate-500 uppercase font-bold tracking-wider">Ngày bắt đầu</p>
-                <p className="font-bold text-white text-sm">{formatDate(data.loan_date)}</p>
               </div>
-            </div>
 
-            <div className="flex items-center gap-3 bg-slate-950/40 p-4 rounded-2xl border border-slate-800/40">
-              <Coins className="w-5 h-5 text-slate-400 flex-shrink-0" />
-              <div>
-                <p className="text-[11px] text-slate-500 uppercase font-bold tracking-wider">Dư nợ hiện tại</p>
-                <p className="font-bold text-rose-455 text-rose-500 text-sm font-black">{formatVND(data.debt_amount)}</p>
-              </div>
             </div>
           </div>
         </div>
 
-        {/* Payment Schedule Section */}
-        <div className="bg-slate-900 border border-slate-800/80 rounded-3xl overflow-hidden shadow-2xl">
-          <div className="p-6 sm:p-8 border-b border-slate-800 flex justify-between items-center flex-wrap gap-4">
-            <div>
-              <h3 className="text-lg font-black text-white uppercase tracking-tight flex items-center gap-2">
-                <Calendar className="w-5 h-5 text-emerald-500" />
-                Lịch đóng tiền & Đóng lãi
-              </h3>
-              <p className="text-xs text-slate-400 mt-1">Theo dõi danh sách các kỳ đóng tiền chi tiết theo thời gian thực</p>
+        {/* Card 2: Lịch Thanh Toán */}
+        <div className="bg-white rounded-xl shadow-md border border-slate-200 overflow-hidden">
+          <div className="bg-[#424242] text-white px-5 py-3.5 font-bold text-[15px] flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <List className="w-5 h-5 text-slate-300" />
+              <span>{data.type === "installment" ? "Lịch Thanh Toán" : "Lịch Đóng Lãi"}</span>
+              <span className="bg-slate-600 text-white text-[10px] font-black uppercase px-2 py-0.5 rounded ml-2">
+                {getPaymentsCount()}
+              </span>
             </div>
           </div>
 
           <div className="overflow-x-auto">
-            <table className="table w-full text-slate-300">
+            <table className="table w-full text-slate-700 border-collapse">
               <thead>
-                <tr className="border-b border-slate-800 text-slate-400 text-xs font-bold uppercase bg-slate-950/40">
-                  <th className="px-6 py-4 text-center">Kỳ</th>
-                  <th className="px-6 py-4">Thời gian kỳ</th>
-                  <th className="px-6 py-4 text-right">Tiền phải đóng</th>
-                  <th className="px-6 py-4 text-right">Thực đóng</th>
-                  <th className="px-6 py-4 text-center">Ngày đóng</th>
-                  <th className="px-6 py-4 text-center">Trạng thái</th>
+                <tr className="border-b border-slate-200 text-slate-450 text-[11px] font-bold uppercase bg-slate-50/50">
+                  <th className="px-6 py-4 text-center text-slate-550 w-16">STT</th>
+                  <th className="px-6 py-4 text-center text-slate-550">Khoảng thời gian</th>
+                  <th className="px-6 py-4 text-center text-slate-550 w-24">Số ngày</th>
+                  <th className="px-6 py-4 text-right text-slate-550">Tiền cần trả</th>
+                  <th className="px-6 py-4 text-center text-slate-550">Ngày đóng</th>
+                  <th className="px-6 py-4 text-center text-slate-550 w-32">Trạng thái</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-800/50">
+              <tbody className="divide-y divide-slate-100 bg-white">
                 {data.type === "installment" ? (
-                  data.payments?.map((p: any) => (
-                    <tr key={p.cycle_number} className="hover:bg-slate-800/30 transition-colors">
-                      <td className="px-6 py-4 text-center font-bold text-white font-mono">{p.cycle_number}</td>
-                      <td className="px-6 py-4 text-xs font-medium">
-                        {formatDate(p.from_date)} ➔ {formatDate(p.to_date)}
-                      </td>
-                      <td className="px-6 py-4 text-right font-bold text-white">{formatVND(p.expected_amount)}</td>
-                      <td className="px-6 py-4 text-right font-bold text-emerald-400">{formatVND(p.actual_paid)}</td>
-                      <td className="px-6 py-4 text-center text-xs">{formatDate(p.paid_date)}</td>
-                      <td className="px-6 py-4 text-center">
-                        {p.is_paid ? (
-                          <span className="badge border-none bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[10px] font-black uppercase rounded-md px-2 py-1 h-auto">
-                            Đã đóng
+                  data.payments?.map((p: any) => {
+                    const diffDays = Math.max(1, Math.round((new Date(p.to_date).getTime() - new Date(p.from_date).getTime()) / (24 * 60 * 60 * 1000)));
+                    return (
+                      <tr key={p.cycle_number} className="hover:bg-slate-50/50 transition-colors">
+                        <td className="px-6 py-4 text-center font-bold text-slate-400 font-mono">#{p.cycle_number}</td>
+                        <td className="px-6 py-4 text-center text-sm font-semibold text-slate-700">
+                          <div className="flex items-center justify-center gap-4">
+                            <span className="w-20 text-right">{formatDate(p.from_date)}</span>
+                            <ArrowRight className="w-3.5 h-3.5 text-blue-500" />
+                            <span className="w-20 text-left">{formatDate(p.to_date)}</span>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 text-center text-sm font-semibold text-slate-500">{diffDays}</td>
+                        <td className="px-6 py-4 text-right">
+                          <span className="text-blue-600 font-extrabold text-[15px] block leading-none">
+                            {Number(p.expected_amount).toLocaleString("vi-VN")}
                           </span>
-                        ) : (
-                          <span className="badge border-none bg-slate-800 text-slate-500 text-[10px] font-black uppercase rounded-md px-2 py-1 h-auto">
-                            Chưa đóng
-                          </span>
-                        )}
-                      </td>
-                    </tr>
-                  ))
+                          <span className="text-slate-400 text-[10px] block mt-1 leading-none font-bold">VNĐ</span>
+                        </td>
+                        <td className="px-6 py-4 text-center text-sm font-semibold">
+                          {p.is_paid ? (
+                            <span className="text-emerald-600 flex items-center justify-center gap-1">
+                              <span className="text-[10px]">✔</span>
+                              <span>{formatDate(p.paid_date)}</span>
+                            </span>
+                          ) : (
+                            <span className="text-slate-300">---</span>
+                          )}
+                        </td>
+                        <td className="px-6 py-4 text-center">
+                          {p.is_paid ? (
+                            <span className="bg-[#26a69a] text-white text-[11px] font-extrabold rounded-full px-3 py-1 flex items-center justify-center gap-1 w-fit mx-auto shadow-sm">
+                              ✔ Đã Đóng
+                            </span>
+                          ) : (
+                            <span className="bg-red-500 text-white text-[11px] font-extrabold rounded-full px-3 py-1 flex items-center justify-center gap-1 w-fit mx-auto shadow-sm">
+                              ✕ Chưa Đóng
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })
                 ) : (
-                  data.interest_payments?.map((p: any) => (
-                    <tr key={p.cycle_number} className="hover:bg-slate-800/30 transition-colors">
-                      <td className="px-6 py-4 text-center font-bold text-white font-mono">{p.cycle_number}</td>
-                      <td className="px-6 py-4 text-xs font-medium">
-                        {formatDate(p.from_date)} ➔ {formatDate(p.to_date)}
-                      </td>
-                      <td className="px-6 py-4 text-right font-bold text-white">{formatVND(p.expected_interest)}</td>
-                      <td className="px-6 py-4 text-right font-bold text-emerald-400">{formatVND(p.actual_paid)}</td>
-                      <td className="px-6 py-4 text-center text-xs">{formatDate(p.paid_date)}</td>
-                      <td className="px-6 py-4 text-center">
-                        {p.is_paid ? (
-                          <span className="badge border-none bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[10px] font-black uppercase rounded-md px-2 py-1 h-auto">
-                            Đã đóng
+                  data.interest_payments?.map((p: any) => {
+                    const diffDays = Math.max(1, Math.round((new Date(p.to_date).getTime() - new Date(p.from_date).getTime()) / (24 * 60 * 60 * 1000)));
+                    return (
+                      <tr key={p.cycle_number} className="hover:bg-slate-50/50 transition-colors">
+                        <td className="px-6 py-4 text-center font-bold text-slate-400 font-mono">#{p.cycle_number}</td>
+                        <td className="px-6 py-4 text-center text-sm font-semibold text-slate-700">
+                          <div className="flex items-center justify-center gap-4">
+                            <span className="w-20 text-right">{formatDate(p.from_date)}</span>
+                            <ArrowRight className="w-3.5 h-3.5 text-blue-500" />
+                            <span className="w-20 text-left">{formatDate(p.to_date)}</span>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 text-center text-sm font-semibold text-slate-500">{diffDays}</td>
+                        <td className="px-6 py-4 text-right">
+                          <span className="text-blue-600 font-extrabold text-[15px] block leading-none">
+                            {Number(p.expected_interest).toLocaleString("vi-VN")}
                           </span>
-                        ) : (
-                          <span className="badge border-none bg-slate-800 text-slate-500 text-[10px] font-black uppercase rounded-md px-2 py-1 h-auto">
-                            Chưa đóng
-                          </span>
-                        )}
-                      </td>
-                    </tr>
-                  ))
+                          <span className="text-slate-400 text-[10px] block mt-1 leading-none font-bold">VNĐ</span>
+                        </td>
+                        <td className="px-6 py-4 text-center text-sm font-semibold">
+                          {p.is_paid ? (
+                            <span className="text-emerald-600 flex items-center justify-center gap-1">
+                              <span className="text-[10px]">✔</span>
+                              <span>{formatDate(p.paid_date)}</span>
+                            </span>
+                          ) : (
+                            <span className="text-slate-300">---</span>
+                          )}
+                        </td>
+                        <td className="px-6 py-4 text-center">
+                          {p.is_paid ? (
+                            <span className="bg-[#26a69a] text-white text-[11px] font-extrabold rounded-full px-3 py-1 flex items-center justify-center gap-1 w-fit mx-auto shadow-sm">
+                              ✔ Đã Đóng
+                            </span>
+                          ) : (
+                            <span className="bg-red-500 text-white text-[11px] font-extrabold rounded-full px-3 py-1 flex items-center justify-center gap-1 w-fit mx-auto shadow-sm">
+                              ✕ Chưa Đóng
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })
                 )}
                 {(!data.payments || data.payments.length === 0) && (!data.interest_payments || data.interest_payments.length === 0) && (
                   <tr>
-                    <td colSpan={6} className="text-center py-8 text-slate-500 text-xs font-medium">
-                      Không có lịch đóng tiền cho hợp đồng này.
+                    <td colSpan={6} className="text-center py-8 text-slate-400 text-xs font-semibold">
+                      Không có lịch thanh toán cho hợp đồng này.
                     </td>
                   </tr>
                 )}
@@ -309,11 +389,12 @@ export const PublicContractLookup: React.FC = () => {
           </div>
         </div>
 
-        {/* Footer Privacy Note */}
-        <div className="text-center mt-12 text-xs text-slate-600 space-y-1">
-          <p>Hệ thống tự động bảo mật tuyệt đối thông tin khách hàng.</p>
-          <p>Mọi thắc mắc vui lòng liên hệ trực tiếp với quầy giao dịch để được hỗ trợ.</p>
+        {/* Footer info */}
+        <div className="text-center text-slate-400 text-xs font-medium pt-4 space-y-1">
+          <p>Hệ thống tra cứu thông tin hợp đồng bảo mật tự động.</p>
+          <p>© 2GOLD.BIZ SYSTEM - HỖ TRỢ KHÁCH HÀNG 24/7</p>
         </div>
+
       </div>
     </div>
   );
