@@ -456,8 +456,7 @@ router.post("/:id/pay-interest", (0, permission_1.requirePermission)(["CONTRACTS
         return res.status(500).json({ error: error.message });
     }
 });
-// 5. Cancel Interest Payment
-router.post("/:id/cancel-interest", (0, permission_1.requirePermission)(["CONTRACTS_OPERATE"]), async (req, res) => {
+const handleCancelInterest = async (req, res) => {
     try {
         const contractId = req.params.id;
         const employeeId = req.user.id;
@@ -508,7 +507,10 @@ router.post("/:id/cancel-interest", (0, permission_1.requirePermission)(["CONTRA
     catch (error) {
         return res.status(500).json({ error: error.message });
     }
-});
+};
+// 5. Cancel Interest Payment
+router.post("/:id/cancel-interest", (0, permission_1.requirePermission)(["CONTRACTS_OPERATE"]), handleCancelInterest);
+router.post("/:id/cancel-pay-interest", (0, permission_1.requirePermission)(["CONTRACTS_OPERATE"]), handleCancelInterest);
 // 6. Pay down Principal (Trả bớt gốc)
 router.post("/:id/pay-down", (0, permission_1.requirePermission)(["CONTRACTS_OPERATE"]), async (req, res) => {
     try {

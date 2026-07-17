@@ -158,7 +158,7 @@ export const UnsecuredDetail: React.FC<UnsecuredDetailProps> = ({ idProp, onClos
       onConfirm: async () => {
         setError("");
         setSuccess("");
-        await axios.post(`/api/contracts/unsecured/${id}/cancel-pay-interest`, { paymentId });
+        await axios.post(`/api/contracts/unsecured/${id}/cancel-interest`, { paymentId });
         fetchContractDetails();
       },
       successMessage: `Đã hủy đóng lãi kỳ ${cycleNum} thành công.`,

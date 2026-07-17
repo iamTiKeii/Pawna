@@ -1258,8 +1258,15 @@ export const Contracts: React.FC = () => {
                             </div>
                           )}
                         </td>
-                        <td className={isOverdue ? "text-red-500 font-bold" : "font-medium"}>
-                          {nextPayDate ? nextPayDate.toLocaleDateString("vi-VN") : ""}
+                        <td>
+                          <div className="flex items-center gap-1 font-semibold">
+                            <span className={isOverdue ? "text-red-500 font-bold" : "text-slate-700 font-medium"}>
+                              {nextPayDate ? nextPayDate.toLocaleDateString("vi-VN") : "--"}
+                            </span>
+                            {nextPayDate && (
+                              <Bell className={`w-3.5 h-3.5 ${isOverdue ? "text-red-500 fill-red-100 animate-bounce" : "text-red-500 fill-red-100"}`} />
+                            )}
+                          </div>
                         </td>
                         <td>
                           {(() => {
@@ -1429,7 +1436,22 @@ export const Contracts: React.FC = () => {
                           <div>{formatCurrency(item.remaining_amount || 0).replace("₫", "")}</div>
                           <div className="text-[10px] text-slate-400 font-semibold">({remainingCycles} kỳ)</div>
                         </td>
-                        <td className="text-blue-600 font-bold">{nextPayDateStr}</td>
+                        <td>
+                          {(() => {
+                            const detailed = getInstallmentDetailedStatus(item);
+                            const isOverdueInstallment = detailed.status === "overdue_installment_cycle" || detailed.status === "overdue_installment_bad_debt";
+                            return (
+                              <div className="flex items-center gap-1 font-semibold">
+                                <span className={isOverdueInstallment ? "text-red-500 font-bold" : "text-blue-600 font-bold"}>
+                                  {nextPayDateStr}
+                                </span>
+                                {item.next_payment_date && (
+                                  <Bell className={`w-3.5 h-3.5 ${isOverdueInstallment ? "text-red-500 fill-red-100 animate-bounce" : "text-red-500 fill-red-100"}`} />
+                                )}
+                              </div>
+                            );
+                          })()}
+                        </td>
                         <td>
                           {(() => {
                             const detailed = getInstallmentDetailedStatus(item);

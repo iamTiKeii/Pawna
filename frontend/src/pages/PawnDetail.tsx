@@ -182,7 +182,7 @@ export const PawnDetail: React.FC<PawnDetailProps> = ({ idProp, onClose, isModal
       onConfirm: async () => {
         setError("");
         setSuccess("");
-        await axios.post(`/api/contracts/pawn/${id}/cancel-pay-interest`, { paymentId });
+        await axios.post(`/api/contracts/pawn/${id}/cancel-interest`, { paymentId });
         fetchContractDetails();
       },
       successMessage: `Đã hủy đóng lãi kỳ ${cycleNum} thành công.`,
