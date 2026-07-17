@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
-import { AlertTriangle, Search, RefreshCw, CheckCircle, MessageSquare, Coins } from "lucide-react";
+import { AlertTriangle, Search, RefreshCw, MessageSquare, Coins } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
-import { MoneyInput } from "../../components/shared/MoneyInput";
 import { toast } from "../../lib/toast";
 import { InstallmentDetail } from "../InstallmentDetail";
+import { LoadingOverlay } from "../../components/shared/LoadingOverlay";
 
 export const InstallmentWarning: React.FC = () => {
   const { activeStore } = useAuth();
@@ -18,11 +18,7 @@ export const InstallmentWarning: React.FC = () => {
   const [selectedStatus, setSelectedStatus] = useState("");
   const [isTomorrowOnly, setIsTomorrowOnly] = useState(false);
 
-  // Quick pay modal state
-  const [quickPayItem, setQuickPayItem] = useState<any | null>(null);
-  const [quickPayAmount, setQuickPayAmount] = useState("");
-  const [quickPayLoading, setQuickPayLoading] = useState(false);
-  const [message, setMessage] = useState("");
+
 
   // Modal detail states
   const [selectedContractId, setSelectedContractId] = useState<string | null>(null);
@@ -64,33 +60,22 @@ export const InstallmentWarning: React.FC = () => {
     return Number(val || 0).toLocaleString("en-US");
   };
 
-  const handleQuickPayOpen = (item: any) => {
-    setQuickPayItem(item);
-    setQuickPayAmount(String(item.period_payment_amount || ""));
-    setMessage("");
-  };
-
-  const handleQuickPaySubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!quickPayItem || !quickPayAmount) return;
-    setQuickPayLoading(true);
-    setMessage("");
-
+  const handleDirectQuickPay = async (contractId: string, amount: number) => {
     try {
-      await axios.post(`/api/contracts/installment/${quickPayItem.id}/pay-period`, {
-        amount: Number(quickPayAmount),
+      setLoading(true);
+      await axios.post(`/api/contracts/installment/${contractId}/pay-period`, {
+        amount,
       });
-      toast.success("Đóng tiền nhanh thành công!");
-      fetchData();
-      setQuickPayItem(null);
+      toast.success(`Đã đóng nhanh ${amount.toLocaleString("vi-VN")} đ thành công!`);
+      await fetchData();
     } catch (err: any) {
-      const errMsg = err.response?.data?.error || "Không thể thực hiện đóng tiền.";
-      setMessage(errMsg);
-      toast.error(errMsg);
+      toast.error(err.response?.data?.error || "Không thể thực hiện đóng tiền.");
     } finally {
-      setQuickPayLoading(false);
+      setLoading(false);
     }
   };
+
+
 
   return (
     <div className="space-y-6 text-slate-800 animate-fade-in">
@@ -217,14 +202,18 @@ export const InstallmentWarning: React.FC = () => {
                           {item.warning_reason}
                         </td>
                         <td className="px-4 py-3 text-center">
-                          <button 
-                            onClick={() => handleQuickPayOpen(item)}
-                            className="btn btn-emerald hover:bg-emerald-600 btn-xs text-white rounded-lg flex items-center gap-1 mx-auto"
-                            type="button"
-                          >
-                            <CheckCircle className="w-3 h-3" />
-                            <span>Đóng nhanh</span>
-                          </button>
+                          <div className="flex flex-wrap gap-1 justify-center max-w-[200px] mx-auto">
+                            {[20, 40, 60, 80, 100, 120, 140, 160, 180, 200].map((k) => (
+                              <button
+                                key={k}
+                                onClick={() => handleDirectQuickPay(item.id, k * 1000)}
+                                className="btn btn-emerald btn-xs hover:bg-emerald-600 text-white rounded px-1 py-0.5 h-auto min-h-0 font-bold text-[9px]"
+                                type="button"
+                              >
+                                {k}k
+                              </button>
+                            ))}
+                          </div>
                         </td>
                         <td className="px-4 py-3">
                           {item.status === "Đến hạn" ? (
@@ -304,70 +293,8 @@ export const InstallmentWarning: React.FC = () => {
         />
       )}
 
-      {/* Quick Pay Modal */}
-      {quickPayItem && (
-        <div className="modal modal-open z-50">
-          <div className="modal-box bg-white max-w-sm text-slate-800 rounded-2xl relative shadow-2xl p-6 border border-slate-100">
-            <button 
-              onClick={() => setQuickPayItem(null)}
-              className="btn btn-sm btn-circle btn-ghost absolute right-4 top-4 text-slate-500 hover:text-slate-600"
-              type="button"
-            >
-              x
-            </button>
-
-            <h3 className="font-extrabold text-lg mb-4 text-slate-800 flex items-center gap-2 border-b border-slate-100 pb-3">
-              <CheckCircle className="w-5 h-5 text-emerald-500" />
-              <span>Đóng Tiền Góp Nhanh</span>
-            </h3>
-
-            {message && (
-              <div className={`alert ${message.includes("thành công") ? "alert-success bg-emerald-50 text-emerald-700" : "alert-error bg-red-50 text-red-700"} text-xs py-2 px-3 mb-4 rounded-xl border border-slate-100`}>
-                <span>{message}</span>
-              </div>
-            )}
-
-            <form onSubmit={handleQuickPaySubmit} className="space-y-4">
-              <div className="text-xs text-slate-600 space-y-1 bg-slate-50 p-3 rounded-xl border border-slate-100">
-                <p>Khách hàng: <span className="font-bold text-slate-800">{quickPayItem.customer?.full_name}</span></p>
-                <p>Mã HĐ: <span className="font-bold text-slate-800 font-mono">{quickPayItem.contract_code}</span></p>
-                <p>Số tiền định kỳ: <span className="font-bold text-slate-800">{formatNumber(quickPayItem.period_payment_amount)} đ</span></p>
-              </div>
-
-              <div className="form-control w-full">
-                <label className="label py-1">
-                  <span className="label-text text-slate-600 font-bold text-xs">Số tiền đóng thực tế</span>
-                </label>
-                <MoneyInput 
-                  required
-                  value={quickPayAmount}
-                  onChange={(val) => setQuickPayAmount(String(val))}
-                  placeholder="Nhập số tiền đóng"
-                  suffix="đ"
-                  className="input-md w-full bg-white border-slate-200 focus:outline-none focus:border-amber-500 text-slate-800 font-bold text-base rounded-xl"
-                />
-              </div>
-
-              <div className="modal-action border-t border-slate-100 pt-4 mt-6">
-                <button 
-                  type="button" 
-                  onClick={() => setQuickPayItem(null)} 
-                  className="btn btn-outline border-slate-200 hover:bg-slate-50 text-slate-500 rounded-xl"
-                >
-                  Hủy
-                </button>
-                <button 
-                  type="submit" 
-                  disabled={quickPayLoading || !quickPayAmount}
-                  className="btn btn-emerald text-white font-bold rounded-xl"
-                >
-                  {quickPayLoading ? <span className="loading loading-spinner"></span> : "Đóng tiền"}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      {/* Loading Overlay */}
+      <LoadingOverlay show={loading} />
     </div>
   );
 };

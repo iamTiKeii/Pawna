@@ -243,7 +243,6 @@ router.get("/installment", async (req: AuthenticatedRequest, res: Response) => {
           where: {
             is_paid: false,
             to_date: {
-              gte: startOfDay,
               lte: endOfDay,
             }
           }
@@ -254,7 +253,7 @@ router.get("/installment", async (req: AuthenticatedRequest, res: Response) => {
     const result = contracts.map((c) => {
       const debtVal = Number(c.debt_amount || 0);
       const periodAmount = c.payments.reduce(
-        (sum, p) => sum + Number(p.expected_amount || 0), 0
+        (sum, p) => sum + Math.max(0, Number(p.expected_amount || 0) - Number(p.actual_paid || 0)), 0
       );
 
       return {

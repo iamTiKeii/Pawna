@@ -475,6 +475,129 @@ router.post("/:id/pay", requirePermission(["CONTRACTS_OPERATE"]) as any, async (
   }
 });
 
+// 4.5 Quick Pay Installment (Lũy kế từ kỳ nhỏ nhất chưa đóng)
+router.post("/:id/pay-period", requirePermission(["CONTRACTS_OPERATE"]) as any, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const contractId = req.params.id;
+    const employeeId = req.user!.id;
+    const { amount } = req.body;
+
+    if (amount === undefined || Number(amount) <= 0) {
+      return res.status(400).json({ error: "Số tiền đóng nhanh phải lớn hơn 0" });
+    }
+
+    const payAmount = Number(amount);
+    const payDate = new Date();
+
+    const result = await prisma.$transaction(async (tx) => {
+      const contract = await tx.installmentContract.findUnique({
+        where: { id: contractId },
+      });
+
+      if (!contract) {
+        throw new Error("Không tìm thấy hợp đồng trả góp");
+      }
+
+      // Lấy các kỳ chưa đóng của hợp đồng này
+      const payments = await tx.installmentPayment.findMany({
+        where: {
+          contract_id: contractId,
+          is_paid: false,
+        },
+        orderBy: { cycle_number: "asc" },
+      });
+
+      if (payments.length === 0) {
+        throw new Error("Hợp đồng đã hoàn thành đóng tất cả các kỳ");
+      }
+
+      let remainingAmount = payAmount;
+      const updatedPayments = [];
+
+      for (const p of payments) {
+        const expected = Number(p.expected_amount || 0);
+        const actual = Number(p.actual_paid || 0);
+        const needed = Math.max(0, expected - actual);
+
+        if (needed === 0) {
+          const up = await tx.installmentPayment.update({
+            where: { id: p.id },
+            data: { is_paid: true, paid_date: normalizeToMidnight(payDate) },
+          });
+          updatedPayments.push(up);
+          continue;
+        }
+
+        if (remainingAmount >= needed) {
+          const up = await tx.installmentPayment.update({
+            where: { id: p.id },
+            data: {
+              is_paid: true,
+              actual_paid: expected,
+              paid_date: normalizeToMidnight(payDate),
+            },
+          });
+          updatedPayments.push(up);
+          remainingAmount -= needed;
+        } else {
+          const up = await tx.installmentPayment.update({
+            where: { id: p.id },
+            data: {
+              actual_paid: actual + remainingAmount,
+            },
+          });
+          updatedPayments.push(up);
+          remainingAmount = 0;
+        }
+
+        if (remainingAmount <= 0) {
+          break;
+        }
+      }
+
+      if (remainingAmount > 0) {
+        const lastPayment = payments[payments.length - 1];
+        const lastExpected = Number(lastPayment.expected_amount || 0);
+        const lastActual = Number(lastPayment.actual_paid || 0);
+        await tx.installmentPayment.update({
+          where: { id: lastPayment.id },
+          data: {
+            actual_paid: lastActual + remainingAmount,
+          },
+        });
+      }
+
+      await adjustDailyCash(
+        tx,
+        contract.store_id,
+        payDate,
+        payAmount,
+        "installment_pay",
+        employeeId,
+        `Thu góp nhanh HĐ trả góp ${contract.contract_code}. Số tiền: ${payAmount}`
+      );
+
+      await tx.installmentTransactionLedger.create({
+        data: {
+          contract_id: contractId,
+          employee_id: employeeId,
+          debit_amount: 0,
+          credit_amount: payAmount,
+          other_amount: 0,
+          action_type: "pay_installment",
+          content: `Đóng nhanh tiền góp. Thực thu: ${payAmount}`,
+        },
+      });
+
+      return updatedPayments;
+    });
+
+    return res.json({ success: true, result });
+  } catch (error: any) {
+    return res.status(500).json({ error: error.message });
+  }
+});
+
 // 5. Cancel Pay Installment
 router.post("/:id/cancel-pay", requirePermission(["CONTRACTS_OPERATE"]) as any, async (req: AuthenticatedRequest, res: Response) => {
   try {
