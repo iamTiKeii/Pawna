@@ -5,8 +5,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.authenticateToken = void 0;
 const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
-const client_1 = require("@prisma/client");
-const prisma = new client_1.PrismaClient();
+const db_1 = require("../utils/db");
 const authenticateToken = async (req, res, next) => {
     const authHeader = req.headers["authorization"];
     const token = authHeader && authHeader.split(" ")[1];
@@ -16,7 +15,7 @@ const authenticateToken = async (req, res, next) => {
     try {
         const secret = process.env.JWT_SECRET || "pawn_manager_secret_key_2026";
         const decoded = jsonwebtoken_1.default.verify(token, secret);
-        const employee = await prisma.employee.findUnique({
+        const employee = await db_1.prisma.employee.findUnique({
             where: { id: decoded.id },
             include: {
                 permissions: {

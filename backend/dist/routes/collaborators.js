@@ -1,11 +1,10 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
-const client_1 = require("@prisma/client");
+const db_1 = require("../utils/db");
 const auth_1 = require("../middleware/auth");
 const permission_1 = require("../middleware/permission");
 const router = (0, express_1.Router)();
-const prisma = new client_1.PrismaClient();
 router.use(auth_1.authenticateToken);
 // 1. Get all collaborators (with search and status filters)
 router.get("/", async (req, res) => {
@@ -23,7 +22,7 @@ router.get("/", async (req, res) => {
                 { phone: { contains: searchStr, mode: "insensitive" } },
             ];
         }
-        const collaborators = await prisma.collaborator.findMany({
+        const collaborators = await db_1.prisma.collaborator.findMany({
             where: whereClause,
             orderBy: { full_name: "asc" },
         });
@@ -36,7 +35,7 @@ router.get("/", async (req, res) => {
 // 2. Get collaborator by ID
 router.get("/:id", async (req, res) => {
     try {
-        const col = await prisma.collaborator.findUnique({
+        const col = await db_1.prisma.collaborator.findUnique({
             where: { id: req.params.id },
         });
         if (!col) {
@@ -55,13 +54,13 @@ router.post("/", (0, permission_1.requirePermission)(["COLLABORATORS_MANAGE"]), 
         if (!full_name || !code) {
             return res.status(400).json({ error: "Full name and unique code are required" });
         }
-        const existingCode = await prisma.collaborator.findUnique({
+        const existingCode = await db_1.prisma.collaborator.findUnique({
             where: { code },
         });
         if (existingCode) {
             return res.status(400).json({ error: "Collaborator code already exists" });
         }
-        const newCol = await prisma.collaborator.create({
+        const newCol = await db_1.prisma.collaborator.create({
             data: {
                 full_name,
                 code,
@@ -82,19 +81,19 @@ router.post("/", (0, permission_1.requirePermission)(["COLLABORATORS_MANAGE"]), 
 router.put("/:id", (0, permission_1.requirePermission)(["COLLABORATORS_MANAGE"]), async (req, res) => {
     try {
         const { full_name, code, phone, bank_name, bank_account_number, bank_account_holder, status } = req.body;
-        const existing = await prisma.collaborator.findUnique({
+        const existing = await db_1.prisma.collaborator.findUnique({
             where: { id: req.params.id },
         });
         if (!existing) {
             return res.status(404).json({ error: "Collaborator not found" });
         }
         if (code && code !== existing.code) {
-            const codeCheck = await prisma.collaborator.findUnique({ where: { code } });
+            const codeCheck = await db_1.prisma.collaborator.findUnique({ where: { code } });
             if (codeCheck) {
                 return res.status(400).json({ error: "Collaborator code already exists" });
             }
         }
-        const updated = await prisma.collaborator.update({
+        const updated = await db_1.prisma.collaborator.update({
             where: { id: req.params.id },
             data: {
                 full_name: full_name || undefined,
@@ -115,7 +114,7 @@ router.put("/:id", (0, permission_1.requirePermission)(["COLLABORATORS_MANAGE"])
 // 5. Delete Collaborator
 router.delete("/:id", (0, permission_1.requirePermission)(["COLLABORATORS_MANAGE"]), async (req, res) => {
     try {
-        await prisma.collaborator.delete({
+        await db_1.prisma.collaborator.delete({
             where: { id: req.params.id },
         });
         return res.json({ message: "Collaborator deleted successfully" });

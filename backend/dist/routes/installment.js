@@ -2,13 +2,12 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.generateInstallmentPayments = generateInstallmentPayments;
 const express_1 = require("express");
-const client_1 = require("@prisma/client");
+const db_1 = require("../utils/db");
 const auth_1 = require("../middleware/auth");
 const permission_1 = require("../middleware/permission");
 const codeGen_1 = require("../utils/codeGen");
 const cash_1 = require("../utils/cash");
 const router = (0, express_1.Router)();
-const prisma = new client_1.PrismaClient();
 router.use(auth_1.authenticateToken);
 // HELPER: Generate installment payments schedule based on duration and cycle
 function generateInstallmentPayments(repaymentAmount, loanDuration, cycleDays, loanDateInput) {
@@ -46,25 +45,141 @@ function generateInstallmentPayments(repaymentAmount, loanDuration, cycleDays, l
     return payments;
 }
 // ================= ENDPOINTS =================
+function mapInstallmentContract(c, today) {
+    const totalRepay = Number(c.repayment_amount);
+    const totalDisbursed = Number(c.disbursed_amount);
+    const totalInterest = Math.max(0, totalRepay - totalDisbursed);
+    const interestRatio = totalRepay > 0 ? totalInterest / totalRepay : 0;
+    const totalPaid = c.payments
+        ? c.payments
+            .filter((p) => p.is_paid)
+            .reduce((sum, p) => sum + Number(p.actual_paid), 0)
+        : 0;
+    const paidCycles = c.payments ? c.payments.filter((p) => p.is_paid).length : 0;
+    const remainingCycles = c.payments ? c.payments.length - paidCycles : 0;
+    const collectedInterest = totalPaid * interestRatio;
+    const expectedInterest = totalInterest - collectedInterest;
+    const unpaid = c.payments
+        ? [...c.payments]
+            .filter((p) => !p.is_paid)
+            .sort((a, b) => a.cycle_number - b.cycle_number)[0]
+        : null;
+    const nextPaymentDate = unpaid ? unpaid.to_date : null;
+    const isOverdue = c.status === "active" &&
+        c.payments &&
+        c.payments.some((p) => !p.is_paid && new Date(p.to_date) < today);
+    return {
+        ...c,
+        total_paid: totalPaid,
+        paid_cycles: paidCycles,
+        remaining_amount: Math.max(0, totalRepay - totalPaid),
+        remaining_cycles: remainingCycles,
+        collected_interest: collectedInterest,
+        expected_interest: expectedInterest,
+        daily_payment: c.loan_duration > 0 ? Math.round(totalRepay / c.loan_duration) : 0,
+        next_payment_date: nextPaymentDate,
+        is_overdue: isOverdue,
+    };
+}
 // 1. Get Installment Contracts list
 router.get("/", async (req, res) => {
     try {
         const storeId = req.user.store_id;
-        const { status, search } = req.query;
+        const { status, search, page, limit } = req.query;
         const whereClause = { store_id: storeId };
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
         if (status) {
-            whereClause.status = status;
+            if (status === "all_active") {
+                whereClause.status = "active";
+            }
+            else if (status === "closed") {
+                whereClause.status = { in: ["closed", "redeemed"] };
+            }
+            else if (status === "overdue") {
+                whereClause.status = "active";
+                whereClause.payments = {
+                    some: {
+                        is_paid: false,
+                        to_date: { lt: today }
+                    }
+                };
+            }
+            else {
+                whereClause.status = status;
+            }
         }
         else {
             whereClause.status = { not: "cancelled" };
         }
         if (search) {
+            const q = search;
             whereClause.OR = [
-                { contract_code: { contains: search, mode: "insensitive" } },
-                { customer: { full_name: { contains: search, mode: "insensitive" } } },
+                { contract_code: { contains: q, mode: "insensitive" } },
+                { customer: { full_name: { contains: q, mode: "insensitive" } } },
+                { customer: { phone: { contains: q, mode: "insensitive" } } },
+                { customer: { identity_card_number: { contains: q, mode: "insensitive" } } },
             ];
         }
-        const contracts = await prisma.installmentContract.findMany({
+        const allMatching = await db_1.prisma.installmentContract.findMany({
+            where: whereClause,
+            select: {
+                disbursed_amount: true,
+                repayment_amount: true,
+                debt_amount: true,
+                payments: {
+                    select: { is_paid: true, actual_paid: true, to_date: true }
+                }
+            }
+        });
+        const totalLent = allMatching.reduce((sum, item) => sum + Number(item.disbursed_amount || 0), 0);
+        const totalDebt = allMatching.reduce((sum, item) => sum + Number(item.debt_amount || 0), 0);
+        const totalExpectedInterest = allMatching.reduce((sum, item) => {
+            const totalRepay = Number(item.repayment_amount);
+            const totalDisbursed = Number(item.disbursed_amount);
+            return sum + Math.max(0, totalRepay - totalDisbursed);
+        }, 0);
+        const totalPaidInterest = allMatching.reduce((sum, item) => {
+            const paidSum = item.payments
+                .filter((p) => p.is_paid)
+                .reduce((s, p) => s + Number(p.actual_paid || 0), 0);
+            return sum + paidSum;
+        }, 0);
+        const pageNum = page ? parseInt(page, 10) : undefined;
+        const limitNum = limit ? parseInt(limit, 10) : undefined;
+        if (pageNum !== undefined && limitNum !== undefined) {
+            const skip = (pageNum - 1) * limitNum;
+            const data = await db_1.prisma.installmentContract.findMany({
+                where: whereClause,
+                include: {
+                    customer: {
+                        select: { id: true, full_name: true, phone: true, identity_card_number: true }
+                    },
+                    collector: { select: { full_name: true } },
+                    payments: true
+                },
+                orderBy: { created_at: "desc" },
+                skip,
+                take: limitNum,
+            });
+            const mappedData = data.map((c) => mapInstallmentContract(c, today));
+            return res.json({
+                data: mappedData,
+                totals: {
+                    totalLent,
+                    totalDebt,
+                    totalExpectedInterest,
+                    totalPaidInterest
+                },
+                pagination: {
+                    total: allMatching.length,
+                    page: pageNum,
+                    limit: limitNum,
+                    totalPages: Math.ceil(allMatching.length / limitNum)
+                }
+            });
+        }
+        const contracts = await db_1.prisma.installmentContract.findMany({
             where: whereClause,
             include: {
                 customer: true,
@@ -73,40 +188,18 @@ router.get("/", async (req, res) => {
             },
             orderBy: { created_at: "desc" },
         });
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        const mapped = contracts.map((c) => {
-            const totalRepay = Number(c.repayment_amount);
-            const totalDisbursed = Number(c.disbursed_amount);
-            const totalInterest = Math.max(0, totalRepay - totalDisbursed);
-            const interestRatio = totalRepay > 0 ? totalInterest / totalRepay : 0;
-            const totalPaid = c.payments
-                .filter((p) => p.is_paid)
-                .reduce((sum, p) => sum + Number(p.actual_paid), 0);
-            const paidCycles = c.payments.filter((p) => p.is_paid).length;
-            const remainingCycles = c.payments.length - paidCycles;
-            const collectedInterest = totalPaid * interestRatio;
-            const expectedInterest = totalInterest - collectedInterest;
-            const unpaid = [...c.payments]
-                .filter((p) => !p.is_paid)
-                .sort((a, b) => a.cycle_number - b.cycle_number)[0];
-            const nextPaymentDate = unpaid ? unpaid.to_date : null;
-            const isOverdue = c.status === "active" &&
-                c.payments.some((p) => !p.is_paid && new Date(p.to_date) < today);
-            return {
-                ...c,
-                total_paid: totalPaid,
-                paid_cycles: paidCycles,
-                remaining_amount: Math.max(0, totalRepay - totalPaid),
-                remaining_cycles: remainingCycles,
-                collected_interest: collectedInterest,
-                expected_interest: expectedInterest,
-                daily_payment: c.loan_duration > 0 ? Math.round(totalRepay / c.loan_duration) : 0,
-                next_payment_date: nextPaymentDate,
-                is_overdue: isOverdue,
-            };
-        });
+        const mapped = contracts.map((c) => mapInstallmentContract(c, today));
         return res.json(mapped);
+    }
+    catch (error) {
+        return res.status(500).json({ error: error.message });
+    }
+});
+// 1.1. Get Next Installment Contract Code Number
+router.get("/next-code-number", async (req, res) => {
+    try {
+        const nextNum = await (0, codeGen_1.getNextContractCodeNumber)(db_1.prisma, "installmentContract", "TG-");
+        return res.json({ nextCodeNumber: nextNum });
     }
     catch (error) {
         return res.status(500).json({ error: error.message });
@@ -115,7 +208,7 @@ router.get("/", async (req, res) => {
 // 2. Get Installment Contract details
 router.get("/:id", async (req, res) => {
     try {
-        const contract = await prisma.installmentContract.findUnique({
+        const contract = await db_1.prisma.installmentContract.findUnique({
             where: { id: req.params.id },
             include: {
                 customer: true,
@@ -159,11 +252,11 @@ router.post("/", (0, permission_1.requirePermission)(["CONTRACTS_MANAGE"]), asyn
         const duration = Number(loan_duration);
         const cDays = Number(cycle_days);
         // Verify blacklist
-        const customer = await prisma.customer.findUnique({ where: { id: customer_id } });
+        const customer = await db_1.prisma.customer.findUnique({ where: { id: customer_id } });
         if (customer && customer.status === "blacklist") {
             return res.status(400).json({ error: "Customer is blacklisted. Cannot create contract." });
         }
-        const result = await prisma.$transaction(async (tx) => {
+        const result = await db_1.prisma.$transaction(async (tx) => {
             if (contract_code) {
                 const existing = await tx.installmentContract.findUnique({
                     where: { contract_code }
@@ -248,7 +341,7 @@ router.post("/:id/pay", (0, permission_1.requirePermission)(["CONTRACTS_OPERATE"
         const payAmount = Number(actualPaid);
         const otherVal = Number(otherAmount) || 0;
         const payDate = paidDate ? new Date(paidDate) : new Date();
-        const result = await prisma.$transaction(async (tx) => {
+        const result = await db_1.prisma.$transaction(async (tx) => {
             const payment = await tx.installmentPayment.findUnique({
                 where: { id: paymentId },
                 include: { contract: true },
@@ -300,7 +393,7 @@ router.post("/:id/cancel-pay", (0, permission_1.requirePermission)(["CONTRACTS_O
         if (!paymentId) {
             return res.status(400).json({ error: "Payment cycle ID is required" });
         }
-        const result = await prisma.$transaction(async (tx) => {
+        const result = await db_1.prisma.$transaction(async (tx) => {
             const payment = await tx.installmentPayment.findUnique({
                 where: { id: paymentId },
                 include: { contract: true },
@@ -358,7 +451,7 @@ router.post("/:id/redeem", (0, permission_1.requirePermission)(["CONTRACTS_OPERA
         const employeeId = req.user.id;
         const { redeemDate, otherAmount, notes } = req.body;
         const rDate = redeemDate ? new Date(redeemDate) : new Date();
-        const result = await prisma.$transaction(async (tx) => {
+        const result = await db_1.prisma.$transaction(async (tx) => {
             const contract = await tx.installmentContract.findUnique({
                 where: { id: contractId },
                 include: { payments: true },
@@ -429,7 +522,7 @@ router.post("/:id/cancel-redeem", (0, permission_1.requirePermission)(["CONTRACT
     try {
         const contractId = req.params.id;
         const employeeId = req.user.id;
-        const result = await prisma.$transaction(async (tx) => {
+        const result = await db_1.prisma.$transaction(async (tx) => {
             const contract = await tx.installmentContract.findUnique({ where: { id: contractId } });
             const redemption = await tx.installmentRedemption.findFirst({ where: { contract_id: contractId } });
             if (!contract || !redemption) {
@@ -490,7 +583,7 @@ router.post("/:id/record-debt", (0, permission_1.requirePermission)(["CONTRACTS_
         }
         const value = Number(amount);
         const today = new Date();
-        const result = await prisma.$transaction(async (tx) => {
+        const result = await db_1.prisma.$transaction(async (tx) => {
             const updated = await tx.installmentContract.update({
                 where: { id: contractId },
                 data: {
@@ -533,7 +626,7 @@ router.post("/:id/pay-debt", (0, permission_1.requirePermission)(["CONTRACTS_OPE
         }
         const value = Number(amount);
         const today = new Date();
-        const result = await prisma.$transaction(async (tx) => {
+        const result = await db_1.prisma.$transaction(async (tx) => {
             const contract = await tx.installmentContract.findUnique({ where: { id: contractId } });
             if (!contract)
                 throw new Error("Contract not found");
@@ -580,7 +673,7 @@ router.delete("/:id/debt-transaction/:txId", (0, permission_1.requirePermission)
         const contractId = req.params.id;
         const txId = req.params.txId;
         const employeeId = req.user.id;
-        const result = await prisma.$transaction(async (tx) => {
+        const result = await db_1.prisma.$transaction(async (tx) => {
             const contract = await tx.installmentContract.findUnique({ where: { id: contractId } });
             const dTx = await tx.installmentDebtHistory.findUnique({ where: { id: txId } });
             if (!contract || !dTx || dTx.contract_id !== contractId) {
@@ -633,7 +726,7 @@ router.post("/:id/documents", async (req, res) => {
     try {
         const contractId = req.params.id;
         const { document_type, image_url, google_drive_file_id, file_name } = req.body;
-        const doc = await prisma.installmentContractDocument.create({
+        const doc = await db_1.prisma.installmentContractDocument.create({
             data: {
                 contract_id: contractId,
                 document_type,
@@ -651,7 +744,7 @@ router.post("/:id/documents", async (req, res) => {
 // 12. Delete Document
 router.delete("/:id/documents/:docId", async (req, res) => {
     try {
-        await prisma.installmentContractDocument.delete({
+        await db_1.prisma.installmentContractDocument.delete({
             where: { id: req.params.docId },
         });
         return res.json({ message: "Document deleted successfully" });
@@ -663,7 +756,7 @@ router.delete("/:id/documents/:docId", async (req, res) => {
 // 13. Add Debt Reminder Log
 router.post("/:id/reminders/log", async (req, res) => {
     try {
-        const log = await prisma.installmentDebtReminder.create({
+        const log = await db_1.prisma.installmentDebtReminder.create({
             data: {
                 contract_id: req.params.id,
                 employee_id: req.user.id,
@@ -684,7 +777,7 @@ router.post("/:id/timers", async (req, res) => {
         if (!reminder_date) {
             return res.status(400).json({ error: "Reminder date is required" });
         }
-        const result = await prisma.$transaction(async (tx) => {
+        const result = await db_1.prisma.$transaction(async (tx) => {
             await tx.installmentContractReminder.updateMany({
                 where: { contract_id: contractId, status: "active" },
                 data: { status: "completed" },
@@ -709,7 +802,7 @@ router.post("/:id/timers", async (req, res) => {
 router.put("/:id/timers/:timerId/stop", async (req, res) => {
     try {
         const timerId = req.params.timerId;
-        const updated = await prisma.installmentContractReminder.update({
+        const updated = await db_1.prisma.installmentContractReminder.update({
             where: { id: timerId },
             data: { status: "stopped" },
         });
@@ -725,7 +818,7 @@ router.put("/:id", (0, permission_1.requirePermission)(["CONTRACTS_MANAGE"]), as
         const contractId = req.params.id;
         const employeeId = req.user.id;
         const { customer_id, contract_code, repayment_amount, disbursed_amount, period_type, loan_duration, cycle_days, is_upfront_collected, loan_date, collector_id, collaborator_id, notes, } = req.body;
-        const result = await prisma.$transaction(async (tx) => {
+        const result = await db_1.prisma.$transaction(async (tx) => {
             const contract = await tx.installmentContract.findUnique({
                 where: { id: contractId },
                 include: {
@@ -844,7 +937,7 @@ router.delete("/:id", (0, permission_1.requirePermission)(["CONTRACTS_MANAGE"]),
     try {
         const contractId = req.params.id;
         const employeeId = req.user.id;
-        const result = await prisma.$transaction(async (tx) => {
+        const result = await db_1.prisma.$transaction(async (tx) => {
             const contract = await tx.installmentContract.findUnique({
                 where: { id: contractId },
                 include: {

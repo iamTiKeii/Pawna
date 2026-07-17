@@ -1,7 +1,9 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.mapUnsecuredContract = mapUnsecuredContract;
+exports.mapUnsecuredContracts = mapUnsecuredContracts;
 const express_1 = require("express");
-const client_1 = require("@prisma/client");
+const db_1 = require("../utils/db");
 const auth_1 = require("../middleware/auth");
 const permission_1 = require("../middleware/permission");
 const codeGen_1 = require("../utils/codeGen");
@@ -9,9 +11,24 @@ const interest_1 = require("../utils/interest");
 const cash_1 = require("../utils/cash");
 const pawn_1 = require("./pawn");
 const router = (0, express_1.Router)();
-const prisma = new client_1.PrismaClient();
 router.use(auth_1.authenticateToken);
 // HELPER: Recalculate future schedules when principal changes (Unsecured uses initial_loan_amount for interest base)
+function mapUnsecuredContract(c) {
+    if (!c)
+        return c;
+    const totalInterest = c.interest_payments
+        ? c.interest_payments.reduce((sum, p) => sum + Number(p.expected_interest || 0), 0)
+        : 0;
+    const totalRepayment = Number(c.loan_amount || 0) + totalInterest;
+    return {
+        ...c,
+        totalInterest,
+        totalRepayment,
+    };
+}
+function mapUnsecuredContracts(contracts) {
+    return contracts.map(mapUnsecuredContract);
+}
 async function recalculateUnsecuredSchedule(tx, contractId) {
     const contract = await tx.unsecuredContract.findUnique({
         where: { id: contractId },
@@ -65,25 +82,139 @@ async function recalculateUnsecuredSchedule(tx, contractId) {
     }
 }
 // ================= ENDPOINTS =================
+function calculateAccruedInterest(contract) {
+    if (contract.status !== "active")
+        return 0;
+    const paidPayments = contract.interest_payments?.filter((p) => p.is_paid) || [];
+    let startDate = new Date(contract.loan_date);
+    if (paidPayments.length > 0) {
+        const sorted = [...paidPayments].sort((a, b) => b.cycle_number - a.cycle_number);
+        startDate = new Date(sorted[0].to_date);
+    }
+    const startMidnight = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate());
+    const today = new Date();
+    const todayMidnight = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    const diffMs = todayMidnight.getTime() - startMidnight.getTime();
+    if (diffMs < 0)
+        return 0;
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24)) + 1;
+    let dailyRate = 0;
+    const principal = Number(contract.loan_amount) || 0;
+    const rate = Number(contract.interest_rate) || 0;
+    const pValue = Number(contract.period_value) || 1;
+    const interestTypeCode = contract.interest_type?.code;
+    if (interestTypeCode === "daily_k_million") {
+        dailyRate = (principal / 1000000) * rate;
+    }
+    else if (interestTypeCode === "daily_k_day") {
+        dailyRate = rate;
+    }
+    else {
+        dailyRate = (principal * (rate / 100)) / pValue;
+    }
+    return Math.round(dailyRate * diffDays);
+}
 // 1. Get Unsecured Contracts list
 router.get("/", async (req, res) => {
     try {
         const storeId = req.user.store_id;
-        const { status, search } = req.query;
+        const { status, search, page, limit } = req.query;
         const whereClause = { store_id: storeId };
         if (status) {
-            whereClause.status = status;
+            if (status === "all_active") {
+                whereClause.status = "active";
+            }
+            else if (status === "closed") {
+                whereClause.status = { in: ["closed", "redeemed"] };
+            }
+            else if (status === "overdue") {
+                whereClause.status = "active";
+                whereClause.interest_payments = {
+                    some: {
+                        is_paid: false,
+                        to_date: { lt: new Date() }
+                    }
+                };
+            }
+            else {
+                whereClause.status = status;
+            }
         }
         else {
             whereClause.status = { not: "cancelled" };
         }
         if (search) {
+            const q = search;
             whereClause.OR = [
-                { contract_code: { contains: search, mode: "insensitive" } },
-                { customer: { full_name: { contains: search, mode: "insensitive" } } },
+                { contract_code: { contains: q, mode: "insensitive" } },
+                { customer: { full_name: { contains: q, mode: "insensitive" } } },
+                { customer: { phone: { contains: q, mode: "insensitive" } } },
+                { customer: { identity_card_number: { contains: q, mode: "insensitive" } } },
             ];
         }
-        const contracts = await prisma.unsecuredContract.findMany({
+        const allMatching = await db_1.prisma.unsecuredContract.findMany({
+            where: whereClause,
+            select: {
+                loan_amount: true,
+                debt_amount: true,
+                loan_date: true,
+                interest_rate: true,
+                period_value: true,
+                status: true,
+                interest_type: { select: { code: true } },
+                interest_payments: {
+                    select: { is_paid: true, to_date: true, cycle_number: true, expected_interest: true }
+                }
+            }
+        });
+        const totalLent = allMatching.reduce((sum, item) => sum + Number(item.loan_amount || 0), 0);
+        const totalDebt = allMatching.reduce((sum, item) => sum + Number(item.debt_amount || 0), 0);
+        const totalExpectedInterest = allMatching.reduce((sum, item) => sum + calculateAccruedInterest(item), 0);
+        const totalPaidInterest = allMatching.reduce((sum, item) => {
+            const interestSum = item.interest_payments.reduce((s, p) => s + Number(p.expected_interest || 0), 0);
+            return sum + interestSum;
+        }, 0);
+        const pageNum = page ? parseInt(page, 10) : undefined;
+        const limitNum = limit ? parseInt(limit, 10) : undefined;
+        if (pageNum !== undefined && limitNum !== undefined) {
+            const skip = (pageNum - 1) * limitNum;
+            const data = await db_1.prisma.unsecuredContract.findMany({
+                where: whereClause,
+                include: {
+                    customer: {
+                        select: { id: true, full_name: true, phone: true, identity_card_number: true }
+                    },
+                    commodity: {
+                        select: { id: true, name: true }
+                    },
+                    interest_type: {
+                        select: { id: true, code: true, name: true }
+                    },
+                    interest_payments: {
+                        orderBy: { cycle_number: "asc" }
+                    }
+                },
+                orderBy: { created_at: "desc" },
+                skip,
+                take: limitNum,
+            });
+            return res.json({
+                data: mapUnsecuredContracts(data),
+                totals: {
+                    totalLent,
+                    totalDebt,
+                    totalExpectedInterest,
+                    totalPaidInterest
+                },
+                pagination: {
+                    total: allMatching.length,
+                    page: pageNum,
+                    limit: limitNum,
+                    totalPages: Math.ceil(allMatching.length / limitNum)
+                }
+            });
+        }
+        const contracts = await db_1.prisma.unsecuredContract.findMany({
             where: whereClause,
             include: {
                 customer: true,
@@ -94,7 +225,17 @@ router.get("/", async (req, res) => {
             },
             orderBy: { created_at: "desc" },
         });
-        return res.json(contracts);
+        return res.json(mapUnsecuredContracts(contracts));
+    }
+    catch (error) {
+        return res.status(500).json({ error: error.message });
+    }
+});
+// 1.1. Get Next Unsecured Contract Code Number
+router.get("/next-code-number", async (req, res) => {
+    try {
+        const nextNum = await (0, codeGen_1.getNextContractCodeNumber)(db_1.prisma, "unsecuredContract", "TC-");
+        return res.json({ nextCodeNumber: nextNum });
     }
     catch (error) {
         return res.status(500).json({ error: error.message });
@@ -103,7 +244,7 @@ router.get("/", async (req, res) => {
 // 2. Get Unsecured Contract details
 router.get("/:id", async (req, res) => {
     try {
-        const contract = await prisma.unsecuredContract.findUnique({
+        const contract = await db_1.prisma.unsecuredContract.findUnique({
             where: { id: req.params.id },
             include: {
                 customer: true,
@@ -133,7 +274,7 @@ router.get("/:id", async (req, res) => {
         if (!contract) {
             return res.status(404).json({ error: "Unsecured contract not found" });
         }
-        return res.json(contract);
+        return res.json(mapUnsecuredContract(contract));
     }
     catch (error) {
         return res.status(500).json({ error: error.message });
@@ -145,32 +286,55 @@ router.post("/", (0, permission_1.requirePermission)(["CONTRACTS_MANAGE"]), asyn
         const storeId = req.user.store_id;
         const employeeId = req.user.id;
         const { customer_id, commodity_id, loan_amount, interest_type_id, is_upfront_interest, loan_days, period_value, interest_rate, loan_date, collector_id, collaborator_id, notes, contract_code, } = req.body;
-        if (!customer_id || !loan_amount || !interest_type_id || !loan_days || !period_value || !collector_id) {
+        let comm = null;
+        if (commodity_id && (loan_amount === undefined || loan_amount === null || loan_amount === "" ||
+            interest_type_id === undefined || interest_type_id === null || interest_type_id === "" ||
+            loan_days === undefined || loan_days === null || loan_days === "" ||
+            period_value === undefined || period_value === null || period_value === "")) {
+            comm = await db_1.prisma.commodity.findUnique({ where: { id: commodity_id } });
+        }
+        const resolvedLoanAmount = (loan_amount !== undefined && loan_amount !== null && loan_amount !== "")
+            ? loan_amount
+            : (comm ? Number(comm.default_amount) : 0);
+        const resolvedInterestTypeId = interest_type_id || comm?.interest_type_id;
+        const resolvedLoanDays = (loan_days !== undefined && loan_days !== null && loan_days !== "")
+            ? loan_days
+            : (comm ? comm.default_loan_days : 30);
+        const resolvedPeriodValue = (period_value !== undefined && period_value !== null && period_value !== "")
+            ? period_value
+            : (comm ? comm.default_period_value : 15);
+        const resolvedInterestRate = (interest_rate !== undefined && interest_rate !== null && interest_rate !== "")
+            ? interest_rate
+            : (comm ? Number(comm.default_interest_rate) : 0);
+        const resolvedIsUpfront = is_upfront_interest !== undefined && is_upfront_interest !== null
+            ? !!is_upfront_interest
+            : (comm ? comm.is_upfront_interest : false);
+        if (!customer_id || !resolvedLoanAmount || !resolvedInterestTypeId || !resolvedLoanDays || !resolvedPeriodValue || !collector_id) {
             return res.status(400).json({ error: "Missing required fields" });
         }
-        const principal = Number(loan_amount);
-        const rate = Number(interest_rate) || 0;
-        const days = Number(loan_days);
-        const pValue = Number(period_value);
+        const principal = Number(resolvedLoanAmount);
+        const rate = Number(resolvedInterestRate) || 0;
+        const days = Number(resolvedLoanDays);
+        const pValue = Number(resolvedPeriodValue);
         // Verify blacklist
-        const customer = await prisma.customer.findUnique({ where: { id: customer_id } });
+        const customer = await db_1.prisma.customer.findUnique({ where: { id: customer_id } });
         if (customer && customer.status === "blacklist") {
             return res.status(400).json({ error: "Customer is blacklisted. Cannot create contract." });
         }
-        const result = await prisma.$transaction(async (tx) => {
+        const result = await db_1.prisma.$transaction(async (tx) => {
             let contractCode = contract_code;
             if (!contractCode) {
                 contractCode = await (0, codeGen_1.generateContractCode)(tx, "unsecured");
             }
             const normalizedLoanDate = (0, cash_1.normalizeToMidnight)(loan_date || new Date());
             const interestType = await tx.interestType.findUnique({
-                where: { id: interest_type_id },
+                where: { id: resolvedInterestTypeId },
             });
             if (!interestType) {
                 throw new Error("Interest type not found");
             }
             // Generate expected interest payments schedule
-            const cycles = (0, interest_1.generateInterestSchedule)(principal, rate, days, pValue, interestType.code, normalizedLoanDate, !!is_upfront_interest);
+            const cycles = (0, interest_1.generateInterestSchedule)(principal, rate, days, pValue, interestType.code, normalizedLoanDate, resolvedIsUpfront);
             // Create contract
             const contract = await tx.unsecuredContract.create({
                 data: {
@@ -180,8 +344,8 @@ router.post("/", (0, permission_1.requirePermission)(["CONTRACTS_MANAGE"]), asyn
                     commodity_id,
                     loan_amount: principal,
                     initial_loan_amount: principal, // interest base is initially matching
-                    interest_type_id,
-                    is_upfront_interest: !!is_upfront_interest,
+                    interest_type_id: resolvedInterestTypeId,
+                    is_upfront_interest: resolvedIsUpfront,
                     loan_days: days,
                     period_value: pValue,
                     interest_rate: rate,
@@ -203,15 +367,15 @@ router.post("/", (0, permission_1.requirePermission)(["CONTRACTS_MANAGE"]), asyn
                         expected_days: c.expected_days,
                         expected_interest: c.expected_interest,
                         expected_principal: c.expected_principal,
-                        is_paid: c.cycle_number === 1 && !!is_upfront_interest,
-                        actual_paid: (c.cycle_number === 1 && !!is_upfront_interest) ? c.expected_interest : 0,
-                        paid_date: (c.cycle_number === 1 && !!is_upfront_interest) ? normalizedLoanDate : null,
+                        is_paid: c.cycle_number === 1 && resolvedIsUpfront,
+                        actual_paid: (c.cycle_number === 1 && resolvedIsUpfront) ? c.expected_interest : 0,
+                        paid_date: (c.cycle_number === 1 && resolvedIsUpfront) ? normalizedLoanDate : null,
                     })),
                 });
             }
             // Calculate initial cash disbursement
             let upfrontInterest = 0;
-            if (is_upfront_interest && cycles.length > 0) {
+            if (resolvedIsUpfront && cycles.length > 0) {
                 upfrontInterest = cycles[0].expected_interest;
             }
             const netDisbursement = principal - upfrontInterest;
@@ -228,7 +392,17 @@ router.post("/", (0, permission_1.requirePermission)(["CONTRACTS_MANAGE"]), asyn
                     content: `Tạo mới hợp đồng tín chấp ${contractCode}, giải ngân thực tế ${netDisbursement}`,
                 },
             });
-            return contract;
+            const fullContract = await tx.unsecuredContract.findUnique({
+                where: { id: contract.id },
+                include: {
+                    customer: true,
+                    commodity: true,
+                    interest_type: true,
+                    collector: { select: { full_name: true } },
+                    interest_payments: { orderBy: { cycle_number: "asc" } },
+                },
+            });
+            return mapUnsecuredContract(fullContract);
         });
         return res.status(201).json(result);
     }
@@ -247,7 +421,7 @@ router.post("/:id/pay-interest", (0, permission_1.requirePermission)(["CONTRACTS
         }
         const payAmount = Number(actualPaid);
         const otherVal = Number(otherAmount) || 0;
-        const result = await prisma.$transaction(async (tx) => {
+        const result = await db_1.prisma.$transaction(async (tx) => {
             const payment = await tx.unsecuredInterestPayment.findUnique({
                 where: { id: paymentId },
                 include: { contract: true },
@@ -300,7 +474,7 @@ router.post("/:id/cancel-interest", (0, permission_1.requirePermission)(["CONTRA
         if (!paymentId) {
             return res.status(400).json({ error: "Payment cycle ID is required" });
         }
-        const result = await prisma.$transaction(async (tx) => {
+        const result = await db_1.prisma.$transaction(async (tx) => {
             const payment = await tx.unsecuredInterestPayment.findUnique({
                 where: { id: paymentId },
                 include: { contract: true },
@@ -355,7 +529,7 @@ router.post("/:id/pay-down", (0, permission_1.requirePermission)(["CONTRACTS_OPE
         }
         const paydownAmount = Number(amount);
         const date = transactionDate ? new Date(transactionDate) : new Date();
-        const result = await prisma.$transaction(async (tx) => {
+        const result = await db_1.prisma.$transaction(async (tx) => {
             const contract = await tx.unsecuredContract.findUnique({
                 where: { id: contractId },
             });
@@ -399,7 +573,13 @@ router.post("/:id/pay-down", (0, permission_1.requirePermission)(["CONTRACTS_OPE
             });
             // Recalculate schedules
             await recalculateUnsecuredSchedule(tx, contractId);
-            return updatedContract;
+            const fullContract = await tx.unsecuredContract.findUnique({
+                where: { id: contractId },
+                include: {
+                    interest_payments: { orderBy: { cycle_number: "asc" } },
+                },
+            });
+            return mapUnsecuredContract(fullContract);
         });
         return res.json(result);
     }
@@ -418,7 +598,7 @@ router.post("/:id/borrow-more", (0, permission_1.requirePermission)(["CONTRACTS_
         }
         const borrowAmount = Number(amount);
         const date = transactionDate ? new Date(transactionDate) : new Date();
-        const result = await prisma.$transaction(async (tx) => {
+        const result = await db_1.prisma.$transaction(async (tx) => {
             const contract = await tx.unsecuredContract.findUnique({
                 where: { id: contractId },
             });
@@ -462,7 +642,13 @@ router.post("/:id/borrow-more", (0, permission_1.requirePermission)(["CONTRACTS_
             });
             // Recalculate schedules
             await recalculateUnsecuredSchedule(tx, contractId);
-            return updatedContract;
+            const fullContract = await tx.unsecuredContract.findUnique({
+                where: { id: contractId },
+                include: {
+                    interest_payments: { orderBy: { cycle_number: "asc" } },
+                },
+            });
+            return mapUnsecuredContract(fullContract);
         });
         return res.json(result);
     }
@@ -476,7 +662,7 @@ router.delete("/:id/principal-transaction/:txId", (0, permission_1.requirePermis
         const contractId = req.params.id;
         const txId = req.params.txId;
         const employeeId = req.user.id;
-        const result = await prisma.$transaction(async (tx) => {
+        const result = await db_1.prisma.$transaction(async (tx) => {
             const contract = await tx.unsecuredContract.findUnique({ where: { id: contractId } });
             const pTx = await tx.unsecuredPrincipalTransaction.findUnique({ where: { id: txId } });
             if (!contract || !pTx || pTx.contract_id !== contractId) {
@@ -545,7 +731,7 @@ router.post("/:id/extend", (0, permission_1.requirePermission)(["CONTRACTS_OPERA
             return res.status(400).json({ error: "Days to extend must be greater than 0" });
         }
         const days = Number(extendedDays);
-        const result = await prisma.$transaction(async (tx) => {
+        const result = await db_1.prisma.$transaction(async (tx) => {
             const contract = await tx.unsecuredContract.findUnique({
                 where: { id: contractId },
                 include: { interest_type: true },
@@ -621,7 +807,7 @@ router.delete("/:id/extend/:extendId", (0, permission_1.requirePermission)(["CON
         const contractId = req.params.id;
         const extendId = req.params.extendId;
         const employeeId = req.user.id;
-        const result = await prisma.$transaction(async (tx) => {
+        const result = await db_1.prisma.$transaction(async (tx) => {
             const ext = await tx.unsecuredContractExtension.findUnique({
                 where: { id: extendId },
             });
@@ -683,7 +869,7 @@ router.post("/:id/redeem", (0, permission_1.requirePermission)(["CONTRACTS_OPERA
         const employeeId = req.user.id;
         const { redeemDate, otherAmount, notes } = req.body;
         const rDate = redeemDate ? new Date(redeemDate) : new Date();
-        const result = await prisma.$transaction(async (tx) => {
+        const result = await db_1.prisma.$transaction(async (tx) => {
             const contract = await tx.unsecuredContract.findUnique({
                 where: { id: contractId },
                 include: {
@@ -773,7 +959,7 @@ router.post("/:id/cancel-redeem", (0, permission_1.requirePermission)(["CONTRACT
     try {
         const contractId = req.params.id;
         const employeeId = req.user.id;
-        const result = await prisma.$transaction(async (tx) => {
+        const result = await db_1.prisma.$transaction(async (tx) => {
             const contract = await tx.unsecuredContract.findUnique({
                 where: { id: contractId },
             });
@@ -842,7 +1028,7 @@ router.post("/:id/record-debt", (0, permission_1.requirePermission)(["CONTRACTS_
         }
         const value = Number(amount);
         const today = new Date();
-        const result = await prisma.$transaction(async (tx) => {
+        const result = await db_1.prisma.$transaction(async (tx) => {
             const updated = await tx.unsecuredContract.update({
                 where: { id: contractId },
                 data: {
@@ -866,7 +1052,13 @@ router.post("/:id/record-debt", (0, permission_1.requirePermission)(["CONTRACTS_
                     content: `Ghi nợ mới hợp đồng tín chấp. Số nợ: ${value}. Ghi chú: ${notes || ""}`,
                 },
             });
-            return updated;
+            const fullContract = await tx.unsecuredContract.findUnique({
+                where: { id: contractId },
+                include: {
+                    interest_payments: { orderBy: { cycle_number: "asc" } },
+                },
+            });
+            return mapUnsecuredContract(fullContract);
         });
         return res.json(result);
     }
@@ -885,7 +1077,7 @@ router.post("/:id/pay-debt", (0, permission_1.requirePermission)(["CONTRACTS_OPE
         }
         const value = Number(amount);
         const today = new Date();
-        const result = await prisma.$transaction(async (tx) => {
+        const result = await db_1.prisma.$transaction(async (tx) => {
             const contract = await tx.unsecuredContract.findUnique({ where: { id: contractId } });
             if (!contract)
                 throw new Error("Contract not found");
@@ -918,7 +1110,13 @@ router.post("/:id/pay-debt", (0, permission_1.requirePermission)(["CONTRACTS_OPE
                     content: `Khách trả nợ cũ. Thu: ${value}. Ghi chú: ${notes || ""}`,
                 },
             });
-            return updated;
+            const fullContract = await tx.unsecuredContract.findUnique({
+                where: { id: contractId },
+                include: {
+                    interest_payments: { orderBy: { cycle_number: "asc" } },
+                },
+            });
+            return mapUnsecuredContract(fullContract);
         });
         return res.json(result);
     }
@@ -932,7 +1130,7 @@ router.delete("/:id/debt-transaction/:txId", (0, permission_1.requirePermission)
         const contractId = req.params.id;
         const txId = req.params.txId;
         const employeeId = req.user.id;
-        const result = await prisma.$transaction(async (tx) => {
+        const result = await db_1.prisma.$transaction(async (tx) => {
             const contract = await tx.unsecuredContract.findUnique({ where: { id: contractId } });
             const dTx = await tx.unsecuredDebtHistory.findUnique({ where: { id: txId } });
             if (!contract || !dTx || dTx.contract_id !== contractId) {
@@ -985,7 +1183,7 @@ router.post("/:id/documents", async (req, res) => {
     try {
         const contractId = req.params.id;
         const { document_type, image_url, google_drive_file_id, file_name } = req.body;
-        const doc = await prisma.unsecuredContractDocument.create({
+        const doc = await db_1.prisma.unsecuredContractDocument.create({
             data: {
                 contract_id: contractId,
                 document_type,
@@ -1003,7 +1201,7 @@ router.post("/:id/documents", async (req, res) => {
 // 17. Delete Document
 router.delete("/:id/documents/:docId", async (req, res) => {
     try {
-        await prisma.unsecuredContractDocument.delete({
+        await db_1.prisma.unsecuredContractDocument.delete({
             where: { id: req.params.docId },
         });
         return res.json({ message: "Document deleted successfully" });
@@ -1015,7 +1213,7 @@ router.delete("/:id/documents/:docId", async (req, res) => {
 // 18. Add Debt Reminder Log
 router.post("/:id/reminders/log", async (req, res) => {
     try {
-        const log = await prisma.unsecuredDebtReminder.create({
+        const log = await db_1.prisma.unsecuredDebtReminder.create({
             data: {
                 contract_id: req.params.id,
                 employee_id: req.user.id,
@@ -1034,7 +1232,7 @@ router.put("/:id", (0, permission_1.requirePermission)(["CONTRACTS_MANAGE"]), as
         const contractId = req.params.id;
         const employeeId = req.user.id;
         const { customer_id, commodity_id, loan_amount, interest_type_id, is_upfront_interest, loan_days, period_value, interest_rate, loan_date, collector_id, collaborator_id, notes, contract_code, } = req.body;
-        const result = await prisma.$transaction(async (tx) => {
+        const result = await db_1.prisma.$transaction(async (tx) => {
             const contract = await tx.unsecuredContract.findUnique({
                 where: { id: contractId },
                 include: {
@@ -1144,7 +1342,17 @@ router.put("/:id", (0, permission_1.requirePermission)(["CONTRACTS_MANAGE"]), as
                     },
                 });
             }
-            return updated;
+            const fullContract = await tx.unsecuredContract.findUnique({
+                where: { id: contractId },
+                include: {
+                    customer: true,
+                    commodity: true,
+                    interest_type: true,
+                    collector: { select: { full_name: true } },
+                    interest_payments: { orderBy: { cycle_number: "asc" } },
+                },
+            });
+            return mapUnsecuredContract(fullContract);
         });
         return res.json(result);
     }
@@ -1157,7 +1365,7 @@ router.delete("/:id", (0, permission_1.requirePermission)(["CONTRACTS_MANAGE"]),
     try {
         const contractId = req.params.id;
         const employeeId = req.user.id;
-        const result = await prisma.$transaction(async (tx) => {
+        const result = await db_1.prisma.$transaction(async (tx) => {
             const contract = await tx.unsecuredContract.findUnique({
                 where: { id: contractId },
                 include: {
@@ -1222,7 +1430,7 @@ router.post("/:id/timers", async (req, res) => {
         if (!reminder_date) {
             return res.status(400).json({ error: "Reminder date is required" });
         }
-        const result = await prisma.$transaction(async (tx) => {
+        const result = await db_1.prisma.$transaction(async (tx) => {
             // Mark all existing timers for this contract as completed/stopped first
             await tx.unsecuredContractReminder.updateMany({
                 where: { contract_id: contractId, status: "active" },
@@ -1248,7 +1456,7 @@ router.post("/:id/timers", async (req, res) => {
 router.put("/:id/timers/:timerId/stop", async (req, res) => {
     try {
         const timerId = req.params.timerId;
-        const updated = await prisma.unsecuredContractReminder.update({
+        const updated = await db_1.prisma.unsecuredContractReminder.update({
             where: { id: timerId },
             data: { status: "stopped" },
         });

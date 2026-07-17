@@ -1,20 +1,19 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
-const client_1 = require("@prisma/client");
+const db_1 = require("../utils/db");
 const auth_1 = require("../middleware/auth");
 const permission_1 = require("../middleware/permission");
 const cash_1 = require("../utils/cash");
 const codeGen_1 = require("../utils/codeGen");
 const router = (0, express_1.Router)();
-const prisma = new client_1.PrismaClient();
 router.use(auth_1.authenticateToken);
 // 1. Get daily cash summary (beginning cash, current cash, details)
 router.get("/summary", async (req, res) => {
     try {
         const storeId = req.user.store_id;
         const today = (0, cash_1.normalizeToMidnight)(new Date());
-        let dailyCash = await prisma.dailyCash.findUnique({
+        let dailyCash = await db_1.prisma.dailyCash.findUnique({
             where: {
                 store_id_date: {
                     store_id: storeId,
@@ -24,7 +23,7 @@ router.get("/summary", async (req, res) => {
         });
         if (!dailyCash) {
             // Find the most recent record before today
-            const lastDaily = await prisma.dailyCash.findFirst({
+            const lastDaily = await db_1.prisma.dailyCash.findFirst({
                 where: { store_id: storeId, date: { lt: today } },
                 orderBy: { date: "desc" },
             });
@@ -33,11 +32,11 @@ router.get("/summary", async (req, res) => {
                 beginningCash = Number(lastDaily.current_cash);
             }
             else {
-                const store = await prisma.store.findUnique({ where: { id: storeId } });
+                const store = await db_1.prisma.store.findUnique({ where: { id: storeId } });
                 beginningCash = store ? Number(store.investment_capital) : 0;
             }
             // Automatically initialize today's daily cash
-            dailyCash = await prisma.dailyCash.create({
+            dailyCash = await db_1.prisma.dailyCash.create({
                 data: {
                     store_id: storeId,
                     date: today,
@@ -67,7 +66,7 @@ router.get("/history", async (req, res) => {
                 whereClause.date.lte = (0, cash_1.normalizeToMidnight)(endDate);
             }
         }
-        const histories = await prisma.cashFundHistory.findMany({
+        const histories = await db_1.prisma.cashFundHistory.findMany({
             where: whereClause,
             include: {
                 employee: { select: { full_name: true } },
@@ -94,7 +93,7 @@ router.post("/adjust", (0, permission_1.requirePermission)(["FUNDS_MANAGE"]), as
             return res.status(400).json({ error: "Amount must be a non-zero number" });
         }
         const finalAmount = type === "withdraw" ? -Math.abs(adjAmount) : Math.abs(adjAmount);
-        const result = await prisma.$transaction(async (tx) => {
+        const result = await db_1.prisma.$transaction(async (tx) => {
             const daily = await (0, cash_1.adjustDailyCash)(tx, storeId, new Date(), finalAmount, type === "withdraw" ? "manual_withdraw" : "manual_deposit", employeeId, description);
             return daily;
         });
@@ -118,7 +117,7 @@ router.post("/beginning", (0, permission_1.requirePermission)(["FUNDS_MANAGE"]),
             return res.status(400).json({ error: "beginning_cash must be a non-negative number" });
         }
         const today = (0, cash_1.normalizeToMidnight)(new Date());
-        const result = await prisma.$transaction(async (tx) => {
+        const result = await db_1.prisma.$transaction(async (tx) => {
             let dailyCash = await tx.dailyCash.findUnique({
                 where: {
                     store_id_date: {
@@ -184,7 +183,7 @@ router.post("/balance", (0, permission_1.requirePermission)(["FUNDS_MANAGE"]), a
             return res.status(400).json({ error: "physical_cash must be a non-negative number" });
         }
         const today = (0, cash_1.normalizeToMidnight)(new Date());
-        const result = await prisma.$transaction(async (tx) => {
+        const result = await db_1.prisma.$transaction(async (tx) => {
             let dailyCash = await tx.dailyCash.findUnique({
                 where: {
                     store_id_date: {

@@ -2,6 +2,8 @@ import React, { useState, useEffect } from "react";
 import axios from "axios";
 import { AlertTriangle, Search, RefreshCw, CheckCircle } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
+import { MoneyInput } from "../../components/shared/MoneyInput";
+import { toast } from "../../lib/toast";
 
 export const InstallmentWarning: React.FC = () => {
   const { activeStore } = useAuth();
@@ -73,13 +75,13 @@ export const InstallmentWarning: React.FC = () => {
       await axios.post(`/api/contracts/installment/${quickPayItem.id}/pay-period`, {
         amount: Number(quickPayAmount),
       });
-      setMessage("Đóng tiền nhanh thành công!");
+      toast.success("Đóng tiền nhanh thành công!");
       fetchData();
-      setTimeout(() => {
-        setQuickPayItem(null);
-      }, 1500);
+      setQuickPayItem(null);
     } catch (err: any) {
-      setMessage(err.response?.data?.error || "Không thể thực hiện đóng tiền.");
+      const errMsg = err.response?.data?.error || "Không thể thực hiện đóng tiền.";
+      setMessage(errMsg);
+      toast.error(errMsg);
     } finally {
       setQuickPayLoading(false);
     }
@@ -247,15 +249,15 @@ export const InstallmentWarning: React.FC = () => {
 
               <div className="form-control w-full">
                 <label className="label py-1">
-                  <span className="label-text text-slate-600 font-bold text-xs">Số tiền đóng thực tế (đ)</span>
+                  <span className="label-text text-slate-600 font-bold text-xs">Số tiền đóng thực tế</span>
                 </label>
-                <input 
-                  type="number"
+                <MoneyInput 
                   required
                   value={quickPayAmount}
-                  onChange={(e) => setQuickPayAmount(e.target.value)}
-                  className="input input-bordered input-md w-full bg-white border-slate-200 focus:outline-none focus:border-amber-500 text-slate-800 font-bold text-base rounded-xl"
+                  onChange={(val) => setQuickPayAmount(String(val))}
                   placeholder="Nhập số tiền đóng"
+                  suffix="đ"
+                  className="input-md w-full bg-white border-slate-200 focus:outline-none focus:border-amber-500 text-slate-800 font-bold text-base rounded-xl"
                 />
               </div>
 

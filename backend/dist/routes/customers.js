@@ -1,11 +1,10 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
-const client_1 = require("@prisma/client");
+const db_1 = require("../utils/db");
 const auth_1 = require("../middleware/auth");
 const permission_1 = require("../middleware/permission");
 const router = (0, express_1.Router)();
-const prisma = new client_1.PrismaClient();
 router.use(auth_1.authenticateToken);
 // 1. Get all customers (with search & store filtering)
 router.get("/", async (req, res) => {
@@ -37,7 +36,39 @@ router.get("/", async (req, res) => {
                 { identity_card_number: { contains: searchStr, mode: "insensitive" } },
             ];
         }
-        const customers = await prisma.customer.findMany({
+        const page = req.query.page ? parseInt(req.query.page, 10) : undefined;
+        const limit = req.query.limit ? parseInt(req.query.limit, 10) : undefined;
+        if (page !== undefined && limit !== undefined) {
+            const skip = (page - 1) * limit;
+            const total = await db_1.prisma.customer.count({ where: whereClause });
+            const customers = await db_1.prisma.customer.findMany({
+                where: whereClause,
+                include: {
+                    store: { select: { name: true } },
+                    _count: {
+                        select: {
+                            pawn_contracts: true,
+                            unsecured_contracts: true,
+                            installment_contracts: true,
+                            capital_contracts: true,
+                        }
+                    }
+                },
+                orderBy: { full_name: "asc" },
+                skip,
+                take: limit,
+            });
+            return res.json({
+                data: customers,
+                pagination: {
+                    total,
+                    page,
+                    limit,
+                    totalPages: Math.ceil(total / limit),
+                }
+            });
+        }
+        const customers = await db_1.prisma.customer.findMany({
             where: whereClause,
             include: {
                 store: { select: { name: true } },
@@ -61,7 +92,7 @@ router.get("/", async (req, res) => {
 // 2. Get customer by ID
 router.get("/:id", async (req, res) => {
     try {
-        const cust = await prisma.customer.findUnique({
+        const cust = await db_1.prisma.customer.findUnique({
             where: { id: req.params.id },
             include: {
                 store: true,
@@ -94,14 +125,14 @@ router.post("/", (0, permission_1.requirePermission)(["CUSTOMERS_MANAGE"]), asyn
         const targetStoreId = store_id || req.user.store_id;
         let duplicateWarning = false;
         if (identity_card_number) {
-            const existingCust = await prisma.customer.findFirst({
+            const existingCust = await db_1.prisma.customer.findFirst({
                 where: { identity_card_number },
             });
             if (existingCust) {
                 duplicateWarning = true;
             }
         }
-        const newCust = await prisma.customer.create({
+        const newCust = await db_1.prisma.customer.create({
             data: {
                 store_id: targetStoreId,
                 full_name,
@@ -136,7 +167,7 @@ router.post("/", (0, permission_1.requirePermission)(["CUSTOMERS_MANAGE"]), asyn
 router.put("/:id", (0, permission_1.requirePermission)(["CUSTOMERS_MANAGE"]), async (req, res) => {
     try {
         const { store_id, full_name, phone, address, identity_card_number, identity_card_date, identity_card_place, spouse_name, spouse_phone, spouse_job, father_name, father_phone, father_job, mother_name, mother_phone, mother_job, status, notes, } = req.body;
-        const existing = await prisma.customer.findUnique({
+        const existing = await db_1.prisma.customer.findUnique({
             where: { id: req.params.id },
         });
         if (!existing) {
@@ -144,14 +175,14 @@ router.put("/:id", (0, permission_1.requirePermission)(["CUSTOMERS_MANAGE"]), as
         }
         let duplicateWarning = false;
         if (identity_card_number && identity_card_number !== existing.identity_card_number) {
-            const existingCust = await prisma.customer.findFirst({
+            const existingCust = await db_1.prisma.customer.findFirst({
                 where: { identity_card_number },
             });
             if (existingCust) {
                 duplicateWarning = true;
             }
         }
-        const updated = await prisma.customer.update({
+        const updated = await db_1.prisma.customer.update({
             where: { id: req.params.id },
             data: {
                 store_id: store_id || undefined,
@@ -191,13 +222,13 @@ router.post("/:id/blacklist", (0, permission_1.requirePermission)(["CUSTOMERS_MA
         if (!reason || reason.trim().length < 10) {
             return res.status(400).json({ error: "Lý do báo nợ xấu phải có ít nhất 10 ký tự." });
         }
-        const customer = await prisma.customer.findUnique({
+        const customer = await db_1.prisma.customer.findUnique({
             where: { id: customerId },
         });
         if (!customer) {
             return res.status(404).json({ error: "Customer not found" });
         }
-        const result = await prisma.$transaction(async (tx) => {
+        const result = await db_1.prisma.$transaction(async (tx) => {
             // Update status
             const updated = await tx.customer.update({
                 where: { id: customerId },
@@ -224,13 +255,13 @@ router.post("/:id/blacklist", (0, permission_1.requirePermission)(["CUSTOMERS_MA
 router.post("/:id/unblacklist", (0, permission_1.requirePermission)(["CUSTOMERS_MANAGE"]), async (req, res) => {
     try {
         const customerId = req.params.id;
-        const customer = await prisma.customer.findUnique({
+        const customer = await db_1.prisma.customer.findUnique({
             where: { id: customerId },
         });
         if (!customer) {
             return res.status(404).json({ error: "Customer not found" });
         }
-        const result = await prisma.$transaction(async (tx) => {
+        const result = await db_1.prisma.$transaction(async (tx) => {
             // Update status back to active
             const updated = await tx.customer.update({
                 where: { id: customerId },
@@ -254,28 +285,28 @@ router.get("/:id/contracts", async (req, res) => {
     try {
         const customerId = req.params.id;
         // Fetch Pawn Contracts
-        const pawns = await prisma.pawnContract.findMany({
+        const pawns = await db_1.prisma.pawnContract.findMany({
             where: { customer_id: customerId },
             include: {
                 interest_payments: true,
             }
         });
         // Fetch Unsecured Contracts
-        const unsecured = await prisma.unsecuredContract.findMany({
+        const unsecured = await db_1.prisma.unsecuredContract.findMany({
             where: { customer_id: customerId },
             include: {
                 interest_payments: true,
             }
         });
         // Fetch Installment Contracts
-        const installments = await prisma.installmentContract.findMany({
+        const installments = await db_1.prisma.installmentContract.findMany({
             where: { customer_id: customerId },
             include: {
                 payments: true,
             }
         });
         // Fetch Capital Contracts
-        const capitals = await prisma.capitalContract.findMany({
+        const capitals = await db_1.prisma.capitalContract.findMany({
             where: { customer_id: customerId },
             include: {
                 transactions: true,
@@ -362,7 +393,7 @@ router.get("/:id/contracts", async (req, res) => {
 });
 router.delete("/:id", (0, permission_1.requirePermission)(["CUSTOMERS_MANAGE"]), async (req, res) => {
     try {
-        await prisma.customer.delete({
+        await db_1.prisma.customer.delete({
             where: { id: req.params.id },
         });
         return res.json({ message: "Customer deleted successfully" });

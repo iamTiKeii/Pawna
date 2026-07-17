@@ -5,16 +5,15 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
 const bcryptjs_1 = __importDefault(require("bcryptjs"));
-const client_1 = require("@prisma/client");
+const db_1 = require("../utils/db");
 const auth_1 = require("../middleware/auth");
 const permission_1 = require("../middleware/permission");
 const router = (0, express_1.Router)();
-const prisma = new client_1.PrismaClient();
 router.use(auth_1.authenticateToken);
 // 1. Get all employees
 router.get("/", async (req, res) => {
     try {
-        const employees = await prisma.employee.findMany({
+        const employees = await db_1.prisma.employee.findMany({
             include: {
                 store: { select: { id: true, name: true, address: true } },
                 permissions: { include: { permission: true } },
@@ -30,7 +29,7 @@ router.get("/", async (req, res) => {
 // 2. Get list of all permissions (for mapping dropdowns in UI)
 router.get("/permissions/list", async (req, res) => {
     try {
-        const permissions = await prisma.permission.findMany({
+        const permissions = await db_1.prisma.permission.findMany({
             orderBy: { category: "asc" },
         });
         return res.json(permissions);
@@ -42,7 +41,7 @@ router.get("/permissions/list", async (req, res) => {
 // 3. Get employee by ID
 router.get("/:id", async (req, res) => {
     try {
-        const employee = await prisma.employee.findUnique({
+        const employee = await db_1.prisma.employee.findUnique({
             where: { id: req.params.id },
             include: {
                 store: true,
@@ -65,14 +64,14 @@ router.post("/", (0, permission_1.requirePermission)(["EMPLOYEES_MANAGE"]), asyn
         if (!store_id || !username || !password || !full_name) {
             return res.status(400).json({ error: "Missing required fields" });
         }
-        const existingUser = await prisma.employee.findUnique({
+        const existingUser = await db_1.prisma.employee.findUnique({
             where: { username },
         });
         if (existingUser) {
             return res.status(400).json({ error: "Username already exists" });
         }
         const hash = await bcryptjs_1.default.hash(password, 10);
-        const newEmployee = await prisma.$transaction(async (tx) => {
+        const newEmployee = await db_1.prisma.$transaction(async (tx) => {
             const emp = await tx.employee.create({
                 data: {
                     store_id,
@@ -135,7 +134,7 @@ router.put("/:id", async (req, res) => {
         if (password) {
             dataToUpdate.password_hash = await bcryptjs_1.default.hash(password, 10);
         }
-        const updated = await prisma.employee.update({
+        const updated = await db_1.prisma.employee.update({
             where: { id: employeeId },
             data: dataToUpdate,
         });
@@ -153,13 +152,13 @@ router.put("/:id/permissions", (0, permission_1.requirePermission)(["EMPLOYEES_M
         if (!Array.isArray(permission_codes)) {
             return res.status(400).json({ error: "permission_codes must be an array of strings" });
         }
-        const employee = await prisma.employee.findUnique({
+        const employee = await db_1.prisma.employee.findUnique({
             where: { id: employeeId },
         });
         if (!employee) {
             return res.status(404).json({ error: "Employee not found" });
         }
-        await prisma.$transaction(async (tx) => {
+        await db_1.prisma.$transaction(async (tx) => {
             // Delete existing employee permissions
             await tx.employeePermission.deleteMany({
                 where: { employee_id: employeeId },
@@ -190,7 +189,7 @@ router.delete("/:id", (0, permission_1.requirePermission)(["EMPLOYEES_MANAGE"]),
         if (req.user.id === employeeId) {
             return res.status(400).json({ error: "Cannot delete yourself" });
         }
-        await prisma.employee.delete({
+        await db_1.prisma.employee.delete({
             where: { id: employeeId },
         });
         return res.json({ message: "Employee deleted successfully" });

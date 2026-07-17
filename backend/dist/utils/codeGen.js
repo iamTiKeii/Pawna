@@ -1,35 +1,80 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.generateVoucherCode = generateVoucherCode;
+exports.getNextContractCodeNumber = getNextContractCodeNumber;
 exports.generateContractCode = generateContractCode;
 async function generateVoucherCode(tx, type) {
     const prefix = type === "receipt" ? "PT" : "PC";
-    let count = 0;
-    if (type === "receipt") {
-        count = await tx.receiptVoucher.count();
+    const model = type === "receipt" ? "receiptVoucher" : "paymentVoucher";
+    const records = await tx[model].findMany({
+        where: {
+            voucher_code: {
+                startsWith: prefix,
+            },
+        },
+        orderBy: {
+            voucher_code: "desc",
+        },
+        take: 50,
+        select: {
+            voucher_code: true,
+        },
+    });
+    let maxNum = 0;
+    for (const r of records) {
+        const code = r.voucher_code;
+        const numPart = code.substring(prefix.length);
+        const num = parseInt(numPart, 10);
+        if (!isNaN(num) && /^\d+$/.test(numPart)) {
+            if (num > maxNum) {
+                maxNum = num;
+            }
+        }
     }
-    else {
-        count = await tx.paymentVoucher.count();
-    }
-    // Pad with 0 for at least 4 digits, but let it grow naturally
-    const seq = String(count + 1).padStart(4, "0");
+    const seq = String(maxNum + 1).padStart(4, "0");
     return `${prefix}${seq}`;
 }
+async function getNextContractCodeNumber(tx, model, prefix) {
+    const records = await tx[model].findMany({
+        where: {
+            contract_code: {
+                startsWith: prefix,
+            },
+        },
+        select: {
+            contract_code: true,
+        },
+    });
+    let maxNum = 0;
+    for (const r of records) {
+        const code = r.contract_code;
+        if (!code)
+            continue;
+        const numPart = code.substring(prefix.length);
+        const num = parseInt(numPart, 10);
+        if (!isNaN(num)) {
+            if (num > maxNum) {
+                maxNum = num;
+            }
+        }
+    }
+    return maxNum + 1;
+}
 async function generateContractCode(tx, type) {
-    let prefix = "HD";
-    let count = 0;
+    let prefix = "";
+    let model;
     if (type === "pawn") {
-        prefix = "HD";
-        count = await tx.pawnContract.count();
+        prefix = "CĐ-";
+        model = "pawnContract";
     }
     else if (type === "unsecured") {
-        prefix = "TC";
-        count = await tx.unsecuredContract.count();
+        prefix = "TC-";
+        model = "unsecuredContract";
     }
     else {
-        prefix = "TG";
-        count = await tx.installmentContract.count();
+        prefix = "TG-";
+        model = "installmentContract";
     }
-    const seq = String(count + 1).padStart(4, "0");
-    return `${prefix}${seq}`;
+    const nextNum = await getNextContractCodeNumber(tx, model, prefix);
+    return `${prefix}${nextNum}`;
 }

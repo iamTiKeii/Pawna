@@ -1,18 +1,17 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
-const client_1 = require("@prisma/client");
+const db_1 = require("../utils/db");
 const auth_1 = require("../middleware/auth");
 const permission_1 = require("../middleware/permission");
 const codeGen_1 = require("../utils/codeGen");
 const cash_1 = require("../utils/cash");
 const router = (0, express_1.Router)();
-const prisma = new client_1.PrismaClient();
 router.use(auth_1.authenticateToken);
 // 1. Get Categories
 router.get("/categories/income", async (req, res) => {
     try {
-        const cats = await prisma.incomeCategory.findMany({ orderBy: { name: "asc" } });
+        const cats = await db_1.prisma.incomeCategory.findMany({ orderBy: { name: "asc" } });
         return res.json(cats);
     }
     catch (error) {
@@ -21,7 +20,7 @@ router.get("/categories/income", async (req, res) => {
 });
 router.get("/categories/expense", async (req, res) => {
     try {
-        const cats = await prisma.expenseCategory.findMany({ orderBy: { name: "asc" } });
+        const cats = await db_1.prisma.expenseCategory.findMany({ orderBy: { name: "asc" } });
         return res.json(cats);
     }
     catch (error) {
@@ -32,11 +31,11 @@ router.get("/categories", async (req, res) => {
     try {
         const { type } = req.query;
         if (type === "expense") {
-            const cats = await prisma.expenseCategory.findMany({ orderBy: { name: "asc" } });
+            const cats = await db_1.prisma.expenseCategory.findMany({ orderBy: { name: "asc" } });
             return res.json(cats);
         }
         else {
-            const cats = await prisma.incomeCategory.findMany({ orderBy: { name: "asc" } });
+            const cats = await db_1.prisma.incomeCategory.findMany({ orderBy: { name: "asc" } });
             return res.json(cats);
         }
     }
@@ -71,7 +70,7 @@ router.get("/receipts", async (req, res) => {
                 whereClause.voucher_date.lte = (0, cash_1.normalizeToMidnight)(endDate);
             }
         }
-        const receipts = await prisma.receiptVoucher.findMany({
+        const receipts = await db_1.prisma.receiptVoucher.findMany({
             where: whereClause,
             include: {
                 category: true,
@@ -112,7 +111,7 @@ router.get("/payments", async (req, res) => {
                 whereClause.voucher_date.lte = (0, cash_1.normalizeToMidnight)(endDate);
             }
         }
-        const payments = await prisma.paymentVoucher.findMany({
+        const payments = await db_1.prisma.paymentVoucher.findMany({
             where: whereClause,
             include: {
                 category: true,
@@ -153,7 +152,7 @@ router.get("/", async (req, res) => {
             }
         }
         if (type === "expense") {
-            const payments = await prisma.paymentVoucher.findMany({
+            const payments = await db_1.prisma.paymentVoucher.findMany({
                 where: whereClause,
                 include: {
                     category: true,
@@ -164,7 +163,7 @@ router.get("/", async (req, res) => {
             return res.json(payments);
         }
         else {
-            const receipts = await prisma.receiptVoucher.findMany({
+            const receipts = await db_1.prisma.receiptVoucher.findMany({
                 where: whereClause,
                 include: {
                     category: true,
@@ -192,7 +191,7 @@ router.post("/receipts", (0, permission_1.requirePermission)(["VOUCHERS_MANAGE"]
         if (isNaN(value) || value <= 0) {
             return res.status(400).json({ error: "Amount must be greater than 0" });
         }
-        const result = await prisma.$transaction(async (tx) => {
+        const result = await db_1.prisma.$transaction(async (tx) => {
             const code = await (0, codeGen_1.generateVoucherCode)(tx, "receipt");
             const today = new Date();
             const voucher = await tx.receiptVoucher.create({
@@ -231,7 +230,7 @@ router.post("/payments", (0, permission_1.requirePermission)(["VOUCHERS_MANAGE"]
         if (isNaN(value) || value <= 0) {
             return res.status(400).json({ error: "Amount must be greater than 0" });
         }
-        const result = await prisma.$transaction(async (tx) => {
+        const result = await db_1.prisma.$transaction(async (tx) => {
             const code = await (0, codeGen_1.generateVoucherCode)(tx, "payment");
             const today = new Date();
             const voucher = await tx.paymentVoucher.create({
@@ -271,7 +270,7 @@ router.post("/", (0, permission_1.requirePermission)(["VOUCHERS_MANAGE"]), async
         }
         const dateToUse = voucher_date ? new Date(voucher_date) : new Date();
         if (type === "expense") {
-            const result = await prisma.$transaction(async (tx) => {
+            const result = await db_1.prisma.$transaction(async (tx) => {
                 const code = await (0, codeGen_1.generateVoucherCode)(tx, "payment");
                 const voucher = await tx.paymentVoucher.create({
                     data: {
@@ -292,7 +291,7 @@ router.post("/", (0, permission_1.requirePermission)(["VOUCHERS_MANAGE"]), async
             return res.status(201).json(result);
         }
         else {
-            const result = await prisma.$transaction(async (tx) => {
+            const result = await db_1.prisma.$transaction(async (tx) => {
                 const code = await (0, codeGen_1.generateVoucherCode)(tx, "receipt");
                 const voucher = await tx.receiptVoucher.create({
                     data: {
@@ -322,7 +321,7 @@ router.put("/receipts/:id/cancel", (0, permission_1.requirePermission)(["VOUCHER
     try {
         const id = req.params.id;
         const employeeId = req.user.id;
-        const voucher = await prisma.receiptVoucher.findUnique({
+        const voucher = await db_1.prisma.receiptVoucher.findUnique({
             where: { id },
         });
         if (!voucher) {
@@ -331,7 +330,7 @@ router.put("/receipts/:id/cancel", (0, permission_1.requirePermission)(["VOUCHER
         if (voucher.status === "cancelled") {
             return res.status(400).json({ error: "Voucher is already cancelled" });
         }
-        const result = await prisma.$transaction(async (tx) => {
+        const result = await db_1.prisma.$transaction(async (tx) => {
             const updated = await tx.receiptVoucher.update({
                 where: { id },
                 data: { status: "cancelled" },
@@ -351,7 +350,7 @@ router.put("/payments/:id/cancel", (0, permission_1.requirePermission)(["VOUCHER
     try {
         const id = req.params.id;
         const employeeId = req.user.id;
-        const voucher = await prisma.paymentVoucher.findUnique({
+        const voucher = await db_1.prisma.paymentVoucher.findUnique({
             where: { id },
         });
         if (!voucher) {
@@ -360,7 +359,7 @@ router.put("/payments/:id/cancel", (0, permission_1.requirePermission)(["VOUCHER
         if (voucher.status === "cancelled") {
             return res.status(400).json({ error: "Voucher is already cancelled" });
         }
-        const result = await prisma.$transaction(async (tx) => {
+        const result = await db_1.prisma.$transaction(async (tx) => {
             const updated = await tx.paymentVoucher.update({
                 where: { id },
                 data: { status: "cancelled" },
@@ -407,13 +406,13 @@ router.delete("/receipts/:id", (0, permission_1.requirePermission)(["VOUCHERS_MA
     try {
         const id = req.params.id;
         const employeeId = req.user.id;
-        const voucher = await prisma.receiptVoucher.findUnique({ where: { id } });
+        const voucher = await db_1.prisma.receiptVoucher.findUnique({ where: { id } });
         if (!voucher)
             return res.status(404).json({ error: "Voucher not found" });
         if (voucher.status === "cancelled") {
             return res.status(400).json({ error: "Voucher is already cancelled" });
         }
-        const result = await prisma.$transaction(async (tx) => {
+        const result = await db_1.prisma.$transaction(async (tx) => {
             return await cancelReceiptVoucher(tx, voucher, employeeId);
         });
         return res.json({ message: "Receipt voucher cancelled successfully", voucher: result });
@@ -427,13 +426,13 @@ router.post("/receipts/:id/void", (0, permission_1.requirePermission)(["FUNDS_MA
     try {
         const id = req.params.id;
         const employeeId = req.user.id;
-        const voucher = await prisma.receiptVoucher.findUnique({ where: { id } });
+        const voucher = await db_1.prisma.receiptVoucher.findUnique({ where: { id } });
         if (!voucher)
             return res.status(404).json({ error: "Voucher not found" });
         if (voucher.status === "cancelled") {
             return res.status(400).json({ error: "Voucher is already voided" });
         }
-        const result = await prisma.$transaction(async (tx) => {
+        const result = await db_1.prisma.$transaction(async (tx) => {
             return await cancelReceiptVoucher(tx, voucher, employeeId);
         });
         return res.json({ message: "Receipt voucher voided successfully", voucher: result });
@@ -447,13 +446,13 @@ router.delete("/payments/:id", (0, permission_1.requirePermission)(["VOUCHERS_MA
     try {
         const id = req.params.id;
         const employeeId = req.user.id;
-        const voucher = await prisma.paymentVoucher.findUnique({ where: { id } });
+        const voucher = await db_1.prisma.paymentVoucher.findUnique({ where: { id } });
         if (!voucher)
             return res.status(404).json({ error: "Voucher not found" });
         if (voucher.status === "cancelled") {
             return res.status(400).json({ error: "Voucher is already cancelled" });
         }
-        const result = await prisma.$transaction(async (tx) => {
+        const result = await db_1.prisma.$transaction(async (tx) => {
             return await cancelPaymentVoucher(tx, voucher, employeeId);
         });
         return res.json({ message: "Payment voucher cancelled successfully", voucher: result });
@@ -467,13 +466,13 @@ router.post("/payments/:id/void", (0, permission_1.requirePermission)(["FUNDS_MA
     try {
         const id = req.params.id;
         const employeeId = req.user.id;
-        const voucher = await prisma.paymentVoucher.findUnique({ where: { id } });
+        const voucher = await db_1.prisma.paymentVoucher.findUnique({ where: { id } });
         if (!voucher)
             return res.status(404).json({ error: "Voucher not found" });
         if (voucher.status === "cancelled") {
             return res.status(400).json({ error: "Voucher is already voided" });
         }
-        const result = await prisma.$transaction(async (tx) => {
+        const result = await db_1.prisma.$transaction(async (tx) => {
             return await cancelPaymentVoucher(tx, voucher, employeeId);
         });
         return res.json({ message: "Payment voucher voided successfully", voucher: result });
@@ -487,23 +486,23 @@ router.delete("/:id", (0, permission_1.requirePermission)(["VOUCHERS_MANAGE", "F
         const id = req.params.id;
         const employeeId = req.user.id;
         // Check if it's a receipt voucher
-        const receipt = await prisma.receiptVoucher.findUnique({ where: { id } });
+        const receipt = await db_1.prisma.receiptVoucher.findUnique({ where: { id } });
         if (receipt) {
             if (receipt.status === "cancelled") {
                 return res.status(400).json({ error: "Voucher is already cancelled" });
             }
-            const result = await prisma.$transaction(async (tx) => {
+            const result = await db_1.prisma.$transaction(async (tx) => {
                 return await cancelReceiptVoucher(tx, receipt, employeeId);
             });
             return res.json({ message: "Receipt voucher cancelled successfully", voucher: result });
         }
         // Check if it's a payment voucher
-        const payment = await prisma.paymentVoucher.findUnique({ where: { id } });
+        const payment = await db_1.prisma.paymentVoucher.findUnique({ where: { id } });
         if (payment) {
             if (payment.status === "cancelled") {
                 return res.status(400).json({ error: "Voucher is already cancelled" });
             }
-            const result = await prisma.$transaction(async (tx) => {
+            const result = await db_1.prisma.$transaction(async (tx) => {
                 return await cancelPaymentVoucher(tx, payment, employeeId);
             });
             return res.json({ message: "Payment voucher cancelled successfully", voucher: result });

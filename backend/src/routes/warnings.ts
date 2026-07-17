@@ -42,7 +42,10 @@ router.get("/pawn", async (req: AuthenticatedRequest, res: Response) => {
       include: {
         customer: true,
         interest_payments: {
-          where: { is_paid: false },
+          where: {
+            is_paid: false,
+            to_date: { lt: today },
+          },
         }
       }
     });
@@ -100,7 +103,10 @@ router.get("/loan", async (req: AuthenticatedRequest, res: Response) => {
       include: {
         customer: true,
         interest_payments: {
-          where: { is_paid: false },
+          where: {
+            is_paid: false,
+            to_date: { lt: today },
+          },
         }
       }
     });

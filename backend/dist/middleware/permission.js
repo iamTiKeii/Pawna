@@ -6,7 +6,8 @@ const requirePermission = (requiredCodes) => {
         if (!req.user) {
             return res.status(401).json({ error: "Unauthorized" });
         }
-        const hasPermission = requiredCodes.some((code) => req.user.permissions.includes(code));
+        // superuser (SETTINGS_MANAGE) has all permissions automatically
+        const hasPermission = requiredCodes.some((code) => req.user.permissions.includes(code)) || req.user.permissions.includes("SETTINGS_MANAGE");
         if (!hasPermission) {
             return res.status(403).json({
                 error: `Forbidden: You do not have the required permissions (${requiredCodes.join(", ")}) to perform this action.`,

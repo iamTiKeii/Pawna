@@ -1,16 +1,21 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
-const client_1 = require("@prisma/client");
+const db_1 = require("../utils/db");
 const auth_1 = require("../middleware/auth");
 const permission_1 = require("../middleware/permission");
+const cache_1 = require("../utils/cache");
 const router = (0, express_1.Router)();
-const prisma = new client_1.PrismaClient();
 router.use(auth_1.authenticateToken);
 // 1. Get all commodities
 router.get("/", async (req, res) => {
     try {
-        const commodities = await prisma.commodity.findMany({
+        const cacheKey = "commodities_list";
+        const cached = cache_1.InMemoryCache.get(cacheKey);
+        if (cached) {
+            return res.json(cached);
+        }
+        const commodities = await db_1.prisma.commodity.findMany({
             where: {
                 status: { not: "deleted" }
             },
@@ -19,6 +24,7 @@ router.get("/", async (req, res) => {
             },
             orderBy: { name: "asc" },
         });
+        cache_1.InMemoryCache.set(cacheKey, commodities, 5 * 60 * 1000); // 5 min TTL
         return res.json(commodities);
     }
     catch (error) {
@@ -28,13 +34,19 @@ router.get("/", async (req, res) => {
 // 3. Get commodity by ID
 router.get("/:id", async (req, res) => {
     try {
-        const comm = await prisma.commodity.findUnique({
+        const cacheKey = `commodity_by_id:${req.params.id}`;
+        const cached = cache_1.InMemoryCache.get(cacheKey);
+        if (cached) {
+            return res.json(cached);
+        }
+        const comm = await db_1.prisma.commodity.findUnique({
             where: { id: req.params.id },
             include: { interest_type: true },
         });
         if (!comm) {
             return res.status(404).json({ error: "Commodity configuration not found" });
         }
+        cache_1.InMemoryCache.set(cacheKey, comm, 5 * 60 * 1000); // 5 min TTL
         return res.json(comm);
     }
     catch (error) {
@@ -51,11 +63,11 @@ router.post("/", (0, permission_1.requirePermission)(["COMMODITIES_MANAGE"]), as
         if (category !== "pawn" && category !== "unsecured") {
             return res.status(400).json({ error: "Category must be 'pawn' or 'unsecured'" });
         }
-        const existingCode = await prisma.commodity.findUnique({ where: { code } });
+        const existingCode = await db_1.prisma.commodity.findUnique({ where: { code } });
         if (existingCode) {
             return res.status(400).json({ error: "Commodity code already exists" });
         }
-        const newComm = await prisma.commodity.create({
+        const newComm = await db_1.prisma.commodity.create({
             data: {
                 category,
                 code,
@@ -70,6 +82,8 @@ router.post("/", (0, permission_1.requirePermission)(["COMMODITIES_MANAGE"]), as
                 liquidation_after_days: Number(liquidation_after_days) || 10,
             },
         });
+        // Clear caches
+        cache_1.InMemoryCache.delete("commodities_list");
         return res.status(201).json(newComm);
     }
     catch (error) {
@@ -80,19 +94,19 @@ router.post("/", (0, permission_1.requirePermission)(["COMMODITIES_MANAGE"]), as
 router.put("/:id", (0, permission_1.requirePermission)(["COMMODITIES_MANAGE"]), async (req, res) => {
     try {
         const { category, code, name, status, interest_type_id, is_upfront_interest, default_amount, default_interest_rate, default_period_value, default_loan_days, liquidation_after_days, } = req.body;
-        const existing = await prisma.commodity.findUnique({
+        const existing = await db_1.prisma.commodity.findUnique({
             where: { id: req.params.id },
         });
         if (!existing) {
             return res.status(404).json({ error: "Commodity configuration not found" });
         }
         if (code && code !== existing.code) {
-            const codeCheck = await prisma.commodity.findUnique({ where: { code } });
+            const codeCheck = await db_1.prisma.commodity.findUnique({ where: { code } });
             if (codeCheck) {
                 return res.status(400).json({ error: "Commodity code already exists" });
             }
         }
-        const updated = await prisma.commodity.update({
+        const updated = await db_1.prisma.commodity.update({
             where: { id: req.params.id },
             data: {
                 category: category || undefined,
@@ -108,6 +122,9 @@ router.put("/:id", (0, permission_1.requirePermission)(["COMMODITIES_MANAGE"]), 
                 liquidation_after_days: liquidation_after_days !== undefined ? Number(liquidation_after_days) : undefined,
             },
         });
+        // Clear caches
+        cache_1.InMemoryCache.delete("commodities_list");
+        cache_1.InMemoryCache.delete(`commodity_by_id:${req.params.id}`);
         return res.json(updated);
     }
     catch (error) {
@@ -119,25 +136,29 @@ router.delete("/:id", (0, permission_1.requirePermission)(["COMMODITIES_MANAGE"]
     try {
         const id = req.params.id;
         // Check if referenced by pawn contracts
-        const refPawnCount = await prisma.pawnContract.count({
+        const refPawnCount = await db_1.prisma.pawnContract.count({
             where: { commodity_id: id }
         });
         // Check if referenced by unsecured contracts
-        const refUnsecuredCount = await prisma.unsecuredContract.count({
+        const refUnsecuredCount = await db_1.prisma.unsecuredContract.count({
             where: { commodity_id: id }
         });
         if (refPawnCount > 0 || refUnsecuredCount > 0) {
             // Soft delete: keep the record to maintain DB integrity but hide it from configs
-            await prisma.commodity.update({
+            await db_1.prisma.commodity.update({
                 where: { id },
                 data: { status: "deleted" }
             });
+            cache_1.InMemoryCache.delete("commodities_list");
+            cache_1.InMemoryCache.delete(`commodity_by_id:${id}`);
             return res.json({ message: "Commodity has existing contract references; soft deleted successfully" });
         }
         // Hard delete since it has no references
-        await prisma.commodity.delete({
+        await db_1.prisma.commodity.delete({
             where: { id },
         });
+        cache_1.InMemoryCache.delete("commodities_list");
+        cache_1.InMemoryCache.delete(`commodity_by_id:${id}`);
         return res.json({ message: "Commodity configuration deleted successfully" });
     }
     catch (error) {

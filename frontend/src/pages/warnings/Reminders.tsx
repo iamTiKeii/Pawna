@@ -3,6 +3,8 @@ import axios from "axios";
 import { Clock, Search, Plus, Trash2, AlertCircle, RefreshCw } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { useConfirm } from "../../context/ConfirmContext";
+import { MoneyInput } from "../../components/shared/MoneyInput";
+import { toast } from "../../lib/toast";
 
 export const Reminders: React.FC = () => {
   const { activeStore } = useAuth();
@@ -57,6 +59,7 @@ export const Reminders: React.FC = () => {
         dueDate: dueDate ? new Date(dueDate).toISOString() : null,
         content,
       });
+      toast.success("Tạo nhắc nhở thành công!");
       setIsOpen(false);
       // Reset form
       setContractCode("");
@@ -68,7 +71,9 @@ export const Reminders: React.FC = () => {
       setContent("");
       fetchData();
     } catch (err: any) {
-      setFormError(err.response?.data?.error || "Không thể tạo nhắc nhở hẹn giờ.");
+      const errMsg = err.response?.data?.error || "Không thể tạo nhắc nhở hẹn giờ.";
+      setFormError(errMsg);
+      toast.error(errMsg);
     } finally {
       setFormLoading(false);
     }
@@ -91,9 +96,11 @@ export const Reminders: React.FC = () => {
   const handleResolve = async (id: string) => {
     try {
       await axios.put(`/api/warnings/reminders/${id}/resolve`);
+      toast.success("Đã xử lý nhắc nhở thành công!");
       fetchData();
     } catch (err: any) {
-      alert("Không thể cập nhật trạng thái nhắc nhở.");
+      const errMsg = err.response?.data?.error || "Không thể cập nhật trạng thái nhắc nhở.";
+      toast.error(errMsg);
     }
   };
 
@@ -316,14 +323,14 @@ export const Reminders: React.FC = () => {
 
                 <div className="form-control w-full">
                   <label className="label py-1">
-                    <span className="label-text text-slate-600 font-bold text-xs">Số tiền đang vay (đ)</span>
+                    <span className="label-text text-slate-600 font-bold text-xs">Số tiền đang vay</span>
                   </label>
-                  <input 
-                    type="number"
+                  <MoneyInput 
                     value={loanAmount}
-                    onChange={(e) => setLoanAmount(e.target.value)}
-                    className="input input-bordered input-sm bg-white border-slate-200 focus:outline-none focus:border-amber-500 text-slate-800 rounded-lg"
+                    onChange={(val) => setLoanAmount(String(val))}
                     placeholder="Số tiền gốc đang vay"
+                    suffix="đ"
+                    className="input-sm bg-white border-slate-200 focus:outline-none focus:border-amber-500 text-slate-800 rounded-lg"
                   />
                 </div>
               </div>
