@@ -202,12 +202,12 @@ export const InstallmentWarning: React.FC = () => {
                           {item.warning_reason}
                         </td>
                         <td className="px-4 py-3 text-center">
-                          <div className="flex flex-wrap gap-1 justify-center max-w-[200px] mx-auto">
+                          <div className="flex flex-wrap gap-1.5 justify-center max-w-[250px] mx-auto">
                             {[20, 40, 60, 80, 100, 120, 140, 160, 180, 200].map((k) => (
                               <button
                                 key={k}
                                 onClick={() => handleDirectQuickPay(item.id, k * 1000)}
-                                className="btn btn-emerald btn-xs hover:bg-emerald-600 text-white rounded px-1 py-0.5 h-auto min-h-0 font-bold text-[9px]"
+                                className="btn btn-xs min-h-0 h-7 px-2.5 bg-emerald-50 hover:bg-emerald-600 text-emerald-700 hover:text-white border border-emerald-200 hover:border-emerald-600 rounded-lg font-black text-[11px] transition-all duration-200 active:scale-95 shadow-sm"
                                 type="button"
                               >
                                 {k}k
