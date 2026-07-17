@@ -41,3 +41,72 @@ export function normalizeNumericInput(value: any): number {
   }
   return 0;
 }
+
+export function getPawnDetailedStatus(contract: any): { status: string; label: string } {
+  if (!contract) return { status: "unknown", label: "N/A" };
+  if (contract.status !== "active") {
+    const label = contract.status === "closed" ? "Đã tất toán" : contract.status === "liquidated" ? "Đã thanh lý" : contract.status;
+    return { status: contract.status, label };
+  }
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  // Tính ngày hết hạn
+  const loanDate = new Date(contract.loan_date);
+  const dueDate = new Date(loanDate.getTime() + contract.loan_days * 24 * 60 * 60 * 1000);
+  dueDate.setHours(0, 0, 0, 0);
+
+  const isOverdueContract = dueDate <= today;
+
+  // Lọc kỳ trễ đóng lãi
+  const overduePayments = (contract.interest_payments || []).filter(
+    (p: any) => !p.is_paid && new Date(p.to_date) < today
+  );
+  const hasOverdueInterest = overduePayments.length > 0;
+
+  if (isOverdueContract) {
+    return { status: "overdue_pawn_contract", label: "Đến ngày chuộc đồ" };
+  }
+  if (hasOverdueInterest) {
+    return { status: "overdue_pawn_interest", label: "Chậm lãi" };
+  }
+
+  return { status: "active", label: "Đang cầm" };
+}
+
+export function getUnsecuredDetailedStatus(contract: any): { status: string; label: string } {
+  if (!contract) return { status: "unknown", label: "N/A" };
+  if (contract.status !== "active") {
+    return { status: contract.status, label: "Đã tất toán" };
+  }
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  // Lọc kỳ trễ đóng lãi
+  const overduePayments = (contract.interest_payments || []).filter(
+    (p: any) => !p.is_paid && new Date(p.to_date) < today
+  );
+  const hasOverdueInterest = overduePayments.length > 0;
+
+  if (hasOverdueInterest) {
+    return { status: "overdue", label: "Nợ lãi" };
+  }
+
+  return { status: "active", label: "Bình thường" };
+}
+
+export function getInstallmentDetailedStatus(contract: any): { status: string; label: string } {
+  if (!contract) return { status: "unknown", label: "N/A" };
+  if (contract.status === "closed" || contract.status === "completed") {
+    return { status: "closed", label: "Đã đóng" };
+  }
+
+  const isOverdue = contract.is_overdue || contract.status === "overdue";
+  if (isOverdue) {
+    return { status: "overdue", label: "Chậm trả" };
+  }
+
+  return { status: "active", label: "Đang chạy" };
+}

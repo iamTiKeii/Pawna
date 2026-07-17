@@ -23,6 +23,7 @@ import {
 import { toast } from "../lib/toast";
 import { MoneyInput } from "../components/shared/MoneyInput";
 import { useAuth } from "../context/AuthContext";
+import { getInstallmentDetailedStatus } from "../utils/interestFormatter";
 import { LoadingOverlay } from "../components/shared/LoadingOverlay";
 import { useReactToPrint } from "react-to-print";
 import { getCompiledHtml } from "../services/print/PrintService";
@@ -1349,8 +1350,8 @@ export const InstallmentDetail: React.FC<InstallmentDetailProps> = ({
         <ContractHeader
           title="HĐ Trả Góp"
           code={contract.contract_code}
-          status={contract.status}
-          statusLabel={contract.status === "closed" ? "Đã đóng" : (contract.is_overdue || contract.status === "overdue") ? "Chậm trả" : "Đang hoạt động"}
+          status={getInstallmentDetailedStatus(contract).status}
+          statusLabel={getInstallmentDetailedStatus(contract).label}
           loanDate={new Date(contract.loan_date).toLocaleDateString("vi-VN")}
           customerName={contract.customer?.full_name}
           onRefresh={fetchContractDetails}

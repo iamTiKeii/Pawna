@@ -28,7 +28,7 @@ import { InstallmentDetail } from "./InstallmentDetail";
 import { toast } from "../lib/toast";
 import { CustomerHistoryModal } from "../components/shared/CustomerHistoryModal";
 import { useConfirm } from "../context/ConfirmContext";
-import { formatInterestRateText, normalizeNumericInput } from "../utils/interestFormatter";
+import { formatInterestRateText, normalizeNumericInput, getPawnDetailedStatus, getUnsecuredDetailedStatus } from "../utils/interestFormatter";
 import { LoadingOverlay } from "../components/shared/LoadingOverlay";
 import { getCompiledHtml } from "../services/print/PrintService";
 import { ContractForm, contractConfigs } from "../components/contracts";
@@ -1087,9 +1087,21 @@ export const Contracts: React.FC = () => {
                           </div>
                         </td>
                         <td>
-                          <span className={`badge badge-sm font-bold text-xs uppercase bg-blue-100 text-blue-700 border-none px-2 rounded`}>
-                            {item.status === "active" ? "Đang cầm" : "Đã tất toán"}
-                          </span>
+                          {(() => {
+                            const detailed = getPawnDetailedStatus(item);
+                            const badgeColor = detailed.status === "overdue_pawn_contract" 
+                              ? "bg-[#ef4444] text-white" 
+                              : detailed.status === "overdue_pawn_interest" 
+                              ? "bg-[#ff9800] text-white" 
+                              : item.status === "active"
+                              ? "bg-blue-100 text-blue-700"
+                              : "bg-slate-100 text-slate-500";
+                            return (
+                              <span className={`badge badge-sm font-bold text-xs uppercase border-none px-2 rounded ${badgeColor}`}>
+                                {detailed.label}
+                              </span>
+                            );
+                          })()}
                         </td>
                         <td className="text-right py-3.5">
                           <div className="flex items-center justify-end gap-1.5">
@@ -1242,15 +1254,19 @@ export const Contracts: React.FC = () => {
                           {nextPayDate ? nextPayDate.toLocaleDateString("vi-VN") : ""}
                         </td>
                         <td>
-                          <span className={`badge badge-sm font-bold uppercase text-[10px] ${
-                            item.status === "closed"
-                              ? "bg-slate-200 border-none text-slate-500"
-                              : isOverdue || accruedInt > 0
-                              ? "bg-amber-500 border-none text-white"
-                              : "bg-emerald-500 border-none text-white"
-                          } px-2 rounded`}>
-                            {item.status === "closed" ? "Đã đóng" : isOverdue || accruedInt > 0 ? "Nợ lãi" : "Bình thường"}
-                          </span>
+                          {(() => {
+                            const detailed = getUnsecuredDetailedStatus(item);
+                            const badgeColor = detailed.status === "closed"
+                              ? "bg-slate-200 text-slate-500"
+                              : detailed.status === "overdue"
+                              ? "bg-amber-500 text-white"
+                              : "bg-emerald-500 text-white";
+                            return (
+                              <span className={`badge badge-sm font-bold uppercase text-[10px] border-none px-2 rounded ${badgeColor}`}>
+                                {detailed.label}
+                              </span>
+                            );
+                          })()}
                         </td>
                         <td className="text-center py-2.5">
                           <div className="flex items-center justify-center gap-1">

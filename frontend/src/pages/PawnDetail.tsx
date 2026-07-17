@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import axios from "axios";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { useConfirm } from "../context/ConfirmContext";
-import { formatInterestRateText } from "../utils/interestFormatter";
+import { formatInterestRateText, getPawnDetailedStatus } from "../utils/interestFormatter";
 import { LoadingOverlay } from "../components/shared/LoadingOverlay";
 import {
   Trash,
@@ -1598,8 +1598,8 @@ export const PawnDetail: React.FC<PawnDetailProps> = ({ idProp, onClose, isModal
         <ContractHeader
           title="HĐ Cầm Đồ"
           code={contract.contract_code}
-          status={contract.status}
-          statusLabel={contract.status === "active" ? "Đang cầm" : "Đã tất toán"}
+          status={getPawnDetailedStatus(contract).status}
+          statusLabel={getPawnDetailedStatus(contract).label}
           loanDate={new Date(contract.loan_date).toLocaleDateString("vi-VN")}
           customerName={contract.customer?.full_name}
           onRefresh={fetchContractDetails}

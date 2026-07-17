@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import axios from "axios";
 import { useParams, Link } from "react-router-dom";
 import { useConfirm } from "../context/ConfirmContext";
-import { formatInterestRateText } from "../utils/interestFormatter";
+import { formatInterestRateText, getUnsecuredDetailedStatus } from "../utils/interestFormatter";
 import { LoadingOverlay } from "../components/shared/LoadingOverlay";
 import {
   Upload,
@@ -1148,8 +1148,8 @@ export const UnsecuredDetail: React.FC<UnsecuredDetailProps> = ({ idProp, onClos
         <ContractHeader
           title="HĐ Tín Chấp"
           code={contract.contract_code}
-          status={contract.status}
-          statusLabel={contract.status === "active" ? "Nợ lãi" : "Đã tất toán"}
+          status={getUnsecuredDetailedStatus(contract).status}
+          statusLabel={getUnsecuredDetailedStatus(contract).label}
           loanDate={new Date(contract.loan_date).toLocaleDateString("vi-VN")}
           customerName={contract.customer?.full_name}
           onRefresh={fetchContractDetails}
