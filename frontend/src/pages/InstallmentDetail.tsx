@@ -146,7 +146,7 @@ export const InstallmentDetail: React.FC<InstallmentDetailProps> = ({
         delete copy[paymentId];
         return copy;
       });
-      await fetchContractDetails();
+      await fetchContractDetails(true);
     } catch (err: any) {
       setError(err.response?.data?.error || "Lỗi thu góp kỳ.");
     } finally {
@@ -154,9 +154,9 @@ export const InstallmentDetail: React.FC<InstallmentDetailProps> = ({
     }
   };
 
-  const fetchContractDetails = async () => {
+  const fetchContractDetails = async (silent = false) => {
     try {
-      setLoading(true);
+      if (!silent) setLoading(true);
       setError("");
       const [contractRes, storesRes] = await Promise.all([
         axios.get(`/api/contracts/installment/${id}`),
@@ -167,7 +167,7 @@ export const InstallmentDetail: React.FC<InstallmentDetailProps> = ({
     } catch (err: any) {
       setError(err.response?.data?.error || "Không thể tải chi tiết hợp đồng.");
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
 
@@ -188,7 +188,7 @@ export const InstallmentDetail: React.FC<InstallmentDetailProps> = ({
           setError("");
           setSuccess("");
           await axios.post(`/api/contracts/installment/${id}/cancel-pay`, { paymentId });
-          await fetchContractDetails();
+          await fetchContractDetails(true);
         } catch (err: any) {
           setError(err.response?.data?.error || "Lỗi hủy thu góp kỳ.");
         } finally {
