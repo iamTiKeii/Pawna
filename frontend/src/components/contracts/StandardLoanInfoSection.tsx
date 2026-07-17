@@ -43,32 +43,37 @@ export const StandardLoanInfoSection: React.FC<StandardLoanInfoSectionProps> = (
 
   // Dynamic loan duration label & suffix
   let loanDurationLabel = "Số ngày vay";
+  if (config.type === "pawn") {
+    loanDurationLabel = "Thời hạn cầm";
+  } else if (config.type === "unsecured") {
+    loanDurationLabel = "Thời hạn vay";
+  }
   let loanDurationSuffix = "ngày";
   let loanDurationPlaceholder = "Ví dụ: 30";
 
   if (periodType === "monthly") {
-    loanDurationLabel = "Số tháng vay";
+    loanDurationLabel = config.type === "pawn" ? "Thời hạn cầm" : config.type === "unsecured" ? "Thời hạn vay" : "Số tháng vay";
     loanDurationSuffix = "tháng";
     loanDurationPlaceholder = "Ví dụ: 3";
   } else if (periodType === "weekly") {
-    loanDurationLabel = "Số tuần vay";
+    loanDurationLabel = config.type === "pawn" ? "Thời hạn cầm" : config.type === "unsecured" ? "Thời hạn vay" : "Số tuần vay";
     loanDurationSuffix = "tuần";
     loanDurationPlaceholder = "Ví dụ: 4";
   }
 
   // Dynamic interest period label & suffix
-  let interestPeriodLabel = "Kỳ lãi";
+  let interestPeriodLabel = "Kỳ đóng lãi";
   let interestPeriodSuffix = "ngày";
   let interestPeriodHelper = "(VD: 10 ngày đóng lãi 1 lần thì điền số 10)";
   let interestPeriodPlaceholder = "10";
 
   if (periodType === "monthly") {
-    interestPeriodLabel = "Kỳ lãi (tháng)";
+    interestPeriodLabel = "Kỳ đóng lãi";
     interestPeriodSuffix = "tháng";
     interestPeriodHelper = "(VD: 1 tháng đóng lãi 1 lần thì điền số 1)";
     interestPeriodPlaceholder = "1";
   } else if (periodType === "weekly") {
-    interestPeriodLabel = "Kỳ lãi (tuần)";
+    interestPeriodLabel = "Kỳ đóng lãi";
     interestPeriodSuffix = "tuần";
     interestPeriodHelper = "(VD: 1 tuần đóng lãi 1 lần thì điền số 1)";
     interestPeriodPlaceholder = "1";
@@ -76,25 +81,28 @@ export const StandardLoanInfoSection: React.FC<StandardLoanInfoSectionProps> = (
 
   // Dynamic interest rate config
   const getInterestConfig = () => {
+    const isPawn = config.type === "pawn";
+    const rateLabel = isPawn ? "Lãi phí" : "Lãi suất";
+
     if (!selectedInterestType) {
-      return { label: "Lãi phí", suffix: "k / 1 triệu / ngày", placeholder: "1" };
+      return { label: rateLabel, suffix: "k / 1 triệu / ngày", placeholder: "1" };
     }
     const code = selectedInterestType.code;
     switch (code) {
       case "daily_k_million":
-        return { label: "Lãi phí (k/triệu/ngày)", suffix: "k / 1 triệu / ngày", placeholder: "VD: 3" };
+        return { label: isPawn ? "Lãi phí (k/triệu/ngày)" : "Lãi suất (k/triệu/ngày)", suffix: "k / 1 triệu / ngày", placeholder: "VD: 3" };
       case "daily_k_day":
-        return { label: "Lãi phí (k/ngày)", suffix: "k / ngày", placeholder: "VD: 5" };
+        return { label: isPawn ? "Lãi phí (k/ngày)" : "Lãi suất (k/ngày)", suffix: "k / ngày", placeholder: "VD: 5" };
       case "monthly_percent_30":
         return { label: "Lãi suất (%/tháng)", suffix: "% / tháng", placeholder: "1" };
       case "monthly_percent_periodic":
         return { label: "Lãi suất (%/tháng)", suffix: "% / tháng", placeholder: "1" };
       case "monthly_amount_periodic":
-        return { label: "Lãi phí (k/tháng)", suffix: "k / tháng", placeholder: "VD: 500" };
+        return { label: isPawn ? "Lãi phí (k/tháng)" : "Lãi suất (k/tháng)", suffix: "k / tháng", placeholder: "VD: 500" };
       case "weekly_percent":
         return { label: "Lãi suất (%/tuần)", suffix: "% / tuần", placeholder: "1" };
       case "weekly_amount":
-        return { label: "Lãi phí (k/tuần)", suffix: "k / tuần", placeholder: "VD: 50" };
+        return { label: isPawn ? "Lãi phí (k/tuần)" : "Lãi suất (k/tuần)", suffix: "k / tuần", placeholder: "VD: 50" };
       case "flat_rate_monthly":
         return { label: "Lãi suất (%/tháng)", suffix: "% / tháng", placeholder: "1" };
       case "flat_rate_daily":
@@ -103,7 +111,7 @@ export const StandardLoanInfoSection: React.FC<StandardLoanInfoSectionProps> = (
       case "reducing_balance_fixed_principal":
         return { label: "Lãi suất (%/tháng)", suffix: "% / tháng", placeholder: "1" };
       default:
-        return { label: "Lãi phí", suffix: "k / 1 triệu / ngày", placeholder: "1" };
+        return { label: rateLabel, suffix: "k / 1 triệu / ngày", placeholder: "1" };
     }
   };
 
@@ -116,7 +124,7 @@ export const StandardLoanInfoSection: React.FC<StandardLoanInfoSectionProps> = (
         {config.showGoods && (
           <div className="flex items-center">
             <label className={labelClass}>
-              Loại tài sản <span className="text-red-500">*</span>
+              {config.type === "unsecured" ? "Hình thức bảo đảm" : "Loại tài sản"} <span className="text-red-500">*</span>
             </label>
             <div className="grow">
               <select
@@ -166,7 +174,7 @@ export const StandardLoanInfoSection: React.FC<StandardLoanInfoSectionProps> = (
         {/* Row 2: 3. Tổng tiền vay * & Quick buttons */}
         <div className="flex items-center">
           <label className={labelClass}>
-            Tổng tiền vay <span className="text-red-500">*</span>
+            {config.type === "pawn" ? "Tiền cầm" : config.type === "unsecured" ? "Số tiền vay" : "Tổng tiền vay"} <span className="text-red-500">*</span>
           </label>
           <div className="grow">
             <div className="flex items-center border border-slate-200 rounded-lg overflow-hidden bg-white w-full max-w-md h-10">
@@ -347,7 +355,7 @@ export const StandardLoanInfoSection: React.FC<StandardLoanInfoSectionProps> = (
         {/* Row 7: 8. Ngày vay * & empty cell */}
         <div className="flex items-center">
           <label className={labelClass}>
-            Ngày vay <span className="text-red-500">*</span>
+            {config.type === "pawn" ? "Ngày cầm" : config.type === "unsecured" ? "Ngày giải ngân" : "Ngày vay"} <span className="text-red-500">*</span>
           </label>
           <div className="grow">
             <input
