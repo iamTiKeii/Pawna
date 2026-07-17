@@ -26,54 +26,85 @@ router.get("/pawn", async (req: AuthenticatedRequest, res: Response) => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    // Find pawn contracts in active store with unpaid cycles that have passed
+    // Find all active pawn contracts in this store
     const contracts = await prisma.pawnContract.findMany({
       where: {
         store_id: req.user!.store_id,
         status: "active",
         ...getSearchFilter(search),
-        interest_payments: {
-          some: {
-            is_paid: false,
-            to_date: { lt: today },
-          }
-        }
       },
       include: {
         customer: true,
         interest_payments: {
-          where: {
-            is_paid: false,
-            to_date: { lt: today },
-          },
+          where: { is_paid: false },
         }
       }
     });
 
-    const result = contracts.map((c) => {
+    const result: any[] = [];
+    for (const c of contracts) {
       const debtVal = Number(c.debt_amount || 0);
       const loanVal = Number(c.loan_amount || 0);
-      // Sum expected interest for all overdue unpaid cycles
-      const interestDue = c.interest_payments.reduce(
-        (sum: number, p: any) => sum + Number(p.expected_interest || 0), 0
-      );
-      const totalDue = loanVal + interestDue + debtVal;
-      const overdueCycles = c.interest_payments.length;
 
-      return {
-        id: c.id,
-        contract_code: c.contract_code,
-        customer: c.customer,
-        asset_name: c.asset_name,
-        asset_code: c.license_plate || c.chassis_number || "",
-        debt_amount: debtVal,
-        interest_due: interestDue,
-        loan_amount: loanVal,
-        total_due: totalDue,
-        warning_reason: `Chậm đóng tiền lãi (${overdueCycles} kỳ)`,
-        status: "Quá hạn đóng lãi",
-      };
-    });
+      // Tính ngày hết hạn vay (dueDate = loan_date + loan_days)
+      const loanDate = new Date(c.loan_date);
+      const dueDate = new Date(loanDate.getTime() + c.loan_days * 24 * 60 * 60 * 1000);
+      dueDate.setHours(0, 0, 0, 0);
+
+      const isOverdueContract = dueDate <= today;
+
+      // Lọc các kỳ lãi quá hạn
+      const overduePayments = c.interest_payments.filter(p => new Date(p.to_date) < today);
+      const hasOverdueInterest = overduePayments.length > 0;
+
+      if (hasOverdueInterest || isOverdueContract) {
+        const interestDue = overduePayments.reduce(
+          (sum: number, p: any) => sum + Number(p.expected_interest || 0), 0
+        );
+
+        // Nghiệp vụ: Tiền gốc chỉ hiển thị khi đến ngày chuộc đồ (overdue contract)
+        const principalDue = isOverdueContract ? loanVal : 0;
+        const totalDue = debtVal + interestDue + principalDue;
+
+        // Tính số ngày trễ
+        let daysOverdue = 0;
+        if (isOverdueContract) {
+          daysOverdue = Math.max(1, Math.round((today.getTime() - dueDate.getTime()) / (24 * 60 * 60 * 1000)));
+        } else if (overduePayments.length > 0) {
+          const minToDate = new Date(Math.min(...overduePayments.map(p => new Date(p.to_date).getTime())));
+          daysOverdue = Math.max(1, Math.round((today.getTime() - minToDate.getTime()) / (24 * 60 * 60 * 1000)));
+        }
+
+        let statusText = "Chậm lãi";
+        let warningReason = "";
+
+        if (isOverdueContract) {
+          statusText = "Đến ngày chuộc đồ";
+          warningReason = `Chậm ${daysOverdue} ngày đóng tiền. `;
+          if (interestDue > 0) {
+            warningReason += `Đóng ${interestDue.toLocaleString("vi-VN")} tiền lãi.`;
+          }
+          warningReason += `Hôm nay trả gốc số tiền : ${loanVal.toLocaleString("vi-VN")}.`;
+        } else {
+          statusText = "Chậm lãi";
+          warningReason = `Chậm ${daysOverdue} ngày đóng tiền. Đóng ${interestDue.toLocaleString("vi-VN")} tiền lãi.`;
+        }
+
+        result.push({
+          id: c.id,
+          contract_code: c.contract_code,
+          customer: c.customer,
+          asset_name: c.asset_name,
+          asset_code: c.license_plate || c.chassis_number || "",
+          debt_amount: debtVal,
+          interest_due: interestDue,
+          loan_amount: principalDue,
+          total_due: totalDue,
+          warning_reason: warningReason,
+          status: statusText,
+        });
+      }
+    }
 
     return res.json(result);
   } catch (error: any) {
@@ -279,19 +310,32 @@ router.get("/summary", async (req: AuthenticatedRequest, res: Response) => {
 
     const storeId = req.user!.store_id;
 
-    // 1. Pawn warnings count
-    const pawnCount = await prisma.pawnContract.count({
+    // 1. Pawn warnings count (including overdue contracts and overdue interest payments)
+    const pawnContracts = await prisma.pawnContract.findMany({
       where: {
         store_id: storeId,
         status: "active",
+      },
+      include: {
         interest_payments: {
-          some: {
-            is_paid: false,
-            to_date: { lt: today }
-          }
+          where: { is_paid: false }
         }
       }
     });
+
+    let pawnCount = 0;
+    for (const c of pawnContracts) {
+      const loanDate = new Date(c.loan_date);
+      const dueDate = new Date(loanDate.getTime() + c.loan_days * 24 * 60 * 60 * 1000);
+      dueDate.setHours(0, 0, 0, 0);
+
+      const isOverdueContract = dueDate <= today;
+      const hasOverdueInterest = c.interest_payments.some(p => new Date(p.to_date) < today);
+
+      if (isOverdueContract || hasOverdueInterest) {
+        pawnCount++;
+      }
+    }
 
     // 2. Loan warnings count
     const loanCount = await prisma.unsecuredContract.count({

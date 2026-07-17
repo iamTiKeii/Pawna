@@ -32,8 +32,8 @@ export const PawnWarning: React.FC = () => {
     fetchData();
   }, [activeStore, search]);
 
-  const formatCurrency = (val: any) => {
-    return Number(val || 0).toLocaleString("vi-VN") + " đ";
+  const formatNumber = (val: any) => {
+    return Number(val || 0).toLocaleString("en-US");
   };
 
   return (
@@ -78,11 +78,10 @@ export const PawnWarning: React.FC = () => {
           <table className="table table-zebra w-full text-slate-700">
             <thead className="bg-slate-50 border-b border-slate-100 text-slate-600 font-bold text-xs uppercase">
               <tr>
+                <th className="px-4 py-3 text-center w-12">#</th>
                 <th className="px-4 py-3 text-left">Mã HĐ</th>
                 <th className="px-4 py-3 text-left">Khách hàng</th>
-                <th className="px-4 py-3 text-left">SĐT</th>
                 <th className="px-4 py-3 text-left">Địa chỉ</th>
-                <th className="px-4 py-3 text-left">Mã TS</th>
                 <th className="px-4 py-3 text-left">Tài sản</th>
                 <th className="px-4 py-3 text-right">Nợ cũ</th>
                 <th className="px-4 py-3 text-right">Tiền lãi</th>
@@ -96,55 +95,106 @@ export const PawnWarning: React.FC = () => {
             <tbody>
               {list.length === 0 ? (
                 <tr>
-                  <td colSpan={13} className="text-center py-10 text-slate-500 text-sm font-semibold">
+                  <td colSpan={12} className="text-center py-10 text-slate-500 text-sm font-semibold">
                     Không có dữ liệu hợp đồng cầm đồ cảnh báo
                   </td>
                 </tr>
               ) : (
-                list.map((item) => (
-                  <tr key={item.id} className="hover:bg-slate-50 border-b border-slate-100">
-                    <td className="px-4 py-3 font-bold text-amber-600">{item.contract_code}</td>
-                    <td className="px-4 py-3 font-semibold">{item.customer?.full_name}</td>
-                    <td className="px-4 py-3">{item.customer?.phone}</td>
-                    <td className="px-4 py-3 truncate max-w-[120px]">{item.customer?.address}</td>
-                    <td className="px-4 py-3 font-mono text-xs">{item.asset_code || "N/A"}</td>
-                    <td className="px-4 py-3">{item.asset_name || "N/A"}</td>
-                    <td className="px-4 py-3 text-right text-red-500 font-bold">{formatCurrency(item.debt_amount)}</td>
-                    <td className="px-4 py-3 text-right font-bold">{formatCurrency(item.interest_due)}</td>
-                    <td className="px-4 py-3 text-right font-bold">{formatCurrency(item.loan_amount)}</td>
-                    <td className="px-4 py-3 text-right text-slate-800 font-bold">{formatCurrency(item.total_due)}</td>
-                    <td className="px-4 py-3 text-slate-500 text-xs truncate max-w-[150px]">{item.warning_reason}</td>
-                    <td className="px-4 py-3">
-                      <span className="badge badge-error badge-sm text-white font-bold">{item.status}</span>
+                <>
+                  {list.map((item, index) => {
+                    const isDebtNegative = Number(item.debt_amount || 0) !== 0;
+                    return (
+                      <tr key={item.id} className="hover:bg-slate-50 border-b border-slate-100 text-[13px]">
+                        <td className="px-4 py-3 text-center">{index + 1}</td>
+                        <td className="px-4 py-3 font-bold text-slate-700">{item.contract_code}</td>
+                        <td className="px-4 py-3 font-semibold">
+                          <button
+                            onClick={() => {
+                              setSelectedContractId(item.id);
+                              setSelectedTab("interest");
+                            }}
+                            className="text-[#3b82f6] font-bold hover:underline text-left focus:outline-none"
+                            type="button"
+                          >
+                            {item.customer?.full_name}
+                          </button>
+                        </td>
+                        <td className="px-4 py-3 truncate max-w-[120px]">{item.customer?.address || ""}</td>
+                        <td className="px-4 py-3">{item.asset_name || "N/A"}</td>
+                        <td className={`px-4 py-3 text-right font-bold ${isDebtNegative ? "text-red-500" : "text-slate-800"}`}>
+                          {formatNumber(item.debt_amount)}
+                        </td>
+                        <td className="px-4 py-3 text-right text-red-500 font-bold">{formatNumber(item.interest_due)}</td>
+                        <td className="px-4 py-3 text-right text-red-500 font-bold">{formatNumber(item.loan_amount)}</td>
+                        <td className="px-4 py-3 text-right text-blue-500 font-bold">{formatNumber(item.total_due)}</td>
+                        <td className="px-4 py-3 text-slate-500 text-xs truncate max-w-[200px]" title={item.warning_reason}>
+                          {item.warning_reason}
+                        </td>
+                        <td className="px-4 py-3">
+                          {item.status === "Đến ngày chuộc đồ" ? (
+                            <span className="badge border-none bg-[#ef4444] text-white text-[10px] font-bold uppercase rounded p-1.5 h-auto leading-none">
+                              Đến ngày chuộc đồ
+                            </span>
+                          ) : (
+                            <span className="badge border-none bg-[#ff9800] text-white text-[10px] font-bold uppercase rounded p-1.5 h-auto leading-none">
+                              Chậm lãi
+                            </span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3 text-center">
+                          <div className="flex gap-2 justify-center">
+                            <button
+                              onClick={() => {
+                                setSelectedContractId(item.id);
+                                setSelectedTab("history");
+                              }}
+                              className="btn btn-sm btn-ghost bg-slate-100 hover:bg-slate-200 text-slate-600 p-1.5 h-8 w-8 rounded-lg flex items-center justify-center"
+                              title="Lịch sử nhắc nợ"
+                              type="button"
+                            >
+                              <MessageSquare className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => {
+                                setSelectedContractId(item.id);
+                                setSelectedTab("interest");
+                              }}
+                              className="btn btn-sm btn-ghost bg-slate-100 hover:bg-slate-200 text-amber-500 p-1.5 h-8 w-8 rounded-lg flex items-center justify-center"
+                              title="Đóng tiền lãi"
+                              type="button"
+                            >
+                              <Coins className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+
+                  {/* Summary Row */}
+                  <tr className="bg-[#fffbeb] font-bold text-slate-800 border-t border-slate-200 text-[13px]">
+                    <td className="px-4 py-3 text-center"></td>
+                    <td className="px-4 py-3"></td>
+                    <td className="px-4 py-3"></td>
+                    <td className="px-4 py-3"></td>
+                    <td className="px-4 py-3 font-black text-slate-800">Tổng tiền</td>
+                    <td className="px-4 py-3 text-right text-red-500 font-black">
+                      {formatNumber(list.reduce((sum, item) => sum + Number(item.debt_amount || 0), 0))}
                     </td>
-                    <td className="px-4 py-3 text-center">
-                      <div className="flex gap-2 justify-center">
-                        <button
-                          onClick={() => {
-                            setSelectedContractId(item.id);
-                            setSelectedTab("history");
-                          }}
-                          className="btn btn-sm btn-ghost bg-slate-100 hover:bg-slate-200 text-slate-600 p-1.5 h-8 w-8 rounded-lg flex items-center justify-center"
-                          title="Lịch sử nhắc nợ"
-                          type="button"
-                        >
-                          <MessageSquare className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => {
-                            setSelectedContractId(item.id);
-                            setSelectedTab("interest");
-                          }}
-                          className="btn btn-sm btn-ghost bg-slate-100 hover:bg-slate-200 text-amber-500 p-1.5 h-8 w-8 rounded-lg flex items-center justify-center"
-                          title="Đóng tiền lãi"
-                          type="button"
-                        >
-                          <Coins className="w-4 h-4" />
-                        </button>
-                      </div>
+                    <td className="px-4 py-3 text-right text-red-500 font-black">
+                      {formatNumber(list.reduce((sum, item) => sum + Number(item.interest_due || 0), 0))}
                     </td>
+                    <td className="px-4 py-3 text-right text-red-500 font-black">
+                      {formatNumber(list.reduce((sum, item) => sum + Number(item.loan_amount || 0), 0))}
+                    </td>
+                    <td className="px-4 py-3 text-right text-blue-600 font-black">
+                      {formatNumber(list.reduce((sum, item) => sum + Number(item.total_due || 0), 0))}
+                    </td>
+                    <td className="px-4 py-3"></td>
+                    <td className="px-4 py-3"></td>
+                    <td className="px-4 py-3"></td>
                   </tr>
-                ))
+                </>
               )}
             </tbody>
           </table>
