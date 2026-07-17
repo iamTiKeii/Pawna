@@ -212,14 +212,14 @@ export function getInstallmentDetailedStatus(contract: any): { status: string; l
     return { status: "overdue_installment_bad_debt", label: "Nợ xấu" };
   }
 
-  // 2. Chậm họ (Nợ kỳ)
+  // 2. Chậm đóng (Nợ kỳ)
   if (overdueCount > 0) {
-    return { status: "overdue_installment_cycle", label: "Chậm họ" };
+    return { status: "overdue_installment_cycle", label: "Chậm đóng" };
   }
 
-  // 3. Hôm nay đóng họ (Đến kỳ)
+  // 3. Hôm nay đóng tiền (Đến kỳ)
   if (todayPayments.length > 0) {
-    return { status: "today_installment_due", label: "Hôm nay đóng họ" };
+    return { status: "today_installment_due", label: "Hôm nay đóng tiền" };
   }
 
   // 4. Đang trả góp

@@ -140,7 +140,7 @@ export const ContractLoanSection: React.FC<LoanSectionProps> = ({
           {/* Duration */}
           <div className="flex items-center">
             <label className={labelClass}>
-              Bốc trong vòng <span className="text-red-500">*</span>
+              Thời gian vay <span className="text-red-500">*</span>
             </label>
             <div className="grow flex items-center border border-slate-200 rounded-lg overflow-hidden bg-white w-full max-w-md h-10">
               <input
