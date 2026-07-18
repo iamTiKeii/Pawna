@@ -208,7 +208,7 @@ export const Contracts: React.FC = () => {
       headers = [
         "#", "Mã HĐ", "Khách hàng", "SĐT", "CMND/CCCD", "Mã TS", "Tài sản", 
         "Tiền cầm", "Lãi suất", "Ngày cầm", "Lãi đã đóng", "Tiền nợ", 
-        "Lãi đến hôm nay", "Ngày phải đóng", "Tình trạng"
+        "Lãi tạm tính", "Ngày phải đóng", "Tình trạng"
       ];
       alignments = [
         "center", "center", "left", "center", "center", "center", "left", 
@@ -269,7 +269,7 @@ export const Contracts: React.FC = () => {
       headers = [
         "#", "Mã HĐ", "Khách hàng", "SĐT", "CMND/CCCD", "Tài sản", 
         "Tiền vay", "Tổng phải thu", "Ngày vay", "Lãi đã đóng", "Tiền nợ", 
-        "Lãi đến hôm nay", "Ngày phải đóng", "Trạng thái"
+        "Lãi tạm tính", "Ngày phải đóng", "Trạng thái"
       ];
       alignments = [
         "center", "center", "left", "center", "center", "left", 
@@ -1151,7 +1151,7 @@ export const Contracts: React.FC = () => {
                     <th className="py-3">Ngày cầm</th>
                     <th className="py-3">Lãi đã đóng</th>
                     <th className="py-3">Tiền nợ</th>
-                    <th className="py-3">Lãi đến hôm nay</th>
+                    <th className="py-3">Lãi tạm tính</th>
                     <th className="py-3">Ngày phải đóng</th>
                     <th className="py-3">Tình trạng</th>
                     <th className="py-3 text-right">Chức năng</th>
@@ -1319,7 +1319,7 @@ export const Contracts: React.FC = () => {
                     <th>Ngày vay</th>
                     <th>Lãi đã đóng</th>
                     <th>Nợ cũ</th>
-                    <th>Lãi đến hôm nay</th>
+                    <th>Lãi tạm tính</th>
                     <th>Ngày phải đóng</th>
                     <th>Tình trạng</th>
                     <th className="w-20 text-center">Chức năng</th>
