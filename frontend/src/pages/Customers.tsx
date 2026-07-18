@@ -1,3 +1,4 @@
+import { ModalPortal } from "../components/shared/ModalPortal";
 import React, { useEffect, useState } from "react";
 import axios from "axios";
 import { Plus, Search, Edit3, X, Upload, List, AlertOctagon, CheckCircle } from "lucide-react";
@@ -707,8 +708,7 @@ export const Customers: React.FC = () => {
       )}
 
       {/* CREATE MODAL */}
-      {isCreateOpen && (
-        <div className="modal modal-open">
+      <ModalPortal isOpen={isCreateOpen}>
           <div className="modal-box bg-white border border-slate-200 text-slate-800 rounded-2xl max-w-2xl p-0 overflow-hidden shadow-2xl">
             {/* Header */}
             <div className="flex justify-between items-center px-6 py-4 border-b border-slate-100">
@@ -1025,12 +1025,10 @@ export const Customers: React.FC = () => {
               </div>
             </form>
           </div>
-        </div>
-      )}
+        </ModalPortal>
 
       {/* EDIT MODAL */}
-      {isEditOpen && (
-        <div className="modal modal-open">
+      <ModalPortal isOpen={isEditOpen}>
           <div className="modal-box bg-white border border-slate-200 text-slate-800 rounded-2xl max-w-2xl p-0 overflow-hidden shadow-2xl">
             {/* Header */}
             <div className="flex justify-between items-center px-6 py-4 border-b border-slate-100">
@@ -1358,12 +1356,10 @@ export const Customers: React.FC = () => {
               </div>
             </form>
           </div>
-        </div>
-      )}
+        </ModalPortal>
 
       {/* CUSTOMER CONTRACTS LIST MODAL (Image 3) */}
-      {isContractsOpen && (
-        <div className="modal modal-open">
+      <ModalPortal isOpen={isContractsOpen}>
           <div className="modal-box bg-white border border-slate-200 text-slate-800 rounded-2xl max-w-5xl p-0 overflow-hidden shadow-2xl">
             {/* Header */}
             <div className="flex justify-between items-center px-6 py-4 border-b border-slate-100">
@@ -1497,12 +1493,10 @@ export const Customers: React.FC = () => {
               )}
             </div>
           </div>
-        </div>
-      )}
+        </ModalPortal>
 
       {/* UPLOAD CUSTOMER PHOTO TO GOOGLE DRIVE MODAL (Image 4) */}
-      {isUploadOpen && (
-        <div className="modal modal-open">
+      <ModalPortal isOpen={isUploadOpen}>
           <div className="modal-box bg-white border border-slate-200 text-slate-800 rounded-2xl max-w-xl p-0 overflow-hidden shadow-2xl">
             {/* Header */}
             <div className="flex justify-between items-center px-6 py-4 border-b border-slate-100">
@@ -1603,8 +1597,7 @@ export const Customers: React.FC = () => {
               </div>
             </div>
           </div>
-        </div>
-      )}
+        </ModalPortal>
 
       {/* BLACKLIST CUSTOMER MODAL */}
       {isBlacklistOpen && blacklistCustomer && (

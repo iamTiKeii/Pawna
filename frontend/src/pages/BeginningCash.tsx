@@ -1,3 +1,4 @@
+import { ModalPortal } from "../components/shared/ModalPortal";
 import React, { useEffect, useState } from "react";
 import axios from "axios";
 import { Wrench, X, ArrowUpDown, ChevronLeft, ChevronRight } from "lucide-react";
@@ -360,8 +361,7 @@ export const BeginningCash: React.FC = () => {
       </div>
 
       {/* Modal 1: Nhập lại quỹ tiền mặt */}
-      {isAdjustModalOpen && (
-        <div className="modal modal-open">
+      <ModalPortal isOpen={isAdjustModalOpen}>
           <div className="modal-box bg-white max-w-md p-6 rounded-2xl relative shadow-xl">
             <button
               onClick={() => setIsAdjustModalOpen(false)}
@@ -401,12 +401,10 @@ export const BeginningCash: React.FC = () => {
               </div>
             </form>
           </div>
-        </div>
-      )}
+        </ModalPortal>
 
       {/* Modal 2: Cập nhật tiền đầu ngày */}
-      {isBeginningModalOpen && (
-        <div className="modal modal-open">
+      <ModalPortal isOpen={isBeginningModalOpen}>
           <div className="modal-box bg-white max-w-md p-6 rounded-2xl relative shadow-xl">
             <button
               onClick={() => setIsBeginningModalOpen(false)}
@@ -446,8 +444,7 @@ export const BeginningCash: React.FC = () => {
               </div>
             </form>
           </div>
-        </div>
-      )}
+        </ModalPortal>
     </div>
   );
 };

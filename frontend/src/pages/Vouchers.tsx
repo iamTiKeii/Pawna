@@ -1,3 +1,4 @@
+import { ModalPortal } from "../components/shared/ModalPortal";
 import React, { useEffect, useState, useRef } from "react";
 import axios from "axios";
 import { Plus, Search, Printer, X, Trash2 } from "lucide-react";
@@ -341,8 +342,7 @@ export const Vouchers: React.FC = () => {
       )}
 
       {/* CREATE MODAL */}
-      {isCreateOpen && (
-        <div className="modal modal-open">
+      <ModalPortal isOpen={isCreateOpen}>
           <div className="modal-box bg-white border border-slate-200 text-slate-800 rounded-2xl max-w-lg p-0 overflow-hidden shadow-2xl">
             {/* Modal Header */}
             <div className="flex justify-between items-center px-6 py-4 border-b border-slate-100">
@@ -446,12 +446,10 @@ export const Vouchers: React.FC = () => {
               </div>
             </form>
           </div>
-        </div>
-      )}
+        </ModalPortal>
 
       {/* PRINT PREVIEW MODAL */}
-      {activePrintVoucher && (
-        <div className="modal modal-open">
+      <ModalPortal isOpen={!!activePrintVoucher}>
           <div className="modal-box bg-white border border-slate-200 text-slate-800 rounded-2xl max-w-sm p-4">
             <div className="flex justify-between items-center pb-2 border-b border-slate-150 mb-4">
               <span className="font-bold text-xs text-slate-500">Biên nhận in K80</span>
@@ -550,8 +548,7 @@ export const Vouchers: React.FC = () => {
               </button>
             </div>
           </div>
-        </div>
-      )}
+        </ModalPortal>
     </div>
   );
 };

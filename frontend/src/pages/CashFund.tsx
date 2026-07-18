@@ -1,3 +1,4 @@
+import { ModalPortal } from "../components/shared/ModalPortal";
 import React, { useEffect, useState } from "react";
 import axios from "axios";
 import { useAuth } from "../context/AuthContext";
@@ -254,8 +255,7 @@ export const CashFund: React.FC = () => {
       </div>
 
       {/* ADJUSTMENT MODAL */}
-      {isAdjustOpen && (
-        <div className="modal modal-open">
+      <ModalPortal isOpen={isAdjustOpen}>
           <div className="modal-box bg-white border border-slate-200 border border-slate-200/80 text-slate-800 rounded-2xl">
             <h3 className="font-extrabold text-lg text-amber-500 mb-4">Điều Chỉnh Quỹ Két Thủ Công</h3>
             <form onSubmit={handleAdjust} className="space-y-4">
@@ -299,12 +299,10 @@ export const CashFund: React.FC = () => {
               </div>
             </form>
           </div>
-        </div>
-      )}
+        </ModalPortal>
 
       {/* CASH CLOSING & DENOMINATION COUNTING MODAL */}
-      {isCloseModalOpen && (
-        <div className="modal modal-open">
+      <ModalPortal isOpen={isCloseModalOpen}>
           <div className="modal-box bg-white border border-slate-200 text-slate-800 rounded-2xl max-w-2xl p-0 overflow-hidden shadow-2xl">
             {/* Header */}
             <div className="flex justify-between items-center px-6 py-4 border-b border-slate-100 bg-amber-500/5">
@@ -427,8 +425,7 @@ export const CashFund: React.FC = () => {
               </div>
             </form>
           </div>
-        </div>
-      )}
+        </ModalPortal>
     </div>
   );
 };

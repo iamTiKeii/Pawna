@@ -1,3 +1,4 @@
+import { ModalPortal } from "../../components/shared/ModalPortal";
 import React, { useState, useEffect } from "react";
 import axios from "axios";
 import { Clock, Search, Plus, Trash2, AlertCircle, RefreshCw } from "lucide-react";
@@ -253,8 +254,7 @@ export const Reminders: React.FC = () => {
       </div>
 
       {/* Creation Modal */}
-      {isOpen && (
-        <div className="modal modal-open z-50">
+      <ModalPortal isOpen={isOpen}>
           <div className="modal-box bg-white max-w-md text-slate-800 rounded-2xl relative shadow-2xl p-6 border border-slate-100">
             <button 
               onClick={() => setIsOpen(false)}
@@ -393,8 +393,7 @@ export const Reminders: React.FC = () => {
               </div>
             </form>
           </div>
-        </div>
-      )}
+        </ModalPortal>
     </div>
   );
 };

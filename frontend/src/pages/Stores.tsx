@@ -1,3 +1,4 @@
+import { ModalPortal } from "../components/shared/ModalPortal";
 import React, { useEffect, useState } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
@@ -595,8 +596,7 @@ export const Stores: React.FC = () => {
       </div>
 
       {/* CREATE MODAL (Thêm cửa hàng) */}
-      {isCreateOpen && (
-        <div className="modal modal-open">
+      <ModalPortal isOpen={isCreateOpen}>
           <div className="modal-box bg-white border border-slate-200 text-slate-800 rounded-3xl max-w-2xl shadow-2xl p-6 relative">
             <button 
               onClick={() => setIsCreateOpen(false)}
@@ -831,8 +831,7 @@ export const Stores: React.FC = () => {
               </div>
             </form>
           </div>
-        </div>
-      )}
+        </ModalPortal>
 
       {/* EDIT MODAL (Chỉnh sửa cửa hàng) */}
       {isEditOpen && selectedStore && (

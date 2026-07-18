@@ -1,3 +1,4 @@
+import { ModalPortal } from "../components/shared/ModalPortal";
 import React, { useEffect, useState } from "react";
 import axios from "axios";
 import { 
@@ -591,8 +592,7 @@ export const Commodities: React.FC = () => {
       </div>
 
       {/* CREATE & EDIT MODAL */}
-      {isModalOpen && (
-        <div className="modal modal-open">
+      <ModalPortal isOpen={isModalOpen}>
           <div className="modal-box bg-white border border-slate-200 text-slate-800 rounded-3xl max-w-2xl shadow-2xl p-6 relative">
             <button 
               onClick={() => setIsModalOpen(false)}
@@ -887,8 +887,7 @@ export const Commodities: React.FC = () => {
               </div>
             </form>
           </div>
-        </div>
-      )}
+        </ModalPortal>
       <LoadingOverlay show={isPending} />
     </div>
   );

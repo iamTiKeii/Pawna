@@ -1,3 +1,4 @@
+import { ModalPortal } from "../components/shared/ModalPortal";
 import React, { useEffect, useState } from "react";
 import axios from "axios";
 import { Plus, Search, Edit3, Trash2, X, Lock, Unlock } from "lucide-react";
@@ -341,8 +342,7 @@ export const Collaborators: React.FC = () => {
       )}
 
       {/* CREATE MODAL (Image 2) */}
-      {isCreateOpen && (
-        <div className="modal modal-open">
+      <ModalPortal isOpen={isCreateOpen}>
           <div className="modal-box bg-white border border-slate-200 text-slate-800 rounded-2xl max-w-lg p-0 overflow-hidden shadow-2xl">
             {/* Header */}
             <div className="flex justify-between items-center px-6 py-4 border-b border-slate-100">
@@ -462,12 +462,10 @@ export const Collaborators: React.FC = () => {
               </div>
             </form>
           </div>
-        </div>
-      )}
+        </ModalPortal>
 
       {/* EDIT MODAL (Image 3) */}
-      {isEditOpen && (
-        <div className="modal modal-open">
+      <ModalPortal isOpen={isEditOpen}>
           <div className="modal-box bg-white border border-slate-200 text-slate-800 rounded-2xl max-w-lg p-0 overflow-hidden shadow-2xl">
             {/* Header */}
             <div className="flex justify-between items-center px-6 py-4 border-b border-slate-100">
@@ -587,8 +585,7 @@ export const Collaborators: React.FC = () => {
               </div>
             </form>
           </div>
-        </div>
-      )}
+        </ModalPortal>
 
     </div>
   );

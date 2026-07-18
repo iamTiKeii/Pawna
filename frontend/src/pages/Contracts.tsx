@@ -1,3 +1,4 @@
+import { ModalPortal } from "../components/shared/ModalPortal";
 import React, { useEffect, useState, useRef } from "react";
 import { createPortal } from "react-dom";
 import { useReactToPrint } from "react-to-print";
@@ -1694,8 +1695,7 @@ export const Contracts: React.FC = () => {
       />
 
       {/* PRINT CONFIG MODAL */}
-      {isPrintTemplateModalOpen && (
-        <div className="modal modal-open">
+      <ModalPortal isOpen={isPrintTemplateModalOpen}>
           <div className="modal-box bg-white border border-slate-200 text-slate-800 rounded-2xl max-w-5xl p-6 relative">
             <div className="flex justify-between items-center border-b border-slate-200 pb-3 mb-4">
               <h3 className="font-extrabold text-sm text-slate-800 flex items-center gap-2">
@@ -1852,8 +1852,7 @@ export const Contracts: React.FC = () => {
               </button>
             </div>
           </div>
-        </div>
-      )}
+        </ModalPortal>
 
       {/* PRINT CONTRACT PREVIEW MODAL */}
       {activePrintContract && (() => {

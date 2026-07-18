@@ -1,3 +1,4 @@
+import { ModalPortal } from "../components/shared/ModalPortal";
 import React, { useEffect, useState } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
@@ -466,8 +467,7 @@ export const Employees: React.FC = () => {
       </div>
 
       {/* CREATE MODAL (Thêm nhân viên) */}
-      {isCreateOpen && (
-        <div className="modal modal-open">
+      <ModalPortal isOpen={isCreateOpen}>
           <div className="modal-box bg-white border border-slate-200 text-slate-800 rounded-3xl max-w-xl shadow-2xl p-6 relative">
             <button 
               onClick={() => setIsCreateOpen(false)}
@@ -602,8 +602,7 @@ export const Employees: React.FC = () => {
               </div>
             </form>
           </div>
-        </div>
-      )}
+        </ModalPortal>
 
       {/* PERMISSIONS MODAL */}
       {isPermsOpen && selectedEmp && (

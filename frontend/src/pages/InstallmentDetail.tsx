@@ -1,3 +1,4 @@
+import { ModalPortal } from "../components/shared/ModalPortal";
 import React, { useEffect, useState } from "react";
 import axios from "axios";
 import { useParams, useNavigate } from "react-router-dom";
@@ -495,8 +496,7 @@ export const InstallmentDetail: React.FC<InstallmentDetailProps> = ({
     return (
       <>
         {/* DEBT MODAL */}
-        {isDebtOpen && (
-          <div className="modal modal-open">
+        <ModalPortal isOpen={isDebtOpen}>
             <div className="modal-box bg-white border border-slate-200 text-slate-800 rounded-2xl">
               <h3 className="font-extrabold text-lg text-amber-500 mb-4">Ghi nhận giao dịch nợ phụ</h3>
               <form onSubmit={handleDebtAction} className="space-y-4">
@@ -540,12 +540,10 @@ export const InstallmentDetail: React.FC<InstallmentDetailProps> = ({
                 </div>
               </form>
             </div>
-          </div>
-        )}
+          </ModalPortal>
 
         {/* REDEEM CLOSE CONTRACT MODAL */}
-        {isRedeemOpen && (
-          <div className="modal modal-open">
+        <ModalPortal isOpen={isRedeemOpen}>
             <div className="modal-box bg-white border border-slate-200 text-slate-800 rounded-2xl">
               <h3 className="font-extrabold text-lg text-amber-500 mb-4">Tất Toán Sớm Trước Hạn</h3>
               <form onSubmit={handleRedeem} className="space-y-4">
@@ -585,12 +583,10 @@ export const InstallmentDetail: React.FC<InstallmentDetailProps> = ({
                 </div>
               </form>
             </div>
-          </div>
-        )}
+          </ModalPortal>
 
         {/* TIMER APPOINTMENT MODAL */}
-        {isTimerOpen && (
-          <div className="modal modal-open">
+        <ModalPortal isOpen={isTimerOpen}>
             <div className="modal-box bg-white border border-slate-200 text-slate-800 rounded-2xl">
               <h3 className="font-extrabold text-lg text-amber-500 mb-4">Hẹn Ngày Trả / Đóng Lãi</h3>
               <form onSubmit={handleSetTimer} className="space-y-4">
@@ -624,8 +620,7 @@ export const InstallmentDetail: React.FC<InstallmentDetailProps> = ({
                 </div>
               </form>
             </div>
-          </div>
-        )}
+          </ModalPortal>
 
         {/* PRINT CONTRACT PREVIEW MODAL */}
         {isPrintModalOpen && (() => {

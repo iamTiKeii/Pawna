@@ -1,3 +1,4 @@
+import { ModalPortal } from "../../components/shared/ModalPortal";
 import React, { useState } from "react";
 import { CalendarDays, CheckCircle2, ShieldCheck, CreditCard, Sparkles, MessageCircle } from "lucide-react";
 
@@ -152,8 +153,7 @@ export const SubscriptionPage: React.FC = () => {
       </div>
 
       {/* Mock Payment Modal */}
-      {showMockPayment && (
-        <div className="modal modal-open z-50">
+      <ModalPortal isOpen={showMockPayment}>
           <div className="modal-box bg-white max-w-md text-slate-800 rounded-2xl relative shadow-2xl p-6 border border-slate-100">
             <button 
               onClick={() => setShowMockPayment(false)}
@@ -217,8 +217,7 @@ export const SubscriptionPage: React.FC = () => {
               </div>
             </div>
           </div>
-        </div>
-      )}
+        </ModalPortal>
     </div>
   );
 };
