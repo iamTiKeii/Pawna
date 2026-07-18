@@ -1981,11 +1981,15 @@ export const Contracts: React.FC = () => {
         };
 
         const isNegotiated = activeTemplate === "negotiated";
-        const moduleName = activePrintContract.contract_code?.startsWith("TC-") || activePrintContract.commodity?.category === "unsecured"
-          ? "unsecured"
-          : activePrintContract.contract_code?.startsWith("TG-") || activePrintContract.commodity?.category === "installment"
-          ? "installment"
-          : "pawn";
+        // Xác định loại hợp đồng: ưu tiên theo mã hợp đồng (TC- / TG-), fallback theo commodity.category
+        const contractCode = activePrintContract.contract_code ?? "";
+        const moduleName: "unsecured" | "installment" | "pawn" =
+          contractCode.startsWith("TC-") || activePrintContract.commodity?.category === "unsecured"
+            ? "unsecured"
+            : contractCode.startsWith("TG-") || activePrintContract.commodity?.category === "installment"
+            ? "installment"
+            : "pawn";
+
 
         const compiledHtml = getCompiledHtml(moduleName, activePrintContract, storeDetails, { isNegotiated });
 

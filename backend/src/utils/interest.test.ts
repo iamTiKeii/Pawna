@@ -2,7 +2,8 @@ import {
   InterestCalculatorFactory,
   normalizeNumericInput,
   InvalidLoanParamsError,
-  generateInstallmentPayments,
+  generateFlatCollectionSchedule, // renamed from generateInstallmentPayments
+  generateInstallmentPayments,    // @deprecated alias — still valid during migration
 } from "../services/interest";
 
 // --- Test Harness ---
@@ -382,6 +383,68 @@ function runTests() {
       InvalidLoanParamsError,
       "totalCycles > 1000 must throw"
     );
+  });
+
+  // ── 16. generateFlatCollectionSchedule (renamed from generateInstallmentPayments) ────
+  section("16. Testing generateFlatCollectionSchedule — đổi tên, hành vi giữ nguyên...", () => {
+    // Hàm mới và alias cũ phải trả về kết quả giống hệt nhau
+    const resultNew = generateFlatCollectionSchedule(6000000, 30, 10, "2026-07-01");
+    const resultOld = generateInstallmentPayments(6000000, 30, 10, "2026-07-01");
+
+    assert(resultNew.length === 3, `Expected 3 cycles, got ${resultNew.length}`);
+    assert(resultOld.length === resultNew.length, "Deprecated alias must return same cycle count");
+
+    const totalNew = resultNew.reduce((s, p) => s + p.expected_amount, 0);
+    const totalOld = resultOld.reduce((s, p) => s + p.expected_amount, 0);
+    assert(totalNew === 6000000, `Total must equal 6,000,000; got ${totalNew}`);
+    assert(totalNew === totalOld, "Deprecated alias must return same total");
+
+    // Mỗi kỳ = 10 ngày, không dùng interest_type — flat split đơn giản
+    assert(resultNew[0].expected_days === 10, "Cycle 1 expected_days mismatch");
+    assert(resultNew[1].expected_days === 10, "Cycle 2 expected_days mismatch");
+    assert(resultNew[2].expected_days === 10, "Final cycle expected_days mismatch");
+  });
+
+  // ── 17. Tín chấp — không cần commodity/asset fields ─────────────────────────
+  section("17. Testing tín chấp contract — no commodity required...", () => {
+    // Tín chấp dùng cùng calculator với cầm đồ, không có commodity/asset fields
+    const calc = InterestCalculatorFactory.getCalculator("daily_k_million");
+
+    // Params từ hợp đồng tín chấp — loan_amount + interest params, không có asset
+    const result = calc.calculate({
+      loanAmount: 5000000,   // 5 triệu
+      interestRate: 3,       // 3k/triệu/ngày
+      loanDays: 30,
+      periodValue: 30,
+      loanDateInput: "2026-07-01",
+      isUpfront: false,
+    });
+
+    // (5M / 1M) * 3 * 1000 * 30 = 450,000
+    assert(result.totalInterestPayable === 450000, `Tín chấp interest: expected 450,000, got ${result.totalInterestPayable}`);
+    assert(result.schedule.length === 1, "Should have 1 cycle for tín chấp 30/30");
+    assert(result.totalOriginalPrincipal === 5000000, "Principal mismatch");
+
+    // Xác nhận: không có field nào trong CalculatorParams bắt buộc phải là asset info
+    // → calc.calculate() không throw dù không truyền commodity/asset_name
+    assertNoThrow(
+      () => calc.calculate({ loanAmount: 5000000, interestRate: 3, loanDays: 30, periodValue: 30, loanDateInput: "2026-07-01", isUpfront: false }),
+      "Tín chấp (no asset fields) must NOT throw — asset is not required by CalculatorParams"
+    );
+
+    // Test với weekly_percent — loại hay dùng cho tín chấp
+    const calcWeekly = InterestCalculatorFactory.getCalculator("weekly_percent");
+    const resultWeekly = calcWeekly.calculate({
+      loanAmount: 10000000,
+      interestRate: 2,       // 2%/tuần
+      loanDays: 14,
+      periodValue: 7,
+      loanDateInput: "2026-07-01",
+      isUpfront: false,
+    });
+    // 2 kỳ × (10M × 2% × 7/7) = 2 × 200,000 = 400,000
+    assert(resultWeekly.totalInterestPayable === 400000, `Tín chấp weekly: expected 400,000, got ${resultWeekly.totalInterestPayable}`);
+    assert(resultWeekly.schedule.length === 2, "Tín chấp 14 ngày / kỳ 7 ngày = 2 kỳ");
   });
 
   // ── Summary ─────────────────────────────────────────────────────────────────

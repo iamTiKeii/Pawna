@@ -811,8 +811,9 @@ export function generateInterestSchedule(
   }));
 }
 
-// Installment payment schedule generator with normalization
-export function generateInstallmentPayments(
+// Flat collection schedule generator — chia đều tổng tiền thu thành N kỳ (kiểu "bát họ").
+// KHÔNG phải EMI/dư nợ giảm dần. Không dùng interest_type_id.
+export function generateFlatCollectionSchedule(
   repaymentAmountInput: any,
   loanDurationInput: any,
   cycleDaysInput: any,
@@ -891,3 +892,6 @@ export function generateInstallmentPayments(
 
   return payments;
 }
+
+/** @deprecated Dùng `generateFlatCollectionSchedule` thay thế. Alias giữ lại để tương thích ngược trong quá trình migration. */
+export const generateInstallmentPayments = generateFlatCollectionSchedule;
