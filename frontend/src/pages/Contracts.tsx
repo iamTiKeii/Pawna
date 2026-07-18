@@ -203,18 +203,19 @@ export const Contracts: React.FC = () => {
     let alignments: string[] = [];
     let summaryRow = "";
 
+    // Cấu trúc 15 cột thống nhất cho tất cả các tab theo yêu cầu
+    headers = [
+      "#", "Mã HĐ", "Khách hàng", "SĐT", "CMND/CCCD", "Mã TS", "Tài sản", 
+      "Tiền cầm", "Lãi suất", "Ngày cầm", "Lãi đã đóng", "Tiền nợ", 
+      "Lãi đến hôm nay", "Ngày phải đóng", "Tình trạng"
+    ];
+    alignments = [
+      "center", "center", "left", "center", "center", "center", "left", 
+      "number", "center", "center", "number", "number", "number", "center", "center"
+    ];
+
     if (activeTab === "pawn") {
       filename = "Hop_Dong_Cam_Do";
-      headers = [
-        "#", "Mã HĐ", "Khách hàng", "SĐT", "CMND/CCCD", "Mã TS", "Tài sản", 
-        "Tiền cầm", "Lãi suất", "Ngày cầm", "Lãi đã đóng", "Tiền nợ", 
-        "Lãi tạm tính", "Ngày phải đóng", "Tình trạng"
-      ];
-      alignments = [
-        "center", "center", "left", "center", "center", "center", "left", 
-        "number", "center", "center", "number", "number", "number", "center", "center"
-      ];
-
       const totalLoan = filteredPawnList.reduce((sum, item) => sum + Number(item.loan_amount || 0), 0);
       const totalPaid = filteredPawnList.reduce((sum, item) => sum + getPaidInterest(item), 0);
       const totalDebt = filteredPawnList.reduce((sum, item) => sum + Number(item.debt_amount || 0), 0);
@@ -228,14 +229,14 @@ export const Contracts: React.FC = () => {
         const rateText = formatInterestRateText(Number(item.interest_rate), item.interest_type?.code, item.period_value);
         return [
           index + 1,
-          item.contract_code,
+          item.contract_code || "",
           item.customer?.full_name || "",
           item.customer?.phone || "",
           item.customer?.identity_card_number || "",
           item.commodity?.code || "",
           item.asset_name || "",
           Number(item.loan_amount || 0),
-          rateText,
+          rateText || "",
           item.loan_date ? new Date(item.loan_date).toLocaleDateString("vi-VN") : "",
           paidInt,
           Number(item.debt_amount || 0),
@@ -266,17 +267,6 @@ export const Contracts: React.FC = () => {
       `;
     } else if (activeTab === "unsecured") {
       filename = "Hop_Dong_Tin_Chap";
-      headers = [
-        "#", "Mã HĐ", "Khách hàng", "SĐT", "CMND/CCCD",
-        "Tiền vay", "Lãi suất", "Ngày vay",
-        "Lãi đã đóng", "Nợ cũ", "Lãi tạm tính", "Ngày phải đóng", "Tình trạng"
-      ];
-      alignments = [
-        "center", "center", "left", "center", "center",
-        "number", "center", "center",
-        "number", "number", "number", "center", "center"
-      ];
-
       const totalLoanU = filteredUnsecuredList.reduce((sum, item) => sum + Number(item.loan_amount || 0), 0);
       const totalPaidU = filteredUnsecuredList.reduce((sum, item) => sum + getPaidInterest(item), 0);
       const totalDebtU = filteredUnsecuredList.reduce((sum, item) => sum + Number(item.debt_amount || 0), 0);
@@ -290,12 +280,14 @@ export const Contracts: React.FC = () => {
         const rateText = formatInterestRateText(Number(item.interest_rate), item.interest_type?.code, item.period_value);
         return [
           index + 1,
-          item.contract_code,
+          item.contract_code || "",
           item.customer?.full_name || "",
           item.customer?.phone || "",
           item.customer?.identity_card_number || "",
+          "", // Không có mã tài sản cho tín chấp
+          item.commodity?.name?.split("|")[0] || "Tín chấp",
           Number(item.loan_amount || 0),
-          rateText,
+          rateText || "",
           item.loan_date ? new Date(item.loan_date).toLocaleDateString("vi-VN") : "",
           paidInt,
           Number(item.debt_amount || 0),
@@ -311,33 +303,23 @@ export const Contracts: React.FC = () => {
           <td class="center"></td>
           <td class="left"></td>
           <td class="center"></td>
+          <td class="center"></td>
+          <td class="center"></td>
           <td class="left">Tổng tiền</td>
-          <td class="number" x:f="=SUM(F2:F${rows.length + 1})">${totalLoanU}</td>
+          <td class="number" x:f="=SUM(H2:H${rows.length + 1})">${totalLoanU}</td>
           <td class="center"></td>
           <td class="center"></td>
-          <td class="number" x:f="=SUM(I2:I${rows.length + 1})">${totalPaidU}</td>
-          <td class="number" x:f="=SUM(J2:J${rows.length + 1})">${totalDebtU}</td>
-          <td class="number" x:f="=SUM(K2:K${rows.length + 1})">${totalAccruedU}</td>
+          <td class="number" x:f="=SUM(K2:K${rows.length + 1})">${totalPaidU}</td>
+          <td class="number" x:f="=SUM(L2:L${rows.length + 1})">${totalDebtU}</td>
+          <td class="number" x:f="=SUM(M2:M${rows.length + 1})">${totalAccruedU}</td>
           <td class="center"></td>
           <td class="center"></td>
         </tr>
       `;
     } else {
-      // installment
+      // installment (trả góp)
       filename = "Hop_Dong_Tra_Gop";
-      headers = [
-        "#", "Mã HĐ", "Khách hàng", "SĐT", "CMND/CCCD",
-        "Tiền giao khách", "Tổng phải thu", "Tỷ lệ", "Thời gian vay", "Ngày vay",
-        "Tiền đã đóng", "Nợ cũ", "Tiền/ngày", "Còn phải đóng", "Ngày phải đóng", "Tình trạng"
-      ];
-      alignments = [
-        "center", "center", "left", "center", "center",
-        "number", "number", "center", "center", "center",
-        "number", "number", "number", "number", "center", "center"
-      ];
-
       const totalDisbI = filteredInstallmentList.reduce((sum, item) => sum + Number(item.disbursed_amount || 0), 0);
-      const totalRepayI = filteredInstallmentList.reduce((sum, item) => sum + Number(item.repayment_amount || 0), 0);
       const totalPaidI = filteredInstallmentList.reduce((sum, item) => sum + Number(item.total_paid || 0), 0);
       const totalDebtI = filteredInstallmentList.reduce((sum, item) => sum + Number(item.debt_amount || 0), 0);
       const totalRemainingI = filteredInstallmentList.reduce((sum, item) => sum + Number(item.remaining_amount || 0), 0);
@@ -347,28 +329,24 @@ export const Contracts: React.FC = () => {
           ? `${((Number(item.repayment_amount) / Number(item.disbursed_amount)) * 10).toFixed(0)}-10`
           : "--";
         const loanDateStr = item.loan_date ? new Date(item.loan_date).toLocaleDateString("vi-VN") : "";
-        const endDate = new Date(item.loan_date);
-        endDate.setDate(endDate.getDate() + (item.loan_duration || 0));
-        const durationStr = `${loanDateStr} → ${endDate.toLocaleDateString("vi-VN")} (${item.loan_duration || 0} ngày)`;
         const nextPayDateStr = item.next_payment_date
           ? new Date(item.next_payment_date).toLocaleDateString("vi-VN")
           : "";
         const detailed = getInstallmentDetailedStatus(item);
         return [
           index + 1,
-          item.contract_code,
+          item.contract_code || "",
           item.customer?.full_name || "",
           item.customer?.phone || "",
           item.customer?.identity_card_number || "",
-          Number(item.disbursed_amount || 0),
-          Number(item.repayment_amount || 0),
+          "", // Không có mã tài sản cho trả góp
+          item.commodity?.name?.split("|")[0] || "Trả góp",
+          Number(item.disbursed_amount || 0), // Tiền giao khách ứng với Tiền cầm
           ratioStr,
-          durationStr,
           loanDateStr,
-          Number(item.total_paid || 0),
-          Number(item.debt_amount || 0),
-          Number(item.daily_payment || 0),
-          Number(item.remaining_amount || 0),
+          Number(item.total_paid || 0), // Tiền đã đóng ứng với Lãi đã đóng
+          Number(item.debt_amount || 0), // Nợ cũ ứng với Tiền nợ
+          Number(item.remaining_amount || 0), // Còn phải đóng ứng với Lãi đến hôm nay
           nextPayDateStr,
           detailed.label || ""
         ];
@@ -380,16 +358,15 @@ export const Contracts: React.FC = () => {
           <td class="center"></td>
           <td class="left"></td>
           <td class="center"></td>
-          <td class="left">Tổng tiền</td>
-          <td class="number" x:f="=SUM(F2:F${rows.length + 1})">${totalDisbI}</td>
-          <td class="number" x:f="=SUM(G2:G${rows.length + 1})">${totalRepayI}</td>
           <td class="center"></td>
+          <td class="center"></td>
+          <td class="left">Tổng tiền</td>
+          <td class="number" x:f="=SUM(H2:H${rows.length + 1})">${totalDisbI}</td>
           <td class="center"></td>
           <td class="center"></td>
           <td class="number" x:f="=SUM(K2:K${rows.length + 1})">${totalPaidI}</td>
           <td class="number" x:f="=SUM(L2:L${rows.length + 1})">${totalDebtI}</td>
-          <td class="center"></td>
-          <td class="number" x:f="=SUM(N2:N${rows.length + 1})">${totalRemainingI}</td>
+          <td class="number" x:f="=SUM(M2:M${rows.length + 1})">${totalRemainingI}</td>
           <td class="center"></td>
           <td class="center"></td>
         </tr>
@@ -438,7 +415,10 @@ export const Contracts: React.FC = () => {
                 ${row.map((val, colIdx) => {
                   const alignClass = alignments[colIdx] || "left";
                   const isNum = alignClass === "number";
-                  const formatted = isNum ? val : String(val).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+                  const cleanVal = (val === null || val === undefined) ? "" : val;
+                  const formatted = isNum
+                    ? (cleanVal === "" ? "" : cleanVal)
+                    : String(cleanVal).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
                   return `<td class="${alignClass}">${formatted}</td>`;
                 }).join("")}
               </tr>
