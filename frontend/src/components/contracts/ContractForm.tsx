@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { X, BookOpen, Info } from "lucide-react";
 import type { ContractFormConfig } from "./contract.config";
 import { ContractCustomerSection } from "./ContractCustomerSection";
@@ -174,8 +175,8 @@ export const ContractForm: React.FC<ContractFormProps> = ({
     onSubmit(state);
   };
 
-  return (
-    <div className="modal modal-open">
+  return createPortal(
+    <div className="modal modal-open z-[9999]">
       <div className="modal-box bg-white border border-slate-200 text-slate-800 rounded-2xl max-w-4xl p-6 relative">
         {/* Modal Header */}
         <div className="flex justify-between items-center border-b border-slate-200 pb-3 mb-4">
@@ -301,6 +302,7 @@ export const ContractForm: React.FC<ContractFormProps> = ({
           </div>
         </form>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };

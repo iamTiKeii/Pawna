@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useRef } from "react";
+import { createPortal } from "react-dom";
 import { useReactToPrint } from "react-to-print";
 import axios from "axios";
 import { useLocation, useNavigate } from "react-router-dom";
@@ -1872,8 +1873,8 @@ export const Contracts: React.FC = () => {
 
         const compiledHtml = getCompiledHtml(moduleName, activePrintContract, storeDetails, { isNegotiated });
 
-        return (
-          <div className="modal modal-open">
+        return createPortal(
+          <div className="modal modal-open z-[9999]">
             <div className="modal-box bg-white border border-slate-200 text-slate-800 rounded-2xl max-w-3xl p-6 relative">
               <div className="flex justify-between items-center border-b border-slate-200 pb-3 mb-4">
                 <h3 className="font-extrabold text-sm text-slate-800 flex items-center gap-2">
@@ -1911,7 +1912,8 @@ export const Contracts: React.FC = () => {
                 </button>
               </div>
             </div>
-          </div>
+          </div>,
+          document.body
         );
       })()}
       <CustomerHistoryModal

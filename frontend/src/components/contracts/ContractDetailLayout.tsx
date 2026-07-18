@@ -1,4 +1,5 @@
 import React from "react";
+import { createPortal } from "react-dom";
 
 interface ContractDetailLayoutProps {
   header: React.ReactNode;
@@ -61,15 +62,16 @@ export const ContractDetailLayout: React.FC<ContractDetailLayoutProps> = ({
   );
 
   if (isModal) {
-    return (
-      <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex justify-center items-center p-4">
+    return createPortal(
+      <div className="fixed inset-0 z-[9999] bg-black/60 backdrop-blur-sm flex justify-center items-center p-4">
         <div
           className="modal-box bg-white border border-slate-200 text-slate-800 rounded-2xl w-11/12 max-w-[1320px] max-h-[95vh] overflow-y-auto p-6 relative"
           style={{ zoom: 1.02 }}
         >
           {content}
         </div>
-      </div>
+      </div>,
+      document.body
     );
   }
 
