@@ -3,7 +3,7 @@ import { Prisma, prisma } from "../utils/db";
 import { authenticateToken, AuthenticatedRequest } from "../middleware/auth";
 import { requirePermission } from "../middleware/permission";
 import { generateContractCode, generateVoucherCode, getNextContractCodeNumber } from "../utils/codeGen";
-import { generateInterestSchedule, InterestCycle, InterestCalculatorFactory } from "../utils/interest";
+import { generateInterestSchedule, InterestCycle, InterestCalculatorFactory, InvalidLoanParamsError } from "../utils/interest";
 import { adjustDailyCash, normalizeToMidnight, checkDailyCashLock } from "../utils/cash";
 
 import { v4 as uuidv4 } from "uuid";
@@ -257,6 +257,9 @@ router.get("/", async (req: AuthenticatedRequest, res: Response) => {
 
     return res.json(contracts);
   } catch (error: any) {
+    if (error instanceof InvalidLoanParamsError) {
+      return res.status(400).json({ error: error.message });
+    }
     return res.status(500).json({ error: error.message });
   }
 });
@@ -267,6 +270,9 @@ router.get("/next-code-number", async (req: AuthenticatedRequest, res: Response)
     const nextNum = await getNextContractCodeNumber(prisma, "pawnContract", "CĐ-");
     return res.json({ nextCodeNumber: nextNum });
   } catch (error: any) {
+    if (error instanceof InvalidLoanParamsError) {
+      return res.status(400).json({ error: error.message });
+    }
     return res.status(500).json({ error: error.message });
   }
 });
@@ -307,6 +313,9 @@ router.get("/:id", async (req: AuthenticatedRequest, res: Response) => {
 
     return res.json(contract);
   } catch (error: any) {
+    if (error instanceof InvalidLoanParamsError) {
+      return res.status(400).json({ error: error.message });
+    }
     return res.status(500).json({ error: error.message });
   }
 });
@@ -512,6 +521,9 @@ router.post("/", requirePermission(["CONTRACTS_MANAGE"]) as any, async (req: Aut
 
     return res.status(201).json(result);
   } catch (error: any) {
+    if (error instanceof InvalidLoanParamsError) {
+      return res.status(400).json({ error: error.message });
+    }
     return res.status(500).json({ error: error.message });
   }
 });
@@ -586,6 +598,9 @@ router.post("/:id/pay-interest", requirePermission(["CONTRACTS_OPERATE"]) as any
 
     return res.json(result);
   } catch (error: any) {
+    if (error instanceof InvalidLoanParamsError) {
+      return res.status(400).json({ error: error.message });
+    }
     return res.status(500).json({ error: error.message });
   }
 });
@@ -656,6 +671,9 @@ const handleCancelInterest = async (req: AuthenticatedRequest, res: Response) =>
 
     return res.json(result);
   } catch (error: any) {
+    if (error instanceof InvalidLoanParamsError) {
+      return res.status(400).json({ error: error.message });
+    }
     return res.status(500).json({ error: error.message });
   }
 };
@@ -743,6 +761,9 @@ router.post("/:id/pay-down", requirePermission(["CONTRACTS_OPERATE"]) as any, as
 
     return res.json(result);
   } catch (error: any) {
+    if (error instanceof InvalidLoanParamsError) {
+      return res.status(400).json({ error: error.message });
+    }
     return res.status(500).json({ error: error.message });
   }
 });
@@ -822,6 +843,9 @@ router.post("/:id/borrow-more", requirePermission(["CONTRACTS_OPERATE"]) as any,
 
     return res.json(result);
   } catch (error: any) {
+    if (error instanceof InvalidLoanParamsError) {
+      return res.status(400).json({ error: error.message });
+    }
     return res.status(500).json({ error: error.message });
   }
 });
@@ -911,6 +935,9 @@ router.delete("/:id/principal-transaction/:txId", requirePermission(["CONTRACTS_
 
     return res.json(result);
   } catch (error: any) {
+    if (error instanceof InvalidLoanParamsError) {
+      return res.status(400).json({ error: error.message });
+    }
     return res.status(500).json({ error: error.message });
   }
 });
@@ -1014,6 +1041,9 @@ router.post("/:id/extend", requirePermission(["CONTRACTS_OPERATE"]) as any, asyn
 
     return res.json(result);
   } catch (error: any) {
+    if (error instanceof InvalidLoanParamsError) {
+      return res.status(400).json({ error: error.message });
+    }
     return res.status(500).json({ error: error.message });
   }
 });
@@ -1085,6 +1115,9 @@ router.delete("/:id/extend/:extendId", requirePermission(["CONTRACTS_OPERATE"]) 
 
     return res.json(result);
   } catch (error: any) {
+    if (error instanceof InvalidLoanParamsError) {
+      return res.status(400).json({ error: error.message });
+    }
     return res.status(500).json({ error: error.message });
   }
 });
@@ -1249,6 +1282,9 @@ router.post("/:id/redeem", requirePermission(["CONTRACTS_OPERATE"]) as any, asyn
 
     return res.json(result);
   } catch (error: any) {
+    if (error instanceof InvalidLoanParamsError) {
+      return res.status(400).json({ error: error.message });
+    }
     return res.status(500).json({ error: error.message });
   }
 });
@@ -1334,6 +1370,9 @@ router.post("/:id/cancel-redeem", requirePermission(["CONTRACTS_OPERATE"]) as an
 
     return res.json(result);
   } catch (error: any) {
+    if (error instanceof InvalidLoanParamsError) {
+      return res.status(400).json({ error: error.message });
+    }
     return res.status(500).json({ error: error.message });
   }
 });
@@ -1388,6 +1427,9 @@ router.post("/:id/record-debt", requirePermission(["CONTRACTS_OPERATE"]) as any,
 
     return res.json(result);
   } catch (error: any) {
+    if (error instanceof InvalidLoanParamsError) {
+      return res.status(400).json({ error: error.message });
+    }
     return res.status(500).json({ error: error.message });
   }
 });
@@ -1468,6 +1510,9 @@ router.post("/:id/pay-debt", requirePermission(["CONTRACTS_OPERATE"]) as any, as
 
     return res.json(result);
   } catch (error: any) {
+    if (error instanceof InvalidLoanParamsError) {
+      return res.status(400).json({ error: error.message });
+    }
     return res.status(500).json({ error: error.message });
   }
 });
@@ -1542,6 +1587,9 @@ router.delete("/:id/debt-transaction/:txId", requirePermission(["CONTRACTS_OPERA
 
     return res.json(result);
   } catch (error: any) {
+    if (error instanceof InvalidLoanParamsError) {
+      return res.status(400).json({ error: error.message });
+    }
     return res.status(500).json({ error: error.message });
   }
 });
@@ -1568,6 +1616,9 @@ router.post("/:id/documents", async (req: AuthenticatedRequest, res: Response) =
 
     return res.status(201).json(doc);
   } catch (error: any) {
+    if (error instanceof InvalidLoanParamsError) {
+      return res.status(400).json({ error: error.message });
+    }
     return res.status(500).json({ error: error.message });
   }
 });
@@ -1581,6 +1632,9 @@ router.delete("/:id/documents/:docId", async (req: AuthenticatedRequest, res: Re
     });
     return res.json({ message: "Document deleted successfully" });
   } catch (error: any) {
+    if (error instanceof InvalidLoanParamsError) {
+      return res.status(400).json({ error: error.message });
+    }
     return res.status(500).json({ error: error.message });
   }
 });
@@ -1606,6 +1660,9 @@ router.post("/:id/reminders/log", async (req: AuthenticatedRequest, res: Respons
 
     return res.status(201).json(log);
   } catch (error: any) {
+    if (error instanceof InvalidLoanParamsError) {
+      return res.status(400).json({ error: error.message });
+    }
     return res.status(500).json({ error: error.message });
   }
 });
@@ -1670,6 +1727,9 @@ router.post("/:id/timers", async (req: AuthenticatedRequest, res: Response) => {
 
     return res.status(201).json(result);
   } catch (error: any) {
+    if (error instanceof InvalidLoanParamsError) {
+      return res.status(400).json({ error: error.message });
+    }
     return res.status(500).json({ error: error.message });
   }
 });
@@ -1702,6 +1762,9 @@ router.put("/:id/timers/:timerId/stop", async (req: AuthenticatedRequest, res: R
 
     return res.json(result);
   } catch (error: any) {
+    if (error instanceof InvalidLoanParamsError) {
+      return res.status(400).json({ error: error.message });
+    }
     return res.status(500).json({ error: error.message });
   }
 });
@@ -1880,6 +1943,9 @@ router.put("/:id", requirePermission(["CONTRACTS_MANAGE"]) as any, async (req: A
 
     return res.json(result);
   } catch (error: any) {
+    if (error instanceof InvalidLoanParamsError) {
+      return res.status(400).json({ error: error.message });
+    }
     return res.status(500).json({ error: error.message });
   }
 });
@@ -1966,6 +2032,9 @@ router.delete("/:id", requirePermission(["CONTRACTS_MANAGE"]) as any, async (req
 
     return res.json(result);
   } catch (error: any) {
+    if (error instanceof InvalidLoanParamsError) {
+      return res.status(400).json({ error: error.message });
+    }
     return res.status(500).json({ error: error.message });
   }
 });
@@ -2116,6 +2185,9 @@ router.post("/:id/liquidate", requirePermission(["CONTRACTS_OPERATE"]) as any, a
 
     return res.json({ message: "Thực thi thanh lý tài sản hợp đồng thành công!", contract: result });
   } catch (error: any) {
+    if (error instanceof InvalidLoanParamsError) {
+      return res.status(400).json({ error: error.message });
+    }
     return res.status(500).json({ error: error.message });
   }
 });

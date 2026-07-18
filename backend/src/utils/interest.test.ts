@@ -1,4 +1,4 @@
-import { InterestCalculatorFactory, normalizeNumericInput } from "../services/interest";
+import { InterestCalculatorFactory, normalizeNumericInput, InvalidLoanParamsError } from "../services/interest";
 
 function assert(condition: boolean, message: string) {
   if (!condition) {
@@ -15,13 +15,38 @@ function runTests() {
   // 1. Input Normalizer Utility
   {
     console.log("1. Testing normalizeNumericInput utility...");
+
+    // --- Standard numeric / float inputs ---
     assert(normalizeNumericInput(1.4) === 1.4, "Number standard failed");
     assert(normalizeNumericInput("1.4") === 1.4, "String dot failed");
-    assert(normalizeNumericInput("1,4") === 1.4, "String comma failed");
+    assert(normalizeNumericInput("1,4") === 1.4, "String comma-decimal (EU style) failed");
     assert(normalizeNumericInput("  1,4%  ") === 1.4, "String percentage and spaces failed");
-    assert(normalizeNumericInput("abc") === 0, "String invalid garbage failed");
-    assert(normalizeNumericInput(null) === 0, "Null failed");
-    assert(normalizeNumericInput(undefined) === 0, "Undefined failed");
+
+    // --- Large thousands-separated integers (critical fix) ---
+    // Previously these were parsed as 1 due to parseFloat stopping at second dot
+    assert(normalizeNumericInput("1,000,000") === 1000000, "1,000,000 (EN thousands) must parse as 1000000");
+    assert(normalizeNumericInput("1.000.000") === 1000000, "1.000.000 (VN thousands) must parse as 1000000");
+    assert(normalizeNumericInput("10.000") === 10000, "10.000 (VN thousands) must parse as 10000");
+    assert(normalizeNumericInput("500.000") === 500000, "500.000 must parse as 500000");
+    assert(normalizeNumericInput("1,500,000") === 1500000, "1,500,000 must parse as 1500000");
+
+    // --- Decimal values ---
+    assert(normalizeNumericInput("1.5") === 1.5, "1.5 must parse as 1.5");
+    assert(normalizeNumericInput("2,75") === 2.75, "2,75 (EU decimal) must parse as 2.75");
+    assert(normalizeNumericInput("10,000.5") === 10000.5, "10,000.5 (mixed) must parse as 10000.5");
+
+    // --- Ambiguous case (documented limitation) ---
+    // "1,234" is treated as 1234 (thousands separator heuristic)
+    // This is documented behavior for pawn-shop context where 3-digit decimals are rare
+    assert(normalizeNumericInput("1,234") === 1234, "1,234 (ambiguous) is treated as 1234 per heuristic");
+    assert(normalizeNumericInput("1.234") === 1234, "1.234 (ambiguous) is treated as 1234 per heuristic");
+
+    // --- Edge cases ---
+    assert(normalizeNumericInput("abc") === 0, "Non-numeric string must return 0");
+    assert(normalizeNumericInput("") === 0, "Empty string must return 0");
+    assert(normalizeNumericInput(null) === 0, "Null must return 0");
+    assert(normalizeNumericInput(undefined) === 0, "Undefined must return 0");
+    assert(normalizeNumericInput("-5000") === -5000, "Negative number must parse correctly");
   }
 
   // 2. Lãi ngày (k/triệu) - daily_k_million
@@ -245,6 +270,68 @@ function runTests() {
 
   console.log("\x1b[32m[SUCCESS] ALL EXPANDED INTEREST CALCULATION TESTS PASSED!\x1b[0m");
   console.log("==================================================");
+
+  // BONUS: Validation Guard Tests (Fix #2 + #8)
+  {
+    console.log("BONUS: Testing InvalidLoanParamsError validation guards...");
+    const calc = InterestCalculatorFactory.getCalculator("daily_k_million");
+
+    // periodValue = 0 -> must throw
+    let threw = false;
+    try {
+      calc.calculate({ loanAmount: 1000000, interestRate: 3, loanDays: 10, periodValue: 0, loanDateInput: "2026-07-01", isUpfront: false });
+    } catch (e: any) {
+      threw = e instanceof InvalidLoanParamsError;
+    }
+    assert(threw, "periodValue = 0 must throw InvalidLoanParamsError");
+
+    // loanDays = 0 -> must throw
+    threw = false;
+    try {
+      calc.calculate({ loanAmount: 1000000, interestRate: 3, loanDays: 0, periodValue: 10, loanDateInput: "2026-07-01", isUpfront: false });
+    } catch (e: any) {
+      threw = e instanceof InvalidLoanParamsError;
+    }
+    assert(threw, "loanDays = 0 must throw InvalidLoanParamsError");
+
+    // loanAmount = 0 -> must throw
+    threw = false;
+    try {
+      calc.calculate({ loanAmount: 0, interestRate: 3, loanDays: 10, periodValue: 10, loanDateInput: "2026-07-01", isUpfront: false });
+    } catch (e: any) {
+      threw = e instanceof InvalidLoanParamsError;
+    }
+    assert(threw, "loanAmount = 0 must throw InvalidLoanParamsError");
+
+    // Negative interestRate -> must throw
+    threw = false;
+    try {
+      calc.calculate({ loanAmount: 1000000, interestRate: -1, loanDays: 10, periodValue: 10, loanDateInput: "2026-07-01", isUpfront: false });
+    } catch (e: any) {
+      threw = e instanceof InvalidLoanParamsError;
+    }
+    assert(threw, "interestRate < 0 must throw InvalidLoanParamsError");
+
+    // interestRate = 0 -> must NOT throw (valid business case: 0% loan)
+    let noThrow = true;
+    try {
+      calc.calculate({ loanAmount: 1000000, interestRate: 0, loanDays: 10, periodValue: 10, loanDateInput: "2026-07-01", isUpfront: false });
+    } catch (e: any) {
+      noThrow = false;
+    }
+    assert(noThrow, "interestRate = 0 must NOT throw (0% rate is a valid business case)");
+
+    // totalCycles > MAX_CYCLES (1000) -> must throw
+    threw = false;
+    try {
+      calc.calculate({ loanAmount: 1000000, interestRate: 3, loanDays: 10000, periodValue: 1, loanDateInput: "2026-07-01", isUpfront: false });
+    } catch (e: any) {
+      threw = e instanceof InvalidLoanParamsError;
+    }
+    assert(threw, "totalCycles > 1000 must throw InvalidLoanParamsError");
+
+    console.log("\x1b[32m[SUCCESS] ALL VALIDATION GUARD TESTS PASSED!\x1b[0m");
+  }
 }
 
 runTests();

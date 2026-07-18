@@ -40,32 +40,127 @@ export interface IInterestCalculator {
   getDailyRate(loanAmount: number, interestRate: number, periodValue: number): number;
 }
 
+// Custom error for invalid loan parameters — allows controllers to return 400
+export class InvalidLoanParamsError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "InvalidLoanParamsError";
+  }
+}
+
 // Utility: Normalize numeric inputs (handles strings with dots/commas/percentages/garbage)
+// IMPORTANT: Uses a heuristic — if the last separator is followed by exactly 3 digits
+// AND there is no other separator type present, it is treated as a thousands separator
+// (e.g. "1.000" → 1000, "1,000,000" → 1000000). Ambiguous inputs like "1,234" will be
+// treated as 1234, NOT 1.234. See normalizeNumericInput tests for documented edge cases.
 export function normalizeNumericInput(value: any): number {
   if (value === null || value === undefined) return 0;
   if (typeof value === "number") {
     return isNaN(value) ? 0 : value;
   }
-  if (typeof value === "string") {
-    let cleaned = value.trim();
-    // Strip percentage signs
-    cleaned = cleaned.replace(/%/g, "");
-    // Replace commas with dots
-    cleaned = cleaned.replace(/,/g, ".");
-    const parsed = parseFloat(cleaned);
-    return isNaN(parsed) ? 0 : parsed;
+  if (typeof value !== "string") return 0;
+
+  let cleaned = value.trim().replace(/%/g, "").replace(/\s/g, "");
+  if (cleaned === "") return 0;
+
+  // Preserve leading negative sign
+  const isNegative = cleaned.startsWith("-");
+  if (isNegative) cleaned = cleaned.slice(1);
+
+  const lastComma = cleaned.lastIndexOf(",");
+  const lastDot = cleaned.lastIndexOf(".");
+  const lastSeparatorIndex = Math.max(lastComma, lastDot);
+
+  let normalized: string;
+
+  if (lastSeparatorIndex === -1) {
+    // No separators — pure integer
+    normalized = cleaned;
+  } else {
+    const decimalSeparator = cleaned[lastSeparatorIndex];
+    const integerPart = cleaned.slice(0, lastSeparatorIndex).replace(/[.,]/g, "");
+    const fractionalPart = cleaned.slice(lastSeparatorIndex + 1);
+
+    // Heuristic: exactly 3 digits after the last separator AND no mixed separators
+    // → treat as thousands separator (business context: pawn shop amounts rarely have
+    // 3-digit decimals). Examples: "1,000" → 1000, "1.000.000" → 1000000.
+    const otherSeparator = decimalSeparator === "." ? "," : ".";
+    const looksLikeThousandSeparator =
+      fractionalPart.length === 3 && !cleaned.includes(otherSeparator);
+
+    if (looksLikeThousandSeparator) {
+      normalized = integerPart + fractionalPart;
+    } else {
+      normalized = integerPart + "." + fractionalPart;
+    }
   }
-  return 0;
+
+  const parsed = parseFloat(normalized);
+  if (isNaN(parsed)) return 0;
+  return isNegative ? -parsed : parsed;
 }
 
-// HELPER: Generate cycle dates
+// Business rule validator — throws InvalidLoanParamsError for bad inputs
+// Note: interestRate = 0 is valid (0% interest, e.g. grace period).
+export function validateLoanBusinessRules(params: {
+  loanAmount: number;
+  interestRate: number;
+  loanDays: number;
+  periodValue: number;
+}) {
+  const errors: string[] = [];
+
+  if (!Number.isFinite(params.loanAmount) || params.loanAmount <= 0)
+    errors.push("Số tiền vay phải lớn hơn 0.");
+  if (!Number.isFinite(params.interestRate) || params.interestRate < 0)
+    errors.push("Lãi suất không được âm.");
+  if (!Number.isFinite(params.loanDays) || params.loanDays <= 0)
+    errors.push("Số ngày vay phải lớn hơn 0.");
+  if (!Number.isFinite(params.periodValue) || params.periodValue <= 0)
+    errors.push("Kỳ hạn phải lớn hơn 0.");
+
+  // Soft warning for unusually high rates — may indicate wrong unit (e.g. typed VNĐ instead of k)
+  if (params.interestRate > 100) {
+    console.warn(
+      `[WARN] interestRate = ${params.interestRate} bất thường cao — kiểm tra lại đơn vị (%/nghìn/VNĐ)?`
+    );
+  }
+
+  if (errors.length > 0) {
+    throw new InvalidLoanParamsError(errors.join(" "));
+  }
+}
+
+// HELPER: Generate cycle dates — validates inputs before computing
 export function getCycleDates(
   loanDateInput: Date | string,
   loanDays: number,
   periodValue: number
 ) {
+  if (!Number.isFinite(loanDays) || loanDays <= 0) {
+    throw new InvalidLoanParamsError(
+      `loanDays không hợp lệ: ${loanDays}. Phải là số dương.`
+    );
+  }
+  if (!Number.isFinite(periodValue) || periodValue <= 0) {
+    throw new InvalidLoanParamsError(
+      `periodValue (kỳ hạn) không hợp lệ: ${periodValue}. Phải là số dương.`
+    );
+  }
   const loanDate = new Date(loanDateInput);
+  if (isNaN(loanDate.getTime())) {
+    throw new InvalidLoanParamsError(`loanDateInput không hợp lệ: ${loanDateInput}`);
+  }
+
   const totalCycles = Math.ceil(loanDays / periodValue);
+
+  const MAX_CYCLES = 1000;
+  if (totalCycles > MAX_CYCLES) {
+    throw new InvalidLoanParamsError(
+      `Số kỳ tính ra (${totalCycles}) vượt giới hạn cho phép (${MAX_CYCLES}). Kiểm tra lại loanDays/periodValue.`
+    );
+  }
+
   const cycles = [];
 
   for (let k = 1; k <= totalCycles; k++) {
@@ -101,6 +196,7 @@ export class DailyPerMillionInterestCalculator implements IInterestCalculator {
     const interestRate = normalizeNumericInput(params.interestRate);
     const loanDays = normalizeNumericInput(params.loanDays);
     const periodValue = normalizeNumericInput(params.periodValue);
+    validateLoanBusinessRules({ loanAmount, interestRate, loanDays, periodValue });
 
     const dateCycles = getCycleDates(params.loanDateInput, loanDays, periodValue);
     const schedule: PaymentScheduleItem[] = [];
@@ -145,6 +241,7 @@ export class DailyFixedInterestCalculator implements IInterestCalculator {
     const interestRate = normalizeNumericInput(params.interestRate);
     const loanDays = normalizeNumericInput(params.loanDays);
     const periodValue = normalizeNumericInput(params.periodValue);
+    validateLoanBusinessRules({ loanAmount, interestRate, loanDays, periodValue });
 
     const dateCycles = getCycleDates(params.loanDateInput, loanDays, periodValue);
     const schedule: PaymentScheduleItem[] = [];
@@ -189,6 +286,7 @@ export class MonthlyPercentStandardInterestCalculator implements IInterestCalcul
     const interestRate = normalizeNumericInput(params.interestRate);
     const loanDays = normalizeNumericInput(params.loanDays);
     const periodValue = normalizeNumericInput(params.periodValue);
+    validateLoanBusinessRules({ loanAmount, interestRate, loanDays, periodValue });
 
     const dateCycles = getCycleDates(params.loanDateInput, loanDays, periodValue);
     const schedule: PaymentScheduleItem[] = [];
@@ -233,6 +331,7 @@ export class MonthlyPercentPeriodicInterestCalculator implements IInterestCalcul
     const interestRate = normalizeNumericInput(params.interestRate);
     const loanDays = normalizeNumericInput(params.loanDays);
     const periodValue = normalizeNumericInput(params.periodValue);
+    validateLoanBusinessRules({ loanAmount, interestRate, loanDays, periodValue });
 
     const dateCycles = getCycleDates(params.loanDateInput, loanDays, periodValue);
     const schedule: PaymentScheduleItem[] = [];
@@ -276,6 +375,7 @@ export class MonthlyFixedPeriodicInterestCalculator implements IInterestCalculat
     const interestRate = normalizeNumericInput(params.interestRate);
     const loanDays = normalizeNumericInput(params.loanDays);
     const periodValue = normalizeNumericInput(params.periodValue);
+    validateLoanBusinessRules({ loanAmount, interestRate, loanDays, periodValue });
 
     const dateCycles = getCycleDates(params.loanDateInput, loanDays, periodValue);
     const schedule: PaymentScheduleItem[] = [];
@@ -319,6 +419,7 @@ export class WeeklyPercentInterestCalculator implements IInterestCalculator {
     const interestRate = normalizeNumericInput(params.interestRate);
     const loanDays = normalizeNumericInput(params.loanDays);
     const periodValue = normalizeNumericInput(params.periodValue);
+    validateLoanBusinessRules({ loanAmount, interestRate, loanDays, periodValue });
 
     const dateCycles = getCycleDates(params.loanDateInput, loanDays, periodValue);
     const schedule: PaymentScheduleItem[] = [];
@@ -363,6 +464,7 @@ export class WeeklyFixedInterestCalculator implements IInterestCalculator {
     const interestRate = normalizeNumericInput(params.interestRate);
     const loanDays = normalizeNumericInput(params.loanDays);
     const periodValue = normalizeNumericInput(params.periodValue);
+    validateLoanBusinessRules({ loanAmount, interestRate, loanDays, periodValue });
 
     const dateCycles = getCycleDates(params.loanDateInput, loanDays, periodValue);
     const schedule: PaymentScheduleItem[] = [];
@@ -407,6 +509,7 @@ export class FlatMonthlyInterestCalculator implements IInterestCalculator {
     const interestRate = normalizeNumericInput(params.interestRate);
     const loanDays = normalizeNumericInput(params.loanDays);
     const periodValue = normalizeNumericInput(params.periodValue);
+    validateLoanBusinessRules({ loanAmount, interestRate, loanDays, periodValue });
 
     const dateCycles = getCycleDates(params.loanDateInput, loanDays, periodValue);
     const totalCycles = dateCycles.length;
@@ -465,6 +568,7 @@ export class FlatDailyInterestCalculator implements IInterestCalculator {
     const interestRate = normalizeNumericInput(params.interestRate);
     const loanDays = normalizeNumericInput(params.loanDays);
     const periodValue = normalizeNumericInput(params.periodValue);
+    validateLoanBusinessRules({ loanAmount, interestRate, loanDays, periodValue });
 
     const dateCycles = getCycleDates(params.loanDateInput, loanDays, periodValue);
     const totalCycles = dateCycles.length;
@@ -523,6 +627,7 @@ export class ReducingBalanceEMICalculator implements IInterestCalculator {
     const interestRate = normalizeNumericInput(params.interestRate);
     const loanDays = normalizeNumericInput(params.loanDays);
     const periodValue = normalizeNumericInput(params.periodValue);
+    validateLoanBusinessRules({ loanAmount, interestRate, loanDays, periodValue });
 
     const dateCycles = getCycleDates(params.loanDateInput, loanDays, periodValue);
     const totalCycles = dateCycles.length;
@@ -589,6 +694,7 @@ export class ReducingBalanceFixedPrincipalCalculator implements IInterestCalcula
     const interestRate = normalizeNumericInput(params.interestRate);
     const loanDays = normalizeNumericInput(params.loanDays);
     const periodValue = normalizeNumericInput(params.periodValue);
+    validateLoanBusinessRules({ loanAmount, interestRate, loanDays, periodValue });
 
     const dateCycles = getCycleDates(params.loanDateInput, loanDays, periodValue);
     const totalCycles = dateCycles.length;
