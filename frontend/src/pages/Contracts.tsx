@@ -812,15 +812,25 @@ export const Contracts: React.FC = () => {
     const principal = Number(item.loan_amount) || 0;
     const rate = Number(item.interest_rate) || 0;
     const pValue = Number(item.period_value) || 1;
+    const code = item.interest_type?.code;
     
-    if (item.interest_type?.code === "daily_k_million") {
+    if (code === "daily_k_million") {
       dailyRate = (principal / 1000000) * (rate * 1000);
-    } else if (item.interest_type?.code === "daily_k_day") {
+    } else if (code === "daily_k_day") {
       dailyRate = rate * 1000;
-    } else if (item.interest_type?.code === "monthly_amount_periodic") {
+    } else if (code === "monthly_amount_periodic") {
       dailyRate = (rate * 1000) / pValue;
-    } else if (item.interest_type?.code === "weekly_amount") {
+    } else if (code === "weekly_amount") {
       dailyRate = (rate * 1000) / 7;
+    } else if (code === "weekly_percent") {
+      dailyRate = (principal * (rate / 100)) / 7;
+    } else if (
+      code === "monthly_percent_30" || 
+      code === "monthly_percent_periodic" ||
+      code?.startsWith("flat_rate_monthly") ||
+      code?.startsWith("reducing_balance_")
+    ) {
+      dailyRate = (principal * (rate / 100)) / 30;
     } else {
       dailyRate = (principal * (rate / 100)) / pValue;
     }

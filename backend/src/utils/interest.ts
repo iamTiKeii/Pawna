@@ -416,7 +416,7 @@ export class FlatMonthlyInterestCalculator implements IInterestCalculator {
     const totalCycles = dateCycles.length;
     const schedule: PaymentScheduleItem[] = [];
 
-    const expectedInterest = Math.round(loanAmount * (interestRate / 100));
+    const dailyRate = this.getDailyRate(loanAmount, interestRate, periodValue);
     const standardPrincipal = Math.round(loanAmount / totalCycles);
     let remainingPrincipal = loanAmount;
     let totalInterestPayable = 0;
@@ -432,6 +432,7 @@ export class FlatMonthlyInterestCalculator implements IInterestCalculator {
 
       const beginningBalance = remainingPrincipal;
       remainingPrincipal -= expectedPrincipal;
+      const expectedInterest = Math.round(dailyRate * cycle.expected_days);
       totalInterestPayable += expectedInterest;
       totalPrincipal += expectedPrincipal;
 
@@ -458,7 +459,7 @@ export class FlatMonthlyInterestCalculator implements IInterestCalculator {
 
   getDailyRate(loanAmount: number, interestRate: number, periodValue: number): number {
     const monthlyInterest = loanAmount * (interestRate / 100);
-    return monthlyInterest / (periodValue || 30);
+    return monthlyInterest / 30;
   }
 }
 
@@ -582,7 +583,7 @@ export class ReducingBalanceEMICalculator implements IInterestCalculator {
   }
 
   getDailyRate(loanAmount: number, interestRate: number, periodValue: number): number {
-    return (loanAmount * (interestRate / 100)) / (periodValue || 30);
+    return (loanAmount * (interestRate / 100)) / 30;
   }
 }
 
@@ -643,7 +644,7 @@ export class ReducingBalanceFixedPrincipalCalculator implements IInterestCalcula
   }
 
   getDailyRate(loanAmount: number, interestRate: number, periodValue: number): number {
-    return (loanAmount * (interestRate / 100)) / (periodValue || 30);
+    return (loanAmount * (interestRate / 100)) / 30;
   }
 }
 

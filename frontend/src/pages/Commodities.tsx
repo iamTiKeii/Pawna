@@ -91,14 +91,14 @@ export const Commodities: React.FC = () => {
   const getInterestPeriodType = (interestTypeCode?: string) => {
     if (!interestTypeCode) return "daily";
     const lower = interestTypeCode.toLowerCase();
-    if (lower.includes("monthly") || lower.includes("month") || lower.includes("flat_rate") || lower.includes("reducing_balance")) {
-      return "monthly";
+    if (lower.includes("daily") || lower.includes("day") || lower.includes("million")) {
+      return "daily";
     }
     if (lower.includes("weekly") || lower.includes("week")) {
       return "weekly";
     }
-    if (lower.includes("daily") || lower.includes("day") || lower.includes("million")) {
-      return "daily";
+    if (lower.includes("monthly") || lower.includes("month") || lower.includes("flat_rate") || lower.includes("reducing_balance")) {
+      return "monthly";
     }
     return "daily";
   };
@@ -306,17 +306,17 @@ export const Commodities: React.FC = () => {
     const code = selected.code;
     if (code === "daily_k_million") return "k / 1 triệu / ngày";
     if (code === "daily_k_day") return "k / ngày";
-    if (code.includes("monthly") || code.includes("month") || code.includes("flat_rate") || code.includes("reducing_balance")) {
-      if (code.includes("amount") || code.includes("vnđ")) return "k / tháng";
-      return "% / tháng";
+    if (code.includes("daily") || code.includes("day") || code.includes("million")) {
+      if (code.includes("amount") || code.includes("vnđ")) return "đ / ngày";
+      return "% / ngày";
     }
     if (code.includes("weekly") || code.includes("week")) {
       if (code.includes("amount") || code.includes("vnđ")) return "k / tuần";
       return "% / tuần";
     }
-    if (code.includes("daily") || code.includes("day") || code.includes("million")) {
-      if (code.includes("amount") || code.includes("vnđ")) return "đ / ngày";
-      return "% / ngày";
+    if (code.includes("monthly") || code.includes("month") || code.includes("flat_rate") || code.includes("reducing_balance")) {
+      if (code.includes("amount") || code.includes("vnđ")) return "k / tháng";
+      return "% / tháng";
     }
     return "%";
   };

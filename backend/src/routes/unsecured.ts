@@ -121,19 +121,12 @@ function calculateAccruedInterest(contract: any): number {
   if (diffMs < 0) return 0;
   const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24)) + 1;
 
-  let dailyRate = 0;
   const principal = Number(contract.loan_amount) || 0;
   const rate = Number(contract.interest_rate) || 0;
   const pValue = Number(contract.period_value) || 1;
   const interestTypeCode = contract.interest_type?.code;
 
-  if (interestTypeCode === "daily_k_million") {
-    dailyRate = (principal / 1000000) * rate;
-  } else if (interestTypeCode === "daily_k_day") {
-    dailyRate = rate;
-  } else {
-    dailyRate = (principal * (rate / 100)) / pValue;
-  }
+  const dailyRate = calculateDailyInterestRate(principal, rate, pValue, interestTypeCode);
   return Math.round(dailyRate * diffDays);
 }
 

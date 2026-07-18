@@ -17,14 +17,14 @@ export const ContractLoanSection: React.FC<LoanSectionProps> = ({
   const getInterestPeriodType = (interestTypeCode?: string) => {
     if (!interestTypeCode) return "daily";
     const lower = interestTypeCode.toLowerCase();
-    if (lower.includes("monthly") || lower.includes("month") || lower.includes("flat_rate") || lower.includes("reducing_balance")) {
-      return "monthly";
+    if (lower.includes("daily") || lower.includes("day") || lower.includes("million")) {
+      return "daily";
     }
     if (lower.includes("weekly") || lower.includes("week")) {
       return "weekly";
     }
-    if (lower.includes("daily") || lower.includes("day") || lower.includes("million")) {
-      return "daily";
+    if (lower.includes("monthly") || lower.includes("month") || lower.includes("flat_rate") || lower.includes("reducing_balance")) {
+      return "monthly";
     }
     return "daily";
   };
