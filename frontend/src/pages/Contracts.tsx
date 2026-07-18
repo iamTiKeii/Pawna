@@ -267,35 +267,35 @@ export const Contracts: React.FC = () => {
     } else if (activeTab === "unsecured") {
       filename = "Hop_Dong_Tin_Chap";
       headers = [
-        "#", "Mã HĐ", "Khách hàng", "SĐT", "CMND/CCCD", "Tài sản", 
-        "Tiền vay", "Tổng phải thu", "Ngày vay", "Lãi đã đóng", "Tiền nợ", 
-        "Lãi tạm tính", "Ngày phải đóng", "Trạng thái"
+        "#", "Mã HĐ", "Khách hàng", "SĐT", "CMND/CCCD",
+        "Tiền vay", "Lãi suất", "Ngày vay",
+        "Lãi đã đóng", "Nợ cũ", "Lãi tạm tính", "Ngày phải đóng", "Tình trạng"
       ];
       alignments = [
-        "center", "center", "left", "center", "center", "left", 
-        "number", "number", "center", "number", "number", "number", "center", "center"
+        "center", "center", "left", "center", "center",
+        "number", "center", "center",
+        "number", "number", "number", "center", "center"
       ];
 
-      const totalLoan = unsecuredList.reduce((sum, item) => sum + Number(item.loan_amount || 0), 0);
-      const totalRepay = unsecuredList.reduce((sum, item) => sum + Number(item.totalRepayment || 0), 0);
-      const totalPaid = unsecuredList.reduce((sum, item) => sum + getPaidInterest(item), 0);
-      const totalDebt = unsecuredList.reduce((sum, item) => sum + Number(item.debt_amount || 0), 0);
-      const totalAccrued = unsecuredList.reduce((sum, item) => sum + getAccruedInterest(item), 0);
+      const totalLoanU = filteredUnsecuredList.reduce((sum, item) => sum + Number(item.loan_amount || 0), 0);
+      const totalPaidU = filteredUnsecuredList.reduce((sum, item) => sum + getPaidInterest(item), 0);
+      const totalDebtU = filteredUnsecuredList.reduce((sum, item) => sum + Number(item.debt_amount || 0), 0);
+      const totalAccruedU = filteredUnsecuredList.reduce((sum, item) => sum + getAccruedInterest(item), 0);
 
-      rows = unsecuredList.map((item, index) => {
+      rows = filteredUnsecuredList.map((item, index) => {
         const nextPayDate = getNextPaymentDate(item);
         const accruedInt = getAccruedInterest(item);
         const paidInt = getPaidInterest(item);
         const detailed = getUnsecuredDetailedStatus(item);
+        const rateText = formatInterestRateText(Number(item.interest_rate), item.interest_type?.code, item.period_value);
         return [
           index + 1,
           item.contract_code,
           item.customer?.full_name || "",
           item.customer?.phone || "",
           item.customer?.identity_card_number || "",
-          item.commodity?.name?.split("|")[0] || "Tín chấp",
           Number(item.loan_amount || 0),
-          Number(item.totalRepayment || 0),
+          rateText,
           item.loan_date ? new Date(item.loan_date).toLocaleDateString("vi-VN") : "",
           paidInt,
           Number(item.debt_amount || 0),
@@ -311,33 +311,48 @@ export const Contracts: React.FC = () => {
           <td class="center"></td>
           <td class="left"></td>
           <td class="center"></td>
-          <td class="center"></td>
           <td class="left">Tổng tiền</td>
-          <td class="number" x:f="=SUM(G2:G${rows.length + 1})">${totalLoan}</td>
-          <td class="number" x:f="=SUM(H2:H${rows.length + 1})">${totalRepay}</td>
+          <td class="number" x:f="=SUM(F2:F${rows.length + 1})">${totalLoanU}</td>
           <td class="center"></td>
-          <td class="number" x:f="=SUM(J2:J${rows.length + 1})">${totalPaid}</td>
-          <td class="number" x:f="=SUM(K2:K${rows.length + 1})">${totalDebt}</td>
-          <td class="number" x:f="=SUM(L2:L${rows.length + 1})">${totalAccrued}</td>
+          <td class="center"></td>
+          <td class="number" x:f="=SUM(I2:I${rows.length + 1})">${totalPaidU}</td>
+          <td class="number" x:f="=SUM(J2:J${rows.length + 1})">${totalDebtU}</td>
+          <td class="number" x:f="=SUM(K2:K${rows.length + 1})">${totalAccruedU}</td>
           <td class="center"></td>
           <td class="center"></td>
         </tr>
       `;
     } else {
+      // installment
       filename = "Hop_Dong_Tra_Gop";
       headers = [
-        "#", "Mã HĐ", "Khách hàng", "SĐT", "CMND/CCCD", 
-        "Tổng tiền vay", "Ngày vay", "Kỳ trả", "Số tiền trả mỗi kỳ", "Trạng thái"
+        "#", "Mã HĐ", "Khách hàng", "SĐT", "CMND/CCCD",
+        "Tiền giao khách", "Tổng phải thu", "Tỷ lệ", "Thời gian vay", "Ngày vay",
+        "Tiền đã đóng", "Nợ cũ", "Tiền/ngày", "Còn phải đóng", "Ngày phải đóng", "Tình trạng"
       ];
       alignments = [
-        "center", "center", "left", "center", "center", 
-        "number", "center", "center", "number", "center"
+        "center", "center", "left", "center", "center",
+        "number", "number", "center", "center", "center",
+        "number", "number", "number", "number", "center", "center"
       ];
 
-      const totalLoan = installmentList.reduce((sum, item) => sum + Number(item.loan_amount || 0), 0);
-      const totalPeriod = installmentList.reduce((sum, item) => sum + Number(item.period_amount || 0), 0);
+      const totalDisbI = filteredInstallmentList.reduce((sum, item) => sum + Number(item.disbursed_amount || 0), 0);
+      const totalRepayI = filteredInstallmentList.reduce((sum, item) => sum + Number(item.repayment_amount || 0), 0);
+      const totalPaidI = filteredInstallmentList.reduce((sum, item) => sum + Number(item.total_paid || 0), 0);
+      const totalDebtI = filteredInstallmentList.reduce((sum, item) => sum + Number(item.debt_amount || 0), 0);
+      const totalRemainingI = filteredInstallmentList.reduce((sum, item) => sum + Number(item.remaining_amount || 0), 0);
 
-      rows = installmentList.map((item, index) => {
+      rows = filteredInstallmentList.map((item, index) => {
+        const ratioStr = item.repayment_amount && item.disbursed_amount
+          ? `${((Number(item.repayment_amount) / Number(item.disbursed_amount)) * 10).toFixed(0)}-10`
+          : "--";
+        const loanDateStr = item.loan_date ? new Date(item.loan_date).toLocaleDateString("vi-VN") : "";
+        const endDate = new Date(item.loan_date);
+        endDate.setDate(endDate.getDate() + (item.loan_duration || 0));
+        const durationStr = `${loanDateStr} → ${endDate.toLocaleDateString("vi-VN")} (${item.loan_duration || 0} ngày)`;
+        const nextPayDateStr = item.next_payment_date
+          ? new Date(item.next_payment_date).toLocaleDateString("vi-VN")
+          : "";
         const detailed = getInstallmentDetailedStatus(item);
         return [
           index + 1,
@@ -345,10 +360,16 @@ export const Contracts: React.FC = () => {
           item.customer?.full_name || "",
           item.customer?.phone || "",
           item.customer?.identity_card_number || "",
-          Number(item.loan_amount || 0),
-          item.loan_date ? new Date(item.loan_date).toLocaleDateString("vi-VN") : "",
-          `${item.period_value} ngày`,
-          Number(item.period_amount || 0),
+          Number(item.disbursed_amount || 0),
+          Number(item.repayment_amount || 0),
+          ratioStr,
+          durationStr,
+          loanDateStr,
+          Number(item.total_paid || 0),
+          Number(item.debt_amount || 0),
+          Number(item.daily_payment || 0),
+          Number(item.remaining_amount || 0),
+          nextPayDateStr,
           detailed.label || ""
         ];
       });
@@ -360,10 +381,16 @@ export const Contracts: React.FC = () => {
           <td class="left"></td>
           <td class="center"></td>
           <td class="left">Tổng tiền</td>
-          <td class="number" x:f="=SUM(F2:F${rows.length + 1})">${totalLoan}</td>
+          <td class="number" x:f="=SUM(F2:F${rows.length + 1})">${totalDisbI}</td>
+          <td class="number" x:f="=SUM(G2:G${rows.length + 1})">${totalRepayI}</td>
           <td class="center"></td>
           <td class="center"></td>
-          <td class="number" x:f="=SUM(I2:I${rows.length + 1})">${totalPeriod}</td>
+          <td class="center"></td>
+          <td class="number" x:f="=SUM(K2:K${rows.length + 1})">${totalPaidI}</td>
+          <td class="number" x:f="=SUM(L2:L${rows.length + 1})">${totalDebtI}</td>
+          <td class="center"></td>
+          <td class="number" x:f="=SUM(N2:N${rows.length + 1})">${totalRemainingI}</td>
+          <td class="center"></td>
           <td class="center"></td>
         </tr>
       `;
