@@ -1,9 +1,57 @@
-import { InterestCalculatorFactory, normalizeNumericInput, InvalidLoanParamsError } from "../services/interest";
+import {
+  InterestCalculatorFactory,
+  normalizeNumericInput,
+  InvalidLoanParamsError,
+  generateInstallmentPayments,
+} from "../services/interest";
+
+// --- Test Harness ---
+// Non-stop: collects ALL failures before reporting, no early exit on first fail
+let failCount = 0;
+let passCount = 0;
 
 function assert(condition: boolean, message: string) {
   if (!condition) {
     console.error(`\x1b[31m[FAIL] ${message}\x1b[0m`);
-    throw new Error(`Assertion failed: ${message}`);
+    failCount++;
+  } else {
+    passCount++;
+  }
+}
+
+function assertThrows(fn: () => void, errorClass: any, label: string) {
+  try {
+    fn();
+    console.error(`\x1b[31m[FAIL] ${label} — expected throw but did NOT throw\x1b[0m`);
+    failCount++;
+  } catch (e: any) {
+    if (e instanceof errorClass) {
+      passCount++;
+    } else {
+      console.error(`\x1b[31m[FAIL] ${label} — threw wrong type: ${e?.constructor?.name}: ${e?.message}\x1b[0m`);
+      failCount++;
+    }
+  }
+}
+
+function assertNoThrow(fn: () => void, label: string) {
+  try {
+    fn();
+    passCount++;
+  } catch (e: any) {
+    console.error(`\x1b[31m[FAIL] ${label} — threw unexpectedly: ${e?.message}\x1b[0m`);
+    failCount++;
+  }
+}
+
+function section(name: string, fn: () => void) {
+  console.log(name);
+  try {
+    fn();
+  } catch (e: any) {
+    // Only catches unexpected throws NOT from assert (which just increments failCount)
+    console.error(`\x1b[31m[ERROR] Unexpected exception in "${name}": ${e?.message}\x1b[0m`);
+    failCount++;
   }
 }
 
@@ -12,124 +60,113 @@ function runTests() {
   console.log("RUNNING EXPANDED INTEREST MODULE UNIT TESTS");
   console.log("==================================================");
 
-  // 1. Input Normalizer Utility
-  {
-    console.log("1. Testing normalizeNumericInput utility...");
+  // ── 1. normalizeNumericInput ────────────────────────────────────────────────
+  section("1. Testing normalizeNumericInput utility...", () => {
+    // Standard
+    assert(normalizeNumericInput(1.4) === 1.4, "Number standard");
+    assert(normalizeNumericInput("1.4") === 1.4, "String dot");
+    assert(normalizeNumericInput("1,4") === 1.4, "String comma-decimal (EU)");
+    assert(normalizeNumericInput("  1,4%  ") === 1.4, "String percentage + spaces");
 
-    // --- Standard numeric / float inputs ---
-    assert(normalizeNumericInput(1.4) === 1.4, "Number standard failed");
-    assert(normalizeNumericInput("1.4") === 1.4, "String dot failed");
-    assert(normalizeNumericInput("1,4") === 1.4, "String comma-decimal (EU style) failed");
-    assert(normalizeNumericInput("  1,4%  ") === 1.4, "String percentage and spaces failed");
+    // Thousands separators (critical fix — previously parsed as 1)
+    assert(normalizeNumericInput("1,000,000") === 1000000, "1,000,000 (EN thousands)");
+    assert(normalizeNumericInput("1.000.000") === 1000000, "1.000.000 (VN thousands)");
+    assert(normalizeNumericInput("10.000") === 10000, "10.000 (VN thousands)");
+    assert(normalizeNumericInput("500.000") === 500000, "500.000 (VN thousands)");
+    assert(normalizeNumericInput("1,500,000") === 1500000, "1,500,000 (EN thousands)");
 
-    // --- Large thousands-separated integers (critical fix) ---
-    // Previously these were parsed as 1 due to parseFloat stopping at second dot
-    assert(normalizeNumericInput("1,000,000") === 1000000, "1,000,000 (EN thousands) must parse as 1000000");
-    assert(normalizeNumericInput("1.000.000") === 1000000, "1.000.000 (VN thousands) must parse as 1000000");
-    assert(normalizeNumericInput("10.000") === 10000, "10.000 (VN thousands) must parse as 10000");
-    assert(normalizeNumericInput("500.000") === 500000, "500.000 must parse as 500000");
-    assert(normalizeNumericInput("1,500,000") === 1500000, "1,500,000 must parse as 1500000");
+    // Decimals
+    assert(normalizeNumericInput("1.5") === 1.5, "1.5 decimal");
+    assert(normalizeNumericInput("2,75") === 2.75, "2,75 EU decimal");
+    assert(normalizeNumericInput("10,000.5") === 10000.5, "10,000.5 mixed");
 
-    // --- Decimal values ---
-    assert(normalizeNumericInput("1.5") === 1.5, "1.5 must parse as 1.5");
-    assert(normalizeNumericInput("2,75") === 2.75, "2,75 (EU decimal) must parse as 2.75");
-    assert(normalizeNumericInput("10,000.5") === 10000.5, "10,000.5 (mixed) must parse as 10000.5");
+    // Ambiguous (documented heuristic — 3-digit trailing treated as thousands)
+    assert(normalizeNumericInput("1,234") === 1234, "1,234 → 1234 per heuristic");
+    assert(normalizeNumericInput("1.234") === 1234, "1.234 → 1234 per heuristic");
 
-    // --- Ambiguous case (documented limitation) ---
-    // "1,234" is treated as 1234 (thousands separator heuristic)
-    // This is documented behavior for pawn-shop context where 3-digit decimals are rare
-    assert(normalizeNumericInput("1,234") === 1234, "1,234 (ambiguous) is treated as 1234 per heuristic");
-    assert(normalizeNumericInput("1.234") === 1234, "1.234 (ambiguous) is treated as 1234 per heuristic");
+    // Edge cases
+    assert(normalizeNumericInput("abc") === 0, "Non-numeric string");
+    assert(normalizeNumericInput("") === 0, "Empty string");
+    assert(normalizeNumericInput(null) === 0, "Null");
+    assert(normalizeNumericInput(undefined) === 0, "Undefined");
+    assert(normalizeNumericInput("-5000") === -5000, "Negative number");
+  });
 
-    // --- Edge cases ---
-    assert(normalizeNumericInput("abc") === 0, "Non-numeric string must return 0");
-    assert(normalizeNumericInput("") === 0, "Empty string must return 0");
-    assert(normalizeNumericInput(null) === 0, "Null must return 0");
-    assert(normalizeNumericInput(undefined) === 0, "Undefined must return 0");
-    assert(normalizeNumericInput("-5000") === -5000, "Negative number must parse correctly");
-  }
-
-  // 2. Lãi ngày (k/triệu) - daily_k_million
-  {
-    console.log("2. Testing DailyPerMillionInterestCalculator (daily_k_million)...");
+  // ── 2. Lãi ngày (k/triệu) ───────────────────────────────────────────────────
+  section("2. Testing DailyPerMillionInterestCalculator (daily_k_million)...", () => {
     const calc = InterestCalculatorFactory.getCalculator("daily_k_million");
     const res = calc.calculate({
-      loanAmount: 10000000, // 10 Million
-      interestRate: 3, // 3k/million/day
+      loanAmount: 10000000,
+      interestRate: 3,
       loanDays: 10,
       periodValue: 10,
       loanDateInput: "2026-07-01",
       isUpfront: false,
     });
-    // Expected: (10,000,000 / 1,000,000) * 3 * 1,000 * 10 = 300,000
+    // (10M / 1M) * 3 * 1000 * 10 = 300,000
     assert(res.totalInterestPayable === 300000, `Expected 300,000, got ${res.totalInterestPayable}`);
-    assert(res.schedule[0].interest === 300000, "Single cycle interest incorrect");
-  }
+    assert(res.schedule[0].interest === 300000, "Single cycle interest mismatch");
+  });
 
-  // 3. Lãi ngày (k/ngày) - daily_k_day
-  {
-    console.log("3. Testing DailyFixedInterestCalculator (daily_k_day)...");
+  // ── 3. Lãi ngày (k/ngày) ────────────────────────────────────────────────────
+  section("3. Testing DailyFixedInterestCalculator (daily_k_day)...", () => {
     const calc = InterestCalculatorFactory.getCalculator("daily_k_day");
     const res = calc.calculate({
       loanAmount: 10000000,
-      interestRate: 50, // 50k/day
+      interestRate: 50,
       loanDays: 15,
       periodValue: 15,
       loanDateInput: "2026-07-01",
       isUpfront: false,
     });
-    // Expected: 50 * 1,000 * 15 = 750,000
+    // 50 * 1,000 * 15 = 750,000
     assert(res.totalInterestPayable === 750000, `Expected 750,000, got ${res.totalInterestPayable}`);
-  }
+  });
 
-  // 4. Lãi tháng (%) (30 ngày) - monthly_percent_30
-  {
-    console.log("4. Testing MonthlyPercentStandardInterestCalculator (monthly_percent_30)...");
+  // ── 4. Lãi tháng (%) 30 ngày ────────────────────────────────────────────────
+  section("4. Testing MonthlyPercentStandardInterestCalculator (monthly_percent_30)...", () => {
     const calc = InterestCalculatorFactory.getCalculator("monthly_percent_30");
     const res = calc.calculate({
-      loanAmount: 10000000, // 10 Million
-      interestRate: 5, // 5% per month
+      loanAmount: 10000000,
+      interestRate: 5,
       loanDays: 15,
       periodValue: 15,
       loanDateInput: "2026-07-01",
       isUpfront: false,
     });
-    // Expected: 10,000,000 * 0.05 * (15 / 30) = 250,000
+    // 10M * 5% * (15/30) = 250,000
     assert(res.totalInterestPayable === 250000, `Expected 250,000, got ${res.totalInterestPayable}`);
-  }
+  });
 
-  // 5. Lãi tháng (%) (Định kỳ) - monthly_percent_periodic
-  {
-    console.log("5. Testing MonthlyPercentPeriodicInterestCalculator (monthly_percent_periodic)...");
+  // ── 5. Lãi tháng (%) Định kỳ ────────────────────────────────────────────────
+  section("5. Testing MonthlyPercentPeriodicInterestCalculator (monthly_percent_periodic)...", () => {
     const calc = InterestCalculatorFactory.getCalculator("monthly_percent_periodic");
     const res = calc.calculate({
-      loanAmount: 10000000, // 10 Million
-      interestRate: 2, // 2% per month
+      loanAmount: 10000000,
+      interestRate: 2,
       loanDays: 31,
       periodValue: 31,
       loanDateInput: "2026-07-01",
       isUpfront: false,
     });
-    // Expected: 10,000,000 * 2% = 200,000 (flat)
+    // 10M * 2% = 200,000 (flat per cycle, not day-based)
     assert(res.totalInterestPayable === 200000, `Expected 200,000, got ${res.totalInterestPayable}`);
-  }
+  });
 
-  // 6. Lãi tháng (VNĐ) (Định kỳ) - monthly_amount_periodic
-  {
-    console.log("6. Testing MonthlyFixedPeriodicInterestCalculator (monthly_amount_periodic)...");
+  // ── 6. Lãi tháng (VNĐ) Định kỳ ─────────────────────────────────────────────
+  section("6. Testing MonthlyFixedPeriodicInterestCalculator (monthly_amount_periodic)...", () => {
     const calc = InterestCalculatorFactory.getCalculator("monthly_amount_periodic");
     const res = calc.calculate({
       loanAmount: 10000000,
-      interestRate: 500, // 500k per month (which is 500,000 VND)
+      interestRate: 500,
       loanDays: 30,
       periodValue: 30,
       loanDateInput: "2026-07-01",
       isUpfront: false,
     });
-    // Expected: exactly 500,000
     assert(res.totalInterestPayable === 500000, `Expected 500,000, got ${res.totalInterestPayable}`);
 
-    // Test partial period (e.g. 15 days out of 30)
+    // Short period — flat, still 500,000
     const resPartial = calc.calculate({
       loanAmount: 10000000,
       interestRate: 500,
@@ -138,127 +175,111 @@ function runTests() {
       loanDateInput: "2026-07-01",
       isUpfront: false,
     });
-    // Expected: exactly 500,000 (flat, non-day-based periodic)
-    assert(resPartial.totalInterestPayable === 500000, `Expected 500,000, got ${resPartial.totalInterestPayable}`);
-  }
+    assert(resPartial.totalInterestPayable === 500000, `Partial period: expected 500,000, got ${resPartial.totalInterestPayable}`);
+  });
 
-  // 7. Lãi tuần (%) - weekly_percent
-  {
-    console.log("7. Testing WeeklyPercentInterestCalculator (weekly_percent)...");
+  // ── 7. Lãi tuần (%) ─────────────────────────────────────────────────────────
+  section("7. Testing WeeklyPercentInterestCalculator (weekly_percent)...", () => {
     const calc = InterestCalculatorFactory.getCalculator("weekly_percent");
     const res = calc.calculate({
       loanAmount: 10000000,
-      interestRate: 1, // 1% per week
-      loanDays: 7, // 1 week
+      interestRate: 1,
+      loanDays: 7,
       periodValue: 7,
       loanDateInput: "2026-07-01",
       isUpfront: false,
     });
-    // Expected: 10,000,000 * 0.01 * (7 / 7) = 100,000
     assert(res.totalInterestPayable === 100000, `Expected 100,000, got ${res.totalInterestPayable}`);
 
     const resOdd = calc.calculate({
       loanAmount: 10000000,
       interestRate: 1,
-      loanDays: 10, // 10 days
-      periodValue: 10,
-      loanDateInput: "2026-07-01",
-      isUpfront: false,
-    });
-    // Expected: 10,000,000 * 0.01 * (10 / 7) = 142857.14 -> 142,857
-    assert(resOdd.totalInterestPayable === 142857, `Expected 142,857, got ${resOdd.totalInterestPayable}`);
-  }
-
-  // 8. Lãi tuần (VNĐ) - weekly_amount
-  {
-    console.log("8. Testing WeeklyFixedInterestCalculator (weekly_amount)...");
-    const calc = InterestCalculatorFactory.getCalculator("weekly_amount");
-    const res = calc.calculate({
-      loanAmount: 10000000,
-      interestRate: 100, // 100k per week (which is 100,000 VND)
-      loanDays: 10, // 10 days
-      periodValue: 10,
-      loanDateInput: "2026-07-01",
-      isUpfront: false,
-    });
-    // Expected: 100,000 / 7 * 10 = 142,857.14 -> 142,857
-    assert(res.totalInterestPayable === 142857, `Expected 142,857, got ${res.totalInterestPayable}`);
-  }
-
-  // 9. Lãi phẳng (Kỳ lãi theo tháng) - flat_rate_monthly
-  {
-    console.log("9. Testing FlatMonthlyInterestCalculator (flat_rate_monthly)...");
-    const calc = InterestCalculatorFactory.getCalculator("flat_rate_monthly");
-    const res = calc.calculate({
-      loanAmount: 12000000, // 12 Million
-      interestRate: 1, // 1% per month
-      loanDays: 90, // 3 months
-      periodValue: 30,
-      loanDateInput: "2026-07-01",
-      isUpfront: false,
-    });
-    // Expected: 3 cycles. Each cycle: Gốc = 4,000,000, Lãi = 12,000,000 * 0.01 = 120,000
-    assert(res.schedule.length === 3, "Should have 3 cycles");
-    assert(res.schedule[0].principal === 4000000, "Principal cycle 1 mismatch");
-    assert(res.schedule[0].interest === 120000, "Interest cycle 1 mismatch");
-    assert(res.totalInterestPayable === 360000, `Expected 360,000 total interest, got ${res.totalInterestPayable}`);
-    assert(res.schedule[2].endingBalance === 0, "Final ending balance should be 0");
-  }
-
-  // 10. Lãi phẳng (Kỳ lãi theo ngày) - flat_rate_daily
-  {
-    console.log("10. Testing FlatDailyInterestCalculator (flat_rate_daily)...");
-    const calc = InterestCalculatorFactory.getCalculator("flat_rate_daily");
-    const res = calc.calculate({
-      loanAmount: 10000000, // 10 Million
-      interestRate: 0.1, // 0.1% per day
       loanDays: 10,
       periodValue: 10,
       loanDateInput: "2026-07-01",
       isUpfront: false,
     });
-    // Expected: 1 cycle. Gốc = 10,000,000, Lãi = 10,000,000 * 0.001 * 10 = 100,000
-    assert(res.totalInterestPayable === 100000, `Expected 100,000, got ${res.totalInterestPayable}`);
-  }
+    // 10M * 1% * (10/7) = 142,857.14 → 142,857
+    assert(resOdd.totalInterestPayable === 142857, `Expected 142,857, got ${resOdd.totalInterestPayable}`);
+  });
 
-  // 11. Dư nợ giảm dần (Gốc lãi cố định - EMI / Annuity) - reducing_balance_fixed_installment
-  {
-    console.log("11. Testing ReducingBalanceEMICalculator (reducing_balance_fixed_installment)...");
-    const calc = InterestCalculatorFactory.getCalculator("reducing_balance_fixed_installment");
+  // ── 8. Lãi tuần (VNĐ) ───────────────────────────────────────────────────────
+  section("8. Testing WeeklyFixedInterestCalculator (weekly_amount)...", () => {
+    const calc = InterestCalculatorFactory.getCalculator("weekly_amount");
     const res = calc.calculate({
-      loanAmount: 100000000, // 100 Million
-      interestRate: 1.5, // 1.5% per month
-      loanDays: 90, // 3 periods
+      loanAmount: 10000000,
+      interestRate: 100,
+      loanDays: 10,
+      periodValue: 10,
+      loanDateInput: "2026-07-01",
+      isUpfront: false,
+    });
+    // 100k/7 * 10 = 142,857
+    assert(res.totalInterestPayable === 142857, `Expected 142,857, got ${res.totalInterestPayable}`);
+  });
+
+  // ── 9. Lãi phẳng (Kỳ tháng) ─────────────────────────────────────────────────
+  section("9. Testing FlatMonthlyInterestCalculator (flat_rate_monthly)...", () => {
+    const calc = InterestCalculatorFactory.getCalculator("flat_rate_monthly");
+    const res = calc.calculate({
+      loanAmount: 12000000,
+      interestRate: 1,
+      loanDays: 90,
       periodValue: 30,
       loanDateInput: "2026-07-01",
       isUpfront: false,
     });
-    // Expected total principal paid = 100 Million
+    assert(res.schedule.length === 3, "Should have 3 cycles");
+    assert(res.schedule[0].principal === 4000000, "Principal cycle 1 mismatch");
+    assert(res.schedule[0].interest === 120000, "Interest cycle 1 mismatch");
+    assert(res.totalInterestPayable === 360000, `Expected 360,000 total interest, got ${res.totalInterestPayable}`);
+    assert(res.schedule[2].endingBalance === 0, "Final ending balance should be 0");
+  });
+
+  // ── 10. Lãi phẳng (Kỳ ngày) ─────────────────────────────────────────────────
+  section("10. Testing FlatDailyInterestCalculator (flat_rate_daily)...", () => {
+    const calc = InterestCalculatorFactory.getCalculator("flat_rate_daily");
+    const res = calc.calculate({
+      loanAmount: 10000000,
+      interestRate: 0.1,
+      loanDays: 10,
+      periodValue: 10,
+      loanDateInput: "2026-07-01",
+      isUpfront: false,
+    });
+    // 10M * 0.001 * 10 = 100,000
+    assert(res.totalInterestPayable === 100000, `Expected 100,000, got ${res.totalInterestPayable}`);
+  });
+
+  // ── 11. Dư nợ giảm dần EMI ───────────────────────────────────────────────────
+  section("11. Testing ReducingBalanceEMICalculator (reducing_balance_fixed_installment)...", () => {
+    const calc = InterestCalculatorFactory.getCalculator("reducing_balance_fixed_installment");
+    const res = calc.calculate({
+      loanAmount: 100000000,
+      interestRate: 1.5,
+      loanDays: 90,
+      periodValue: 30,
+      loanDateInput: "2026-07-01",
+      isUpfront: false,
+    });
     const sumPrincipal = res.schedule.reduce((sum, item) => sum + item.principal, 0);
     assert(sumPrincipal === 100000000, `Expected 100M principal, got ${sumPrincipal}`);
     assert(res.schedule[2].endingBalance === 0, "Ending balance of last period must be 0");
-    // EMI = 34,338,296
-    // Period 1: Interest = 100M * 0.015 = 1,500,000. Principal = 34,338,296 - 1.5M = 32,838,296. Ending balance = 67,161,704
     assert(res.schedule[0].interest === 1500000, "EMI Period 1 interest mismatch");
     assert(res.schedule[0].principal === 32838296, `EMI Period 1 principal mismatch, got ${res.schedule[0].principal}`);
-  }
+  });
 
-  // 12. Dư nợ giảm dần (Gốc cố định) - reducing_balance_fixed_principal
-  {
-    console.log("12. Testing ReducingBalanceFixedPrincipalCalculator (reducing_balance_fixed_principal)...");
+  // ── 12. Dư nợ giảm dần Gốc cố định ─────────────────────────────────────────
+  section("12. Testing ReducingBalanceFixedPrincipalCalculator (reducing_balance_fixed_principal)...", () => {
     const calc = InterestCalculatorFactory.getCalculator("reducing_balance_fixed_principal");
     const res = calc.calculate({
-      loanAmount: 12000000, // 12 Million
-      interestRate: 1.0, // 1% per month
-      loanDays: 90, // 3 months
+      loanAmount: 12000000,
+      interestRate: 1.0,
+      loanDays: 90,
       periodValue: 30,
       loanDateInput: "2026-07-01",
       isUpfront: false,
     });
-    // Expected Gốc = 4,000,000 per month.
-    // Period 1: Lãi = 12M * 0.01 = 120,000. Ending = 8M.
-    // Period 2: Lãi = 8M * 0.01 = 80,000. Ending = 4M.
-    // Period 3: Lãi = 4M * 0.01 = 40,000. Ending = 0.
     assert(res.schedule.length === 3, "Should have 3 periods");
     assert(res.schedule[0].principal === 4000000, "Period 1 principal mismatch");
     assert(res.schedule[0].interest === 120000, "Period 1 interest mismatch");
@@ -266,72 +287,112 @@ function runTests() {
     assert(res.schedule[2].interest === 40000, "Period 3 interest mismatch");
     assert(res.schedule[2].endingBalance === 0, "Period 3 ending balance should be 0");
     assert(res.totalInterestPayable === 240000, `Expected 240,000 total interest, got ${res.totalInterestPayable}`);
-  }
+  });
 
-  console.log("\x1b[32m[SUCCESS] ALL EXPANDED INTEREST CALCULATION TESTS PASSED!\x1b[0m");
-  console.log("==================================================");
+  // ── 13. generateInstallmentPayments — Happy Path ─────────────────────────────
+  section("13. Testing generateInstallmentPayments — happy path...", () => {
+    // 10 cycles of 500,000 each (5,000,000 over 50 days, cycle = 5 days)
+    const payments = generateInstallmentPayments(5000000, 50, 5, "2026-07-01");
+    assert(payments.length === 10, `Expected 10 cycles, got ${payments.length}`);
+    const total = payments.reduce((s, p) => s + p.expected_amount, 0);
+    assert(total === 5000000, `Total payments must equal repaymentAmount: got ${total}`);
+    assert(payments[0].cycle_number === 1, "First cycle_number must be 1");
+    assert(payments[9].cycle_number === 10, "Last cycle_number must be 10");
+  });
 
-  // BONUS: Validation Guard Tests (Fix #2 + #8)
-  {
-    console.log("BONUS: Testing InvalidLoanParamsError validation guards...");
+  section("13b. Testing generateInstallmentPayments — rounding last cycle...", () => {
+    // 3 cycles into 10,000 — 3,333 + 3,333 + 3,334 (last absorbs remainder)
+    const payments = generateInstallmentPayments(10000, 30, 10, "2026-07-01");
+    assert(payments.length === 3, `Expected 3 cycles, got ${payments.length}`);
+    const total = payments.reduce((s, p) => s + p.expected_amount, 0);
+    assert(total === 10000, `Total must equal 10000, got ${total}`);
+  });
+
+  // ── 14. generateInstallmentPayments — Validation Guards ─────────────────────
+  section("14. Testing generateInstallmentPayments — validation guards...", () => {
+    // cycleDays = 0 — old: silently defaulted to 1 (|| 1). New: throws.
+    assertThrows(
+      () => generateInstallmentPayments(5000000, 50, 0, "2026-07-01"),
+      InvalidLoanParamsError,
+      "cycleDays = 0 must throw InvalidLoanParamsError"
+    );
+    // loanDuration = 0 — old: returned [] silently. New: throws.
+    assertThrows(
+      () => generateInstallmentPayments(5000000, 0, 5, "2026-07-01"),
+      InvalidLoanParamsError,
+      "loanDuration = 0 must throw InvalidLoanParamsError"
+    );
+    // repaymentAmount = 0
+    assertThrows(
+      () => generateInstallmentPayments(0, 50, 5, "2026-07-01"),
+      InvalidLoanParamsError,
+      "repaymentAmount = 0 must throw InvalidLoanParamsError"
+    );
+    // Negative cycleDays
+    assertThrows(
+      () => generateInstallmentPayments(5000000, 50, -1, "2026-07-01"),
+      InvalidLoanParamsError,
+      "cycleDays < 0 must throw InvalidLoanParamsError"
+    );
+    // totalCycles > 1000
+    assertThrows(
+      () => generateInstallmentPayments(5000000, 10000, 1, "2026-07-01"),
+      InvalidLoanParamsError,
+      "totalCycles > 1000 must throw InvalidLoanParamsError"
+    );
+    // Invalid date
+    assertThrows(
+      () => generateInstallmentPayments(5000000, 50, 5, "not-a-date"),
+      InvalidLoanParamsError,
+      "Invalid loanDateInput must throw InvalidLoanParamsError"
+    );
+  });
+
+  // ── 15. Calculator validation guards (Fix #2 + #8) ──────────────────────────
+  section("15. Testing calculator InvalidLoanParamsError guards...", () => {
     const calc = InterestCalculatorFactory.getCalculator("daily_k_million");
 
-    // periodValue = 0 -> must throw
-    let threw = false;
-    try {
-      calc.calculate({ loanAmount: 1000000, interestRate: 3, loanDays: 10, periodValue: 0, loanDateInput: "2026-07-01", isUpfront: false });
-    } catch (e: any) {
-      threw = e instanceof InvalidLoanParamsError;
-    }
-    assert(threw, "periodValue = 0 must throw InvalidLoanParamsError");
+    assertThrows(
+      () => calc.calculate({ loanAmount: 1000000, interestRate: 3, loanDays: 10, periodValue: 0, loanDateInput: "2026-07-01", isUpfront: false }),
+      InvalidLoanParamsError,
+      "periodValue = 0 must throw"
+    );
+    assertThrows(
+      () => calc.calculate({ loanAmount: 1000000, interestRate: 3, loanDays: 0, periodValue: 10, loanDateInput: "2026-07-01", isUpfront: false }),
+      InvalidLoanParamsError,
+      "loanDays = 0 must throw"
+    );
+    assertThrows(
+      () => calc.calculate({ loanAmount: 0, interestRate: 3, loanDays: 10, periodValue: 10, loanDateInput: "2026-07-01", isUpfront: false }),
+      InvalidLoanParamsError,
+      "loanAmount = 0 must throw"
+    );
+    assertThrows(
+      () => calc.calculate({ loanAmount: 1000000, interestRate: -1, loanDays: 10, periodValue: 10, loanDateInput: "2026-07-01", isUpfront: false }),
+      InvalidLoanParamsError,
+      "interestRate < 0 must throw"
+    );
+    // interestRate = 0 is a valid business case (0% loan / grace period)
+    assertNoThrow(
+      () => calc.calculate({ loanAmount: 1000000, interestRate: 0, loanDays: 10, periodValue: 10, loanDateInput: "2026-07-01", isUpfront: false }),
+      "interestRate = 0 must NOT throw"
+    );
+    assertThrows(
+      () => calc.calculate({ loanAmount: 1000000, interestRate: 3, loanDays: 10000, periodValue: 1, loanDateInput: "2026-07-01", isUpfront: false }),
+      InvalidLoanParamsError,
+      "totalCycles > 1000 must throw"
+    );
+  });
 
-    // loanDays = 0 -> must throw
-    threw = false;
-    try {
-      calc.calculate({ loanAmount: 1000000, interestRate: 3, loanDays: 0, periodValue: 10, loanDateInput: "2026-07-01", isUpfront: false });
-    } catch (e: any) {
-      threw = e instanceof InvalidLoanParamsError;
-    }
-    assert(threw, "loanDays = 0 must throw InvalidLoanParamsError");
-
-    // loanAmount = 0 -> must throw
-    threw = false;
-    try {
-      calc.calculate({ loanAmount: 0, interestRate: 3, loanDays: 10, periodValue: 10, loanDateInput: "2026-07-01", isUpfront: false });
-    } catch (e: any) {
-      threw = e instanceof InvalidLoanParamsError;
-    }
-    assert(threw, "loanAmount = 0 must throw InvalidLoanParamsError");
-
-    // Negative interestRate -> must throw
-    threw = false;
-    try {
-      calc.calculate({ loanAmount: 1000000, interestRate: -1, loanDays: 10, periodValue: 10, loanDateInput: "2026-07-01", isUpfront: false });
-    } catch (e: any) {
-      threw = e instanceof InvalidLoanParamsError;
-    }
-    assert(threw, "interestRate < 0 must throw InvalidLoanParamsError");
-
-    // interestRate = 0 -> must NOT throw (valid business case: 0% loan)
-    let noThrow = true;
-    try {
-      calc.calculate({ loanAmount: 1000000, interestRate: 0, loanDays: 10, periodValue: 10, loanDateInput: "2026-07-01", isUpfront: false });
-    } catch (e: any) {
-      noThrow = false;
-    }
-    assert(noThrow, "interestRate = 0 must NOT throw (0% rate is a valid business case)");
-
-    // totalCycles > MAX_CYCLES (1000) -> must throw
-    threw = false;
-    try {
-      calc.calculate({ loanAmount: 1000000, interestRate: 3, loanDays: 10000, periodValue: 1, loanDateInput: "2026-07-01", isUpfront: false });
-    } catch (e: any) {
-      threw = e instanceof InvalidLoanParamsError;
-    }
-    assert(threw, "totalCycles > 1000 must throw InvalidLoanParamsError");
-
-    console.log("\x1b[32m[SUCCESS] ALL VALIDATION GUARD TESTS PASSED!\x1b[0m");
+  // ── Summary ─────────────────────────────────────────────────────────────────
+  console.log("==================================================");
+  if (failCount === 0) {
+    console.log(`\x1b[32m[SUCCESS] ALL ${passCount} TESTS PASSED!\x1b[0m`);
+  } else {
+    console.log(`\x1b[31m[FAIL] ${failCount} test(s) failed, ${passCount} passed.\x1b[0m`);
+    process.exit(1);
   }
+  console.log("==================================================");
 }
 
 runTests();

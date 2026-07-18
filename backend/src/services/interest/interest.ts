@@ -820,9 +820,38 @@ export function generateInstallmentPayments(
 ) {
   const repaymentAmount = normalizeNumericInput(repaymentAmountInput);
   const loanDuration = normalizeNumericInput(loanDurationInput);
-  const cycleDays = normalizeNumericInput(cycleDaysInput) || 1;
+  const cycleDays = normalizeNumericInput(cycleDaysInput);
   const loanDate = new Date(loanDateInput);
+
+  // Explicit validation — consistent with InvalidLoanParamsError used in getCycleDates
+  if (!Number.isFinite(repaymentAmount) || repaymentAmount <= 0) {
+    throw new InvalidLoanParamsError(
+      `repaymentAmount không hợp lệ: ${repaymentAmount}. Phải là số dương.`
+    );
+  }
+  if (!Number.isFinite(loanDuration) || loanDuration <= 0) {
+    throw new InvalidLoanParamsError(
+      `loanDuration không hợp lệ: ${loanDuration}. Phải là số dương.`
+    );
+  }
+  if (!Number.isFinite(cycleDays) || cycleDays <= 0) {
+    throw new InvalidLoanParamsError(
+      `cycleDays không hợp lệ: ${cycleDays}. Phải là số dương.`
+    );
+  }
+  if (isNaN(loanDate.getTime())) {
+    throw new InvalidLoanParamsError(`loanDateInput không hợp lệ: ${loanDateInput}`);
+  }
+
   const totalCycles = Math.ceil(loanDuration / cycleDays);
+
+  const MAX_CYCLES = 1000;
+  if (totalCycles > MAX_CYCLES) {
+    throw new InvalidLoanParamsError(
+      `Số kỳ tính ra (${totalCycles}) vượt giới hạn cho phép (${MAX_CYCLES}). Kiểm tra lại loanDuration/cycleDays.`
+    );
+  }
+
   const payments = [];
 
   const standardAmount = Math.round(repaymentAmount / totalCycles);
