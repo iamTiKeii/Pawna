@@ -1,4 +1,5 @@
 import React from "react";
+import { createPortal } from "react-dom";
 
 interface LoadingOverlayProps {
   show: boolean;
@@ -11,7 +12,7 @@ export const LoadingOverlay: React.FC<LoadingOverlayProps> = ({
 }) => {
   if (!show) return null;
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-[99999] flex flex-col items-center justify-center bg-slate-900/60 backdrop-blur-[4px] transition-all duration-300">
       <div className="bg-white/90 dark:bg-slate-800/90 border border-slate-200/50 dark:border-slate-700/50 p-6 rounded-2xl shadow-2xl flex flex-col items-center max-w-xs w-full mx-4 space-y-4">
         {/* Beautiful animated gradient spinner */}
@@ -32,6 +33,7 @@ export const LoadingOverlay: React.FC<LoadingOverlayProps> = ({
           </p>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };
