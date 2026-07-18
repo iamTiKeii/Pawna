@@ -49,15 +49,7 @@ export const ContractLoanSection: React.FC<LoanSectionProps> = ({
     loanDurationPlaceholder = "Ví dụ: 4";
   }
 
-  let installmentDurationSuffix = "ngày";
-  let installmentPeriodSuffix = "Ngày / 1 Kỳ";
-  if (state.installmentPeriodType === "weekly") {
-    installmentDurationSuffix = "tuần";
-    installmentPeriodSuffix = "Tuần / 1 Kỳ";
-  } else if (state.installmentPeriodType === "monthly") {
-    installmentDurationSuffix = "tháng";
-    installmentPeriodSuffix = "Tháng / 1 Kỳ";
-  }
+
   const labelClass =
     "w-[150px] text-right pr-4 font-bold text-slate-700 shrink-0 text-sm select-none";
 
@@ -102,154 +94,177 @@ export const ContractLoanSection: React.FC<LoanSectionProps> = ({
   }
 
   if (config.type === "installment") {
+    const repAmount = Number(state.repaymentAmount) || 0;
+    const lDays = Number(state.loanDays) || 0;
+    const unit = state.installmentPeriodType === "monthly" ? "tháng" : "ngày";
+    let helperText = `→ ( 0 VNĐ / 1 ${unit} )`;
+    if (repAmount > 0 && lDays > 0) {
+      const calculated = Math.round(repAmount / lDays);
+      helperText = `→ ( ${calculated.toLocaleString("vi-VN")} VNĐ / 1 ${unit} )`;
+    }
+
     return (
       <div className="space-y-4">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
-          {/* Disbursed Amount */}
-          <div className="flex items-center">
-            <label className={labelClass}>
-              Tiền giao khách <span className="text-red-500">*</span>
-            </label>
+          {/* Field 1: Trả Góp */}
+          <div className="flex items-start">
+            <div className="w-[150px] text-right pr-4 shrink-0 select-none">
+              <label className="font-bold text-slate-700 text-sm">
+                Trả Góp <span className="text-red-500">*</span>
+              </label>
+              <span className="block text-[10px] text-slate-400 italic font-medium leading-tight mt-0.5">
+                ( Tổng tiền vay khách phải thanh toán )
+              </span>
+            </div>
             <div className="grow max-w-md">
-              <MoneyInput
-                value={state.loanAmount}
-                onChange={(val) => onChange({ loanAmount: val })}
-                placeholder="0"
-                required
-                className="h-10 text-sm rounded-lg font-bold"
-              />
+              <div className="flex items-center border border-slate-200 rounded-lg overflow-hidden bg-white w-full h-10">
+                <MoneyInput
+                  value={state.repaymentAmount}
+                  onChange={(val) => onChange({ repaymentAmount: val })}
+                  placeholder="0"
+                  required
+                  className="grow px-3 text-slate-800 h-full font-bold focus:outline-none bg-white text-left text-sm border-none"
+                  suffix=""
+                />
+                <span className="bg-slate-50 text-slate-500 px-4 h-full flex items-center border-l border-slate-200 text-xs font-bold shrink-0 select-none">
+                  VNĐ
+                </span>
+              </div>
             </div>
           </div>
 
-          {/* Repayment Amount */}
-          <div className="flex items-center">
-            <label className={labelClass}>
-              Tổng tiền phải trả <span className="text-red-500">*</span>
-            </label>
-            <div className="grow max-w-md">
-              <MoneyInput
-                value={state.repaymentAmount}
-                onChange={(val) => onChange({ repaymentAmount: val })}
-                placeholder="0"
-                required
-                className="h-10 text-sm rounded-lg font-bold"
-              />
+          {/* Field 5: Thời gian vay */}
+          <div className="flex items-start">
+            <div className="w-[150px] text-right pr-4 shrink-0 select-none">
+              <label className="font-bold text-slate-700 text-sm">
+                Thời gian vay <span className="text-red-500">*</span>
+              </label>
             </div>
-          </div>
-
-          {/* Duration */}
-          <div className="flex items-center">
-            <label className={labelClass}>
-              Thời gian vay <span className="text-red-500">*</span>
-            </label>
-            <div className="grow flex items-center border border-slate-200 rounded-lg overflow-hidden bg-white w-full max-w-md h-10">
-              <input
-                type="number"
-                placeholder="50"
-                value={state.loanDays}
-                onChange={(e) => onChange({ loanDays: Number(e.target.value) })}
-                className="grow px-3 text-slate-800 h-full font-bold focus:outline-none bg-white text-left text-sm border-none"
-                required
-              />
-              <span className="bg-slate-50 text-slate-500 px-4 h-full flex items-center border-l border-slate-200 text-xs font-bold shrink-0 select-none">
-                {installmentDurationSuffix}
+            <div className="grow max-w-md">
+              <div className="flex items-center border border-slate-200 rounded-lg overflow-hidden bg-white w-full h-10">
+                <input
+                  type="number"
+                  placeholder="50"
+                  value={state.loanDays || ""}
+                  onChange={(e) => onChange({ loanDays: Number(e.target.value) })}
+                  className="grow px-3 text-slate-800 h-full font-bold focus:outline-none bg-white text-left text-sm border-none"
+                  required
+                />
+                <span className="bg-slate-50 text-slate-500 px-4 h-full flex items-center border-l border-slate-200 text-xs font-bold shrink-0 select-none font-semibold uppercase">
+                  {state.installmentPeriodType === "monthly" ? "tháng" : "ngày"}
+                </span>
+              </div>
+              <span className="block text-[11px] text-slate-500 mt-1 font-semibold">
+                {helperText}
               </span>
             </div>
           </div>
 
-          {/* Cycles / Periods count */}
-          <div className="flex items-center">
-            <label className={labelClass}>
-              Số kỳ đóng <span className="text-red-500">*</span>
-            </label>
-            <div className="grow flex items-center border border-slate-200 rounded-lg overflow-hidden bg-white w-full max-w-md h-10">
-              <input
-                type="number"
-                placeholder="50"
-                value={state.installmentCycles}
-                onChange={(e) =>
-                  onChange({ installmentCycles: Number(e.target.value) })
-                }
-                className="grow px-3 text-slate-800 h-full font-bold focus:outline-none bg-white text-left text-sm border-none"
-                required
-              />
-              <span className="bg-slate-50 text-slate-500 px-4 h-full flex items-center border-l border-slate-200 text-xs font-bold shrink-0 select-none">
-                Kỳ
+          {/* Field 2: Tiền đưa khách */}
+          <div className="flex items-start">
+            <div className="w-[150px] text-right pr-4 shrink-0 select-none">
+              <label className="font-bold text-slate-700 text-sm">
+                Tiền đưa khách <span className="text-red-500">*</span>
+              </label>
+              <span className="block text-[10px] text-slate-400 italic font-medium leading-tight mt-0.5">
+                ( Tổng tiền khách nhận được )
               </span>
+            </div>
+            <div className="grow max-w-md">
+              <div className="flex items-center border border-slate-200 rounded-lg overflow-hidden bg-white w-full h-10">
+                <MoneyInput
+                  value={state.loanAmount}
+                  onChange={(val) => onChange({ loanAmount: val })}
+                  placeholder="0"
+                  required
+                  className="grow px-3 text-slate-800 h-full font-bold focus:outline-none bg-white text-left text-sm border-none"
+                  suffix=""
+                />
+                <span className="bg-slate-50 text-slate-500 px-4 h-full flex items-center border-l border-slate-200 text-xs font-bold shrink-0 select-none">
+                  VNĐ
+                </span>
+              </div>
             </div>
           </div>
 
-          {/* Repayment period type */}
-          <div className="flex items-center">
-            <label className={labelClass}>
-              Hình thức <span className="text-red-500">*</span>
-            </label>
-            <div className="grow">
+          {/* Field 6: Chu kỳ đóng tiền */}
+          <div className="flex items-start">
+            <div className="w-[150px] text-right pr-4 shrink-0 select-none">
+              <label className="font-bold text-slate-700 text-sm">
+                {state.installmentPeriodType === "monthly" ? "Số tháng đóng tiền" : "Số ngày đóng tiền"} <span className="text-red-500">*</span>
+              </label>
+              <span className="block text-[10px] text-slate-400 italic font-medium leading-tight mt-0.5">
+                {state.installmentPeriodType === "monthly"
+                  ? "(VD : 1 tháng đóng 1 lần thì điền số 1 )"
+                  : "(VD : 1 ngày đóng 1 lần thì điền số 1 )"}
+              </span>
+            </div>
+            <div className="grow max-w-md">
+              <input
+                type="number"
+                placeholder="1"
+                value={state.installmentPeriod || ""}
+                onChange={(e) => onChange({ installmentPeriod: Number(e.target.value) })}
+                className="input input-bordered w-full bg-white border-slate-200 rounded-lg text-slate-800 font-bold focus:outline-none h-10 text-sm"
+                required
+              />
+            </div>
+          </div>
+
+          {/* Field 3: Hình thức */}
+          <div className="flex items-start">
+            <div className="w-[150px] text-right pr-4 shrink-0 select-none">
+              <label className="font-bold text-slate-700 text-sm">
+                Hình thức <span className="text-red-500">*</span>
+              </label>
+            </div>
+            <div className="grow max-w-md">
               <select
-                value={state.installmentPeriodType}
-                onChange={(e) =>
-                  onChange({ installmentPeriodType: e.target.value })
-                }
-                className="select select-bordered w-full max-w-md bg-white border-slate-200 rounded-lg text-slate-800 font-semibold focus:outline-none h-10 text-sm"
+                value={state.installmentPeriodType || "daily"}
+                onChange={(e) => onChange({ installmentPeriodType: e.target.value })}
+                className="select select-bordered w-full bg-white border-slate-200 rounded-lg text-slate-800 font-semibold focus:outline-none h-10 text-sm"
                 required
               >
                 <option value="daily">Theo ngày</option>
-                <option value="weekly">Theo tuần</option>
                 <option value="monthly">Theo tháng</option>
               </select>
             </div>
           </div>
 
-          <div className="flex items-center gap-2 pl-[150px]">
-            <input
-              type="checkbox"
-              checked={state.isUpfrontInterest}
-              onChange={(e) =>
-                onChange({ isUpfrontInterest: e.target.checked })
-              }
-              className="checkbox checkbox-sm checkbox-primary border-slate-200 checked:border-amber-500 checked:bg-amber-500"
-              id="isUpfrontInterest"
-            />
-            <label htmlFor="isUpfrontInterest" className="text-slate-700 font-bold cursor-pointer text-sm select-none">
-              Thu tiền trước
-            </label>
-          </div>
-
-          {/* Cycle length/period */}
-          <div className="flex items-center">
-            <label className={labelClass}>
-              Hình thức đóng <span className="text-red-500">*</span>
-            </label>
-            <div className="grow flex items-center border border-slate-200 rounded-lg overflow-hidden bg-white w-full max-w-md h-10">
+          {/* Field 7: Ngày vay */}
+          <div className="flex items-start">
+            <div className="w-[150px] text-right pr-4 shrink-0 select-none">
+              <label className="font-bold text-slate-700 text-sm">
+                Ngày vay <span className="text-red-500">*</span>
+              </label>
+            </div>
+            <div className="grow max-w-md">
               <input
-                type="number"
-                placeholder="1"
-                value={state.installmentPeriod}
-                onChange={(e) =>
-                  onChange({ installmentPeriod: Number(e.target.value) })
-                }
-                className="grow px-3 text-slate-800 h-full font-bold focus:outline-none bg-white text-left text-sm border-none"
+                type="date"
+                value={state.loanDate || ""}
+                onChange={(e) => onChange({ loanDate: e.target.value })}
+                className="input input-bordered w-full bg-white border-slate-200 rounded-lg text-slate-800 h-10 text-sm focus:outline-none"
                 required
               />
-              <span className="bg-slate-50 text-slate-500 px-4 h-full flex items-center border-l border-slate-200 text-xs font-bold shrink-0 select-none">
-                {installmentPeriodSuffix}
-              </span>
             </div>
           </div>
 
-          {/* Date */}
-          <div className="flex items-center">
-            <label className={labelClass}>
-              Ngày bốc <span className="text-red-500">*</span>
-            </label>
-            <div className="grow">
+          {/* Field 4: Thu tiền trước */}
+          <div className="flex items-start pl-[150px] md:col-span-2">
+            <div className="flex items-center gap-2">
               <input
-                type="date"
-                value={state.loanDate}
-                onChange={(e) => onChange({ loanDate: e.target.value })}
-                className="input input-bordered w-full max-w-md bg-white border-slate-200 rounded-lg text-slate-800 h-10 text-sm focus:outline-none"
-                required
+                type="checkbox"
+                checked={!!state.isUpfrontInterest}
+                onChange={(e) => onChange({ isUpfrontInterest: e.target.checked })}
+                className="checkbox checkbox-sm checkbox-primary border-slate-200 checked:border-amber-500 checked:bg-amber-500"
+                id="isUpfrontInterest"
               />
+              <label
+                htmlFor="isUpfrontInterest"
+                className="text-slate-700 font-bold cursor-pointer text-sm select-none"
+              >
+                Thu tiền trước
+              </label>
             </div>
           </div>
         </div>

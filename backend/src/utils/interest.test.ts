@@ -1,4 +1,4 @@
-import { InterestCalculatorFactory, normalizeNumericInput } from "./interest";
+import { InterestCalculatorFactory, normalizeNumericInput } from "../services/interest";
 
 function assert(condition: boolean, message: string) {
   if (!condition) {

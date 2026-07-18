@@ -3,7 +3,6 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.generateInstallmentPayments = generateInstallmentPayments;
 const express_1 = require("express");
 const db_1 = require("../utils/db");
 const auth_1 = require("../middleware/auth");
@@ -14,41 +13,7 @@ const uuid_1 = require("uuid");
 const crypto_1 = __importDefault(require("crypto"));
 const router = (0, express_1.Router)();
 router.use(auth_1.authenticateToken);
-// HELPER: Generate installment payments schedule based on duration and cycle
-function generateInstallmentPayments(repaymentAmount, loanDuration, cycleDays, loanDateInput) {
-    const loanDate = new Date(loanDateInput);
-    const totalCycles = Math.ceil(loanDuration / cycleDays);
-    const payments = [];
-    const standardAmount = Math.round(repaymentAmount / totalCycles);
-    let accumulatedPrincipal = 0;
-    for (let k = 1; k <= totalCycles; k++) {
-        const cycleStart = new Date(loanDate);
-        cycleStart.setDate(loanDate.getDate() + (k - 1) * cycleDays);
-        const cycleEnd = new Date(loanDate);
-        if (k === totalCycles) {
-            cycleEnd.setDate(loanDate.getDate() + loanDuration);
-        }
-        else {
-            cycleEnd.setDate(loanDate.getDate() + k * cycleDays);
-        }
-        const expectedDays = Math.max(1, Math.round((cycleEnd.getTime() - cycleStart.getTime()) / (1000 * 60 * 60 * 24)));
-        let expectedAmount = standardAmount;
-        if (k === totalCycles) {
-            expectedAmount = repaymentAmount - accumulatedPrincipal;
-        }
-        else {
-            accumulatedPrincipal += standardAmount;
-        }
-        payments.push({
-            cycle_number: k,
-            from_date: cycleStart,
-            to_date: cycleEnd,
-            expected_days: expectedDays,
-            expected_amount: expectedAmount,
-        });
-    }
-    return payments;
-}
+const interest_1 = require("../services/interest");
 // ================= ENDPOINTS =================
 function mapInstallmentContract(c, today) {
     const totalRepay = Number(c.repayment_amount);
@@ -316,7 +281,7 @@ router.post("/", (0, permission_1.requirePermission)(["CONTRACTS_MANAGE"]), asyn
                 },
             });
             // Generate schedules
-            const cycles = generateInstallmentPayments(repayVal, duration, cDays, normalizedLoanDate);
+            const cycles = (0, interest_1.generateInstallmentPayments)(repayVal, duration, cDays, normalizedLoanDate);
             if (cycles.length > 0) {
                 await tx.installmentPayment.createMany({
                     data: cycles.map((c) => ({
@@ -1026,7 +991,7 @@ router.put("/:id", (0, permission_1.requirePermission)(["CONTRACTS_MANAGE"]), as
             const newUpfront = is_upfront_collected !== undefined ? !!is_upfront_collected : contract.is_upfront_collected;
             const newLoanDate = loan_date ? new Date(loan_date) : new Date(contract.loan_date);
             // Generate new cycles
-            const cycles = generateInstallmentPayments(newRepay, newDuration, newCycleDays, newLoanDate);
+            const cycles = (0, interest_1.generateInstallmentPayments)(newRepay, newDuration, newCycleDays, newLoanDate);
             // Compute new net
             let newUpfrontAmt = 0;
             if (newUpfront && cycles.length > 0) {

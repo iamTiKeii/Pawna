@@ -12,54 +12,7 @@ const router = Router();
 
 router.use(authenticateToken as any);
 
-// HELPER: Generate installment payments schedule based on duration and cycle
-export function generateInstallmentPayments(
-  repaymentAmount: number,
-  loanDuration: number,
-  cycleDays: number,
-  loanDateInput: Date | string
-) {
-  const loanDate = new Date(loanDateInput);
-  const totalCycles = Math.ceil(loanDuration / cycleDays);
-  const payments = [];
-
-  const standardAmount = Math.round(repaymentAmount / totalCycles);
-  let accumulatedPrincipal = 0;
-
-  for (let k = 1; k <= totalCycles; k++) {
-    const cycleStart = new Date(loanDate);
-    cycleStart.setDate(loanDate.getDate() + (k - 1) * cycleDays);
-
-    const cycleEnd = new Date(loanDate);
-    if (k === totalCycles) {
-      cycleEnd.setDate(loanDate.getDate() + loanDuration);
-    } else {
-      cycleEnd.setDate(loanDate.getDate() + k * cycleDays);
-    }
-
-    const expectedDays = Math.max(
-      1,
-      Math.round((cycleEnd.getTime() - cycleStart.getTime()) / (1000 * 60 * 60 * 24))
-    );
-
-    let expectedAmount = standardAmount;
-    if (k === totalCycles) {
-      expectedAmount = repaymentAmount - accumulatedPrincipal;
-    } else {
-      accumulatedPrincipal += standardAmount;
-    }
-
-    payments.push({
-      cycle_number: k,
-      from_date: cycleStart,
-      to_date: cycleEnd,
-      expected_days: expectedDays,
-      expected_amount: expectedAmount,
-    });
-  }
-
-  return payments;
-}
+import { generateInstallmentPayments } from "../services/interest";
 
 // ================= ENDPOINTS =================
 

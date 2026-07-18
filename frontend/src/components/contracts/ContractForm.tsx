@@ -283,6 +283,11 @@ export const ContractForm: React.FC<ContractFormProps> = ({
               commodities={commodities}
             />
           )}
+          {config.type === "installment" && (
+            <div className="text-red-500 text-xs font-semibold leading-relaxed border-t border-slate-100 pt-3">
+              * Lưu ý: Khách hàng phải đảm bảo lãi suất + phí khi cho vay tuân thủ quy định pháp luật. Lãi suất cho vay ≥100%/năm là vi phạm pháp luật, có thể bị truy cứu trách nhiệm hình sự theo Điều 201 Bộ luật Hình sự.
+            </div>
+          )}
 
           {/* Modal Actions Footer */}
           <div className="flex justify-end gap-2 border-t border-slate-200 pt-4 mt-6">
