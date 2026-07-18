@@ -587,7 +587,6 @@ export const PawnDetail: React.FC<PawnDetailProps> = ({ idProp, onClose, isModal
     }
 
     const rate = Number(contract.interest_rate || 0);
-    const periodValue = Number(contract.period_value) || 1;
     const typeCode = contract.interest_type?.code || "daily_k_million";
 
     let dailyRate = 0;
@@ -606,7 +605,7 @@ export const PawnDetail: React.FC<PawnDetailProps> = ({ idProp, onClose, isModal
         dailyRate = (principal * (rate / 100)) / 30;
         break;
       case "monthly_amount_periodic":
-        dailyRate = (rate * 1000) / periodValue;
+        dailyRate = (rate * 1000) / 30;
         break;
       case "weekly_percent":
         dailyRate = (principal * (rate / 100)) / 7;

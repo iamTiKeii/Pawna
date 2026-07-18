@@ -79,14 +79,14 @@ function runTests() {
     const calc = InterestCalculatorFactory.getCalculator("monthly_percent_periodic");
     const res = calc.calculate({
       loanAmount: 10000000, // 10 Million
-      interestRate: 2, // 2% per month -> Annual rate = 24%
+      interestRate: 2, // 2% per month
       loanDays: 31,
       periodValue: 31,
       loanDateInput: "2026-07-01",
       isUpfront: false,
     });
-    // Expected: 10,000,000 * 0.24 / 365 * 31 = 203,835.61 -> 203,836
-    assert(res.totalInterestPayable === 203836, `Expected 203,836, got ${res.totalInterestPayable}`);
+    // Expected: 10,000,000 * 2% = 200,000 (flat)
+    assert(res.totalInterestPayable === 200000, `Expected 200,000, got ${res.totalInterestPayable}`);
   }
 
   // 6. Lãi tháng (VNĐ) (Định kỳ) - monthly_amount_periodic
@@ -101,7 +101,7 @@ function runTests() {
       loanDateInput: "2026-07-01",
       isUpfront: false,
     });
-    // Expected: exactly 500,000 for a 30-day period
+    // Expected: exactly 500,000
     assert(res.totalInterestPayable === 500000, `Expected 500,000, got ${res.totalInterestPayable}`);
 
     // Test partial period (e.g. 15 days out of 30)
@@ -113,8 +113,8 @@ function runTests() {
       loanDateInput: "2026-07-01",
       isUpfront: false,
     });
-    // Expected: 500,000 * 15 / 30 = 250,000
-    assert(resPartial.totalInterestPayable === 250000, `Expected 250,000, got ${resPartial.totalInterestPayable}`);
+    // Expected: exactly 500,000 (flat, non-day-based periodic)
+    assert(resPartial.totalInterestPayable === 500000, `Expected 500,000, got ${resPartial.totalInterestPayable}`);
   }
 
   // 7. Lãi tuần (%) - weekly_percent

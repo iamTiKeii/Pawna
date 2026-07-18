@@ -445,7 +445,7 @@ export const UnsecuredDetail: React.FC<UnsecuredDetailProps> = ({ idProp, onClos
   } else if (typeCode === "daily_k_day") {
     dailyInterest = rate * 1000;
   } else if (typeCode === "monthly_amount_periodic") {
-    dailyInterest = (rate * 1000) / periodValue;
+    dailyInterest = (rate * 1000) / 30;
   } else if (typeCode === "weekly_amount") {
     dailyInterest = (rate * 1000) / 7;
   } else if (typeCode === "weekly_percent") {

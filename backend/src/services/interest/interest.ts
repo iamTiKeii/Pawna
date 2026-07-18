@@ -239,8 +239,7 @@ export class MonthlyPercentPeriodicInterestCalculator implements IInterestCalcul
     let totalInterestPayable = 0;
 
     for (const cycle of dateCycles) {
-      const dailyRate = this.getDailyRate(loanAmount, interestRate, periodValue);
-      const expectedInterest = Math.round(dailyRate * cycle.expected_days);
+      const expectedInterest = Math.round(loanAmount * (interestRate / 100));
       const expectedPrincipal = 0;
       totalInterestPayable += expectedInterest;
 
@@ -266,8 +265,7 @@ export class MonthlyPercentPeriodicInterestCalculator implements IInterestCalcul
   }
 
   getDailyRate(loanAmount: number, interestRate: number, periodValue: number): number {
-    const annualRate = (interestRate * 12) / 100;
-    return (loanAmount * annualRate) / 365;
+    return (loanAmount * (interestRate / 100)) / 30;
   }
 }
 
@@ -283,10 +281,8 @@ export class MonthlyFixedPeriodicInterestCalculator implements IInterestCalculat
     const schedule: PaymentScheduleItem[] = [];
     let totalInterestPayable = 0;
 
-    const div = periodValue || 30;
-
     for (const cycle of dateCycles) {
-      const expectedInterest = Math.round((interestRate * 1000) * (cycle.expected_days / div));
+      const expectedInterest = Math.round(interestRate * 1000);
       const expectedPrincipal = 0;
       totalInterestPayable += expectedInterest;
 
@@ -312,7 +308,7 @@ export class MonthlyFixedPeriodicInterestCalculator implements IInterestCalculat
   }
 
   getDailyRate(loanAmount: number, interestRate: number, periodValue: number): number {
-    return (interestRate * 1000) / (periodValue || 30);
+    return (interestRate * 1000) / 30;
   }
 }
 
@@ -416,7 +412,6 @@ export class FlatMonthlyInterestCalculator implements IInterestCalculator {
     const totalCycles = dateCycles.length;
     const schedule: PaymentScheduleItem[] = [];
 
-    const dailyRate = this.getDailyRate(loanAmount, interestRate, periodValue);
     const standardPrincipal = Math.round(loanAmount / totalCycles);
     let remainingPrincipal = loanAmount;
     let totalInterestPayable = 0;
@@ -432,7 +427,7 @@ export class FlatMonthlyInterestCalculator implements IInterestCalculator {
 
       const beginningBalance = remainingPrincipal;
       remainingPrincipal -= expectedPrincipal;
-      const expectedInterest = Math.round(dailyRate * cycle.expected_days);
+      const expectedInterest = Math.round(loanAmount * (interestRate / 100));
       totalInterestPayable += expectedInterest;
       totalPrincipal += expectedPrincipal;
 

@@ -820,7 +820,7 @@ export const Contracts: React.FC = () => {
     } else if (code === "daily_k_day") {
       dailyRate = rate * 1000;
     } else if (code === "monthly_amount_periodic") {
-      dailyRate = (rate * 1000) / pValue;
+      dailyRate = (rate * 1000) / 30;
     } else if (code === "weekly_amount") {
       dailyRate = (rate * 1000) / 7;
     } else if (code === "weekly_percent") {
