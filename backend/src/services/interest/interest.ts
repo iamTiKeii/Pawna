@@ -345,7 +345,10 @@ export class MonthlyPercentPeriodicInterestCalculator implements IInterestCalcul
     let totalInterestPayable = 0;
 
     for (const cycle of dateCycles) {
-      const expectedInterest = Math.round(loanAmount * (interestRate / 100));
+      // Tính lãi theo số ngày thực tế của kỳ (pro-rata), nhất quán với lãi ngày/tuần.
+      // Ví dụ: 3 ngày × dailyRate thay vì cứng 1 tháng tròn.
+      const dailyRate = this.getDailyRate(loanAmount, interestRate, periodValue);
+      const expectedInterest = Math.round(dailyRate * cycle.expected_days);
       const expectedPrincipal = 0;
       totalInterestPayable += expectedInterest;
 
@@ -389,7 +392,10 @@ export class MonthlyFixedPeriodicInterestCalculator implements IInterestCalculat
     let totalInterestPayable = 0;
 
     for (const cycle of dateCycles) {
-      const expectedInterest = Math.round(interestRate * 1000);
+      // Tính lãi theo số ngày thực tế của kỳ (pro-rata).
+      // Lãi tháng (VNĐ): dailyRate = interestRate * 1000 / 30.
+      const dailyRate = this.getDailyRate(loanAmount, interestRate, periodValue);
+      const expectedInterest = Math.round(dailyRate * cycle.expected_days);
       const expectedPrincipal = 0;
       totalInterestPayable += expectedInterest;
 
@@ -537,7 +543,10 @@ export class FlatMonthlyInterestCalculator implements IInterestCalculator {
 
       const beginningBalance = remainingPrincipal;
       remainingPrincipal -= expectedPrincipal;
-      const expectedInterest = Math.round(loanAmount * (interestRate / 100));
+      // Tính lãi theo số ngày thực tế của kỳ (pro-rata).
+      // Ví dụ: kỳ cuối chỉ 3 ngày → lãi = dailyRate × 3, không phải cả tháng.
+      const dailyRate = this.getDailyRate(loanAmount, interestRate, periodValue);
+      const expectedInterest = Math.round(dailyRate * cycle.expected_days);
       totalInterestPayable += expectedInterest;
       totalPrincipal += expectedPrincipal;
 

@@ -150,8 +150,10 @@ function runTests() {
       loanDateInput: "2026-07-01",
       isUpfront: false,
     });
-    // 10M * 2% = 200,000 (flat per cycle, not day-based)
-    assert(res.totalInterestPayable === 200000, `Expected 200,000, got ${res.totalInterestPayable}`);
+    // Pro-rata: dailyRate = 10M * 2% / 30 = 6,666.67
+    // 1 kỳ có expected_days = 31 (inclusive Jul 01→Jul 31)
+    // → round(6,666.67 × 31) = 206,667
+    assert(res.totalInterestPayable === 206667, `Expected 206,667 (pro-rata 31 days), got ${res.totalInterestPayable}`);
   });
 
   // ── 6. Lãi tháng (VNĐ) Định kỳ ─────────────────────────────────────────────
@@ -165,9 +167,12 @@ function runTests() {
       loanDateInput: "2026-07-01",
       isUpfront: false,
     });
+    // Pro-rata: dailyRate = 500k / 30 = 16,666.67
+    // 1 kỳ 30 ngày (pVal=30) → round(16,666.67 × 30) = 500,000
     assert(res.totalInterestPayable === 500000, `Expected 500,000, got ${res.totalInterestPayable}`);
 
-    // Short period — flat, still 500,000
+    // Kỳ ngắn 15 ngày (loanDays=15, pVal=30 → 1 kỳ duy nhất, expected_days=15)
+    // Pro-rata: round(16,666.67 × 15) = 250,000
     const resPartial = calc.calculate({
       loanAmount: 10000000,
       interestRate: 500,
@@ -176,7 +181,7 @@ function runTests() {
       loanDateInput: "2026-07-01",
       isUpfront: false,
     });
-    assert(resPartial.totalInterestPayable === 500000, `Partial period: expected 500,000, got ${resPartial.totalInterestPayable}`);
+    assert(resPartial.totalInterestPayable === 250000, `Partial period: expected 250,000 (pro-rata 15 days), got ${resPartial.totalInterestPayable}`);
   });
 
   // ── 7. Lãi tuần (%) ─────────────────────────────────────────────────────────
