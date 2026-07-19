@@ -48,7 +48,8 @@ const transactionalTables = [
   // These must be cleared to allow new customer onboarding (triggering /bootstrap)
   "employee_permissions",
   "employees",
-  "stores"
+  "user_branches",
+  "branches"
 ];
 
 const masterTables = [

@@ -111,6 +111,7 @@ async function main() {
     { code: "CONTRACTS_OPERATE", name: "Thực hiện Giao dịch Hợp đồng (Legacy)", category: "Hệ thống", description: "Legacy CONTRACTS_OPERATE" },
     { code: "VOUCHERS_MANAGE", name: "Quản lý Thu Chi ngoài nghiệp vụ (Legacy)", category: "Hệ thống", description: "Legacy VOUCHERS_MANAGE" },
     { code: "SETTINGS_MANAGE", name: "Quản trị hệ thống (Admin)", category: "Hệ thống", description: "Quyền quản trị cao nhất của hệ thống" },
+    { code: "BRANCHES_VIEW_ALL", name: "Xem chéo tất cả chi nhánh", category: "Hệ thống", description: "Cho phép xem và quản lý dữ liệu của tất cả các chi nhánh" },
   ];
 
   for (const perm of permissionsData) {

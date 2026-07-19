@@ -8,7 +8,7 @@ generator client {
   previewFeatures = ["relationJoins"]
 }
 
-model Store {
+model Branch {
   id                 String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   name               String   @unique @db.VarChar(150)
   investment_capital Decimal  @default(0) @db.Decimal(15, 2)
@@ -21,7 +21,7 @@ model Store {
   created_at         DateTime @default(now()) @db.Timestamptz
   updated_at         DateTime @default(now()) @updatedAt @db.Timestamptz
 
-  employees             Employee[]
+  employees             UserBranch[]
   daily_cash            DailyCash[]
   cash_fund_history     CashFundHistory[]
   customers             Customer[]
@@ -32,14 +32,23 @@ model Store {
   payment_vouchers      PaymentVoucher[]
   receipt_vouchers      ReceiptVoucher[]
   customer_blacklists   CustomerBlacklist[]
+  warnings_reminders    Reminder[]
 
-  @@map("stores")
+  @@map("branches")
+}
+
+model UserBranch {
+  user_id   String   @db.Uuid
+  employee  Employee @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  branch_id String   @db.Uuid
+  branch    Branch   @relation(fields: [branch_id], references: [id], onDelete: Cascade)
+
+  @@id([user_id, branch_id])
+  @@map("user_branches")
 }
 
 model Employee {
   id                 String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  store_id           String   @db.Uuid
-  store              Store    @relation(fields: [store_id], references: [id])
   username           String   @unique @db.VarChar(50)
   password_hash      String   @db.VarChar(255)
   full_name          String   @db.VarChar(100)
@@ -58,6 +67,7 @@ model Employee {
   created_at         DateTime @default(now()) @db.Timestamptz
   updated_at         DateTime @default(now()) @updatedAt @db.Timestamptz
 
+  branches                       UserBranch[]
   permissions                    EmployeePermission[]
   pawn_contracts                 PawnContract[]                 @relation("collector_pawn_contracts")
   unsecured_contracts           UnsecuredContract[]           @relation("collector_unsecured_contracts")
@@ -145,8 +155,8 @@ model Commodity {
 
 model DailyCash {
   id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  store_id       String   @db.Uuid
-  store          Store    @relation(fields: [store_id], references: [id])
+  branch_id      String   @db.Uuid
+  branch         Branch   @relation(fields: [branch_id], references: [id])
   date           DateTime @db.Date
   beginning_cash Decimal  @default(0) @db.Decimal(15, 2)
   current_cash   Decimal  @default(0) @db.Decimal(15, 2)
@@ -157,14 +167,14 @@ model DailyCash {
   created_at     DateTime @default(now()) @db.Timestamptz
   updated_at     DateTime @default(now()) @updatedAt @db.Timestamptz
 
-  @@unique([store_id, date])
+  @@unique([branch_id, date])
   @@map("daily_cash")
 }
 
 model CashFundHistory {
   id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  store_id    String   @db.Uuid
-  store       Store    @relation(fields: [store_id], references: [id])
+  branch_id   String   @db.Uuid
+  branch      Branch   @relation(fields: [branch_id], references: [id])
   date        DateTime @db.Date
   employee_id String   @db.Uuid
   employee    Employee @relation(fields: [employee_id], references: [id])
@@ -197,8 +207,8 @@ model Collaborator {
 
 model Customer {
   id                   String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  store_id             String    @db.Uuid
-  store                Store     @relation(fields: [store_id], references: [id])
+  branch_id            String    @db.Uuid
+  branch               Branch    @relation(fields: [branch_id], references: [id])
   full_name            String    @db.VarChar(100)
   phone                String?   @db.VarChar(20)
   address              String?   @db.Text
@@ -225,7 +235,7 @@ model Customer {
   blacklist_records     CustomerBlacklist[]
   capital_contracts     CapitalContract[]
 
-  @@index([store_id])
+  @@index([branch_id])
   @@index([status])
   @@index([phone])
   @@index([identity_card_number])
@@ -238,8 +248,8 @@ model CustomerBlacklist {
   customer    Customer @relation(fields: [customer_id], references: [id], onDelete: Cascade)
   reporter_id String   @db.Uuid
   reporter    Employee @relation(fields: [reporter_id], references: [id])
-  store_id    String   @db.Uuid
-  store       Store    @relation(fields: [store_id], references: [id])
+  branch_id   String   @db.Uuid
+  branch      Branch   @relation(fields: [branch_id], references: [id])
   reason      String   @db.Text
   created_at  DateTime @default(now()) @db.Timestamptz
   updated_at  DateTime @default(now()) @updatedAt @db.Timestamptz
@@ -249,8 +259,8 @@ model CustomerBlacklist {
 
 model CapitalContract {
   id                  String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  store_id            String   @db.Uuid
-  store               Store    @relation(fields: [store_id], references: [id])
+  branch_id           String   @db.Uuid
+  branch              Branch   @relation(fields: [branch_id], references: [id])
   customer_id         String?  @db.Uuid
   customer            Customer? @relation(fields: [customer_id], references: [id])
   investor_name       String   @db.VarChar(100)
@@ -289,8 +299,8 @@ model CapitalTransaction {
 // ---------------- pawn contracts ----------------
 model PawnContract {
   id                  String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  store_id            String   @db.Uuid
-  store               Store    @relation(fields: [store_id], references: [id])
+  branch_id           String   @db.Uuid
+  branch              Branch   @relation(fields: [branch_id], references: [id])
   contract_code       String   @unique @db.VarChar(50)
   customer_id         String   @db.Uuid
   customer            Customer @relation(fields: [customer_id], references: [id])
@@ -332,7 +342,7 @@ model PawnContract {
   transaction_ledgers    PawnTransactionLedger[]
   reminders              PawnContractReminder[]
 
-  @@index([store_id])
+  @@index([branch_id])
   @@index([customer_id])
   @@index([status])
   @@index([loan_date])
@@ -487,8 +497,8 @@ model PawnContractReminder {
 // ---------------- unsecured contracts ----------------
 model UnsecuredContract {
   id                  String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  store_id            String   @db.Uuid
-  store               Store    @relation(fields: [store_id], references: [id])
+  branch_id           String   @db.Uuid
+  branch              Branch   @relation(fields: [branch_id], references: [id])
   contract_code       String   @unique @db.VarChar(50)
   customer_id         String   @db.Uuid
   customer            Customer @relation(fields: [customer_id], references: [id])
@@ -525,7 +535,7 @@ model UnsecuredContract {
   transaction_ledgers    UnsecuredTransactionLedger[]
   reminders              UnsecuredContractReminder[]
 
-  @@index([store_id])
+  @@index([branch_id])
   @@index([customer_id])
   @@index([status])
   @@index([loan_date])
@@ -676,8 +686,8 @@ model UnsecuredTransactionLedger {
 // ---------------- installment contracts ----------------
 model InstallmentContract {
   id                   String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  store_id             String   @db.Uuid
-  store                Store    @relation(fields: [store_id], references: [id])
+  branch_id            String   @db.Uuid
+  branch               Branch   @relation(fields: [branch_id], references: [id])
   contract_code        String   @unique @db.VarChar(50)
   customer_id          String   @db.Uuid
   customer             Customer @relation(fields: [customer_id], references: [id])
@@ -708,7 +718,7 @@ model InstallmentContract {
   transaction_ledgers InstallmentTransactionLedger[]
   reminders           InstallmentContractReminder[]
 
-  @@index([store_id])
+  @@index([branch_id])
   @@index([customer_id])
   @@index([status])
   @@index([loan_date])
@@ -853,8 +863,8 @@ model IncomeCategory {
 
 model PaymentVoucher {
   id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  store_id       String   @db.Uuid
-  store          Store    @relation(fields: [store_id], references: [id])
+  branch_id      String   @db.Uuid
+  branch         Branch   @relation(fields: [branch_id], references: [id])
   voucher_code   String   @unique @db.VarChar(50)
   category_id    String   @db.Uuid
   category       ExpenseCategory @relation(fields: [category_id], references: [id])
@@ -868,7 +878,7 @@ model PaymentVoucher {
   created_at     DateTime @default(now()) @db.Timestamptz
   updated_at     DateTime @default(now()) @updatedAt @db.Timestamptz
 
-  @@index([store_id])
+  @@index([branch_id])
   @@index([voucher_date])
   @@index([status])
   @@map("payment_vouchers")
@@ -876,8 +886,8 @@ model PaymentVoucher {
 
 model ReceiptVoucher {
   id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  store_id       String   @db.Uuid
-  store          Store    @relation(fields: [store_id], references: [id])
+  branch_id      String   @db.Uuid
+  branch         Branch   @relation(fields: [branch_id], references: [id])
   voucher_code   String   @unique @db.VarChar(50)
   category_id    String   @db.Uuid
   category       IncomeCategory @relation(fields: [category_id], references: [id])
@@ -891,7 +901,7 @@ model ReceiptVoucher {
   created_at     DateTime @default(now()) @db.Timestamptz
   updated_at     DateTime @default(now()) @updatedAt @db.Timestamptz
 
-  @@index([store_id])
+  @@index([branch_id])
   @@index([voucher_date])
   @@index([status])
   @@map("receipt_vouchers")
@@ -899,6 +909,8 @@ model ReceiptVoucher {
 
 model Reminder {
   id               String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  branch_id        String   @db.Uuid
+  branch           Branch   @relation(fields: [branch_id], references: [id], onDelete: Cascade)
   employee_id      String?  @db.Uuid
   employee         Employee? @relation(fields: [employee_id], references: [id], onDelete: Cascade)
   contract_code    String?  @db.VarChar(50)

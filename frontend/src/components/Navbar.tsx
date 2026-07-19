@@ -336,7 +336,7 @@ export const Navbar: React.FC<NavbarProps> = ({
 
       {/* TẦNG 2: Horizontal Sub-navigation Menu */}
       <div className="bg-slate-50/50 border-t border-slate-100 px-6 py-1 flex items-center min-h-[48px]">
-        <div className="flex items-center gap-1.5 flex-wrap w-full py-1">
+        <div className="flex items-center justify-center gap-1.5 flex-wrap w-full py-1">
           
           {/* 1. Bảng Điều Khiển */}
           <Link

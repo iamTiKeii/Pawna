@@ -8,7 +8,7 @@ export default defineConfig({
     port: 3000,
     proxy: {
       '/api': {
-        target: 'https://hungtin-prod.up.railway.app',
+        target: 'https://pawna-prod.up.railway.app',
         changeOrigin: true,
       }
     }
