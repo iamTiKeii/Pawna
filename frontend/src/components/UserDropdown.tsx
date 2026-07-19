@@ -26,12 +26,15 @@ export const UserDropdown: React.FC<UserDropdownProps> = ({
 
   return (
     <div className="dropdown dropdown-end">
-      <label tabIndex={0} className="flex items-center gap-1.5 cursor-pointer hover:bg-slate-50 p-1.5 rounded-lg transition-all text-slate-700 font-semibold text-sm">
-        <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-600 font-bold uppercase text-sm border border-slate-200">
+      <label tabIndex={0} className="flex items-center gap-2 cursor-pointer hover:bg-slate-50 p-1.5 rounded-lg transition-all text-slate-700 font-semibold text-sm">
+        <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-600 font-bold uppercase text-sm border border-slate-200 shrink-0">
           {user?.full_name ? user.full_name.charAt(0) : "U"}
         </div>
-        <span>{user?.username || "Demo01"}</span>
-        <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
+        <div className="flex flex-col text-left leading-tight">
+          <span className="text-xs font-bold text-slate-800 truncate max-w-[120px]">{user?.full_name || "Giao dịch viên"}</span>
+          <span className="text-[10px] text-slate-400 font-normal">@{user?.username || "username"}</span>
+        </div>
+        <ChevronDown className="w-3.5 h-3.5 text-slate-400 shrink-0" />
       </label>
       <ul tabIndex={0} className="menu menu-sm dropdown-content mt-3 z-[50] p-2 shadow-xl bg-white border border-slate-200 text-slate-700 rounded-box w-60">
         {/* User Info Header */}

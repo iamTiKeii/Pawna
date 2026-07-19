@@ -2,8 +2,7 @@ import React, { useState, useEffect } from "react";
 import { BrowserRouter, Routes, Route, Navigate, useLocation, Link } from "react-router-dom";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { ConfirmProvider } from "./context/ConfirmContext";
-import { Header } from "./components/Header";
-import { Sidebar } from "./components/Sidebar";
+import { Navbar } from "./components/Navbar";
 import { ToastContainer } from "./components/shared/ToastContainer";
 import { toast } from "./lib/toast";
 
@@ -77,7 +76,6 @@ const ForbiddenPage: React.FC = () => {
 
 const PrivateLayout: React.FC<{ children: React.ReactNode; requiredPermission?: string | string[] }> = ({ children, requiredPermission }) => {
   const { token, loading, hasPermission } = useAuth();
-  const [sidebarOpen, setSidebarOpen] = useState(true);
   const [profileOpen, setProfileOpen] = useState(false);
   const [passwordOpen, setPasswordOpen] = useState(false);
   const [twoFactorOpen, setTwoFactorOpen] = useState(false);
@@ -115,20 +113,16 @@ const PrivateLayout: React.FC<{ children: React.ReactNode; requiredPermission?: 
 
   return (
     <div className="flex flex-col min-h-screen bg-[#f5f5f5] text-slate-800">
-      <Header 
-        onToggleSidebar={() => setSidebarOpen(!sidebarOpen)}
+      <Navbar 
         onOpenProfile={() => setProfileOpen(true)}
         onOpenChangePassword={() => setPasswordOpen(true)}
         onOpenTwoFactor={() => setTwoFactorOpen(true)}
       />
-      <div className="flex flex-1">
-        <Sidebar isOpen={sidebarOpen} />
-        <main className="flex-1 p-6 overflow-y-auto max-h-[calc(100vh-64px)] mt-16 bg-[#f5f5f5]">
-          {children}
-        </main>
-      </div>
+      <main className="flex-1 p-6 overflow-y-auto max-h-[calc(100vh-112px)] mt-28 bg-[#f5f5f5]">
+        {children}
+      </main>
 
-      {/* Global settings modals triggered from Header dropdown */}
+      {/* Global settings modals triggered from Navbar dropdown */}
       <ProfileModal isOpen={profileOpen} onClose={() => setProfileOpen(false)} />
       <ChangePasswordModal isOpen={passwordOpen} onClose={() => setPasswordOpen(false)} />
       <TwoFactorModal isOpen={twoFactorOpen} onClose={() => setTwoFactorOpen(false)} />
@@ -159,54 +153,54 @@ const TitleUpdater: React.FC = () => {
 
   useEffect(() => {
     const path = location.pathname;
-    let title = "Hưng Tín - Quản lý cầm đồ";
+    let title = "Pawna - Quản lý cầm đồ";
 
     if (path.startsWith("/home")) {
-      title = "Trang chủ | Hưng Tín";
+      title = "Trang chủ | Pawna";
     } else if (path.startsWith("/dashboard")) {
-      title = "Bảng điều khiển | Hưng Tín";
+      title = "Bảng điều khiển | Pawna";
     } else if (path.startsWith("/contract/pawn")) {
-      title = "Hợp đồng cầm đồ | Hưng Tín";
+      title = "Hợp đồng cầm đồ | Pawna";
     } else if (path.startsWith("/contract/loan")) {
-      title = "Hợp đồng trả góp | Hưng Tín";
+      title = "Hợp đồng trả góp | Pawna";
     } else if (path.startsWith("/contract/installment")) {
-      title = "Hợp đồng tín chấp | Hưng Tín";
+      title = "Hợp đồng tín chấp | Pawna";
     } else if (path.startsWith("/contracts/pawn/")) {
-      title = "Chi tiết Hợp đồng cầm đồ | Hưng Tín";
+      title = "Chi tiết Hợp đồng cầm đồ | Pawna";
     } else if (path.startsWith("/contracts/unsecured/")) {
-      title = "Chi tiết Hợp đồng tín chấp | Hưng Tín";
+      title = "Chi tiết Hợp đồng tín chấp | Pawna";
     } else if (path.startsWith("/contracts/installment/")) {
-      title = "Chi tiết Hợp đồng trả góp | Hưng Tín";
+      title = "Chi tiết Hợp đồng trả góp | Pawna";
     } else if (path.startsWith("/customer-list")) {
-      title = "Danh sách khách hàng | Hưng Tín";
+      title = "Danh sách khách hàng | Pawna";
     } else if (path.startsWith("/collaborator")) {
-      title = "Cộng tác viên | Hưng Tín";
+      title = "Cộng tác viên | Pawna";
     } else if (path.startsWith("/cash-fund")) {
-      title = "Quỹ tiền mặt | Hưng Tín";
+      title = "Quỹ tiền mặt | Pawna";
     } else if (path.startsWith("/beginning-cash")) {
-      title = "Số dư két đầu ngày | Hưng Tín";
+      title = "Số dư két đầu ngày | Pawna";
     } else if (path.startsWith("/commodities")) {
-      title = "Danh mục hàng hóa | Hưng Tín";
+      title = "Danh mục hàng hóa | Pawna";
     } else if (path.startsWith("/vouchers")) {
-      title = "Quản lý chứng từ | Hưng Tín";
+      title = "Quản lý chứng từ | Pawna";
     } else if (path.startsWith("/stores")) {
-      title = "Danh sách cửa hàng | Hưng Tín";
+      title = "Danh sách cửa hàng | Pawna";
     } else if (path.startsWith("/employees")) {
-      title = "Danh sách nhân viên | Hưng Tín";
+      title = "Danh sách nhân viên | Pawna";
     } else if (path.startsWith("/staff-permission")) {
-      title = "Phân quyền nhân viên | Hưng Tín";
+      title = "Phân quyền nhân viên | Pawna";
     } else if (path.startsWith("/settings")) {
-      title = "Cấu hình hệ thống | Hưng Tín";
+      title = "Cấu hình hệ thống | Pawna";
     } else if (path.startsWith("/capital")) {
-      title = "Quản lý nguồn vốn | Hưng Tín";
+      title = "Quản lý nguồn vốn | Pawna";
     } else if (path.startsWith("/report-") || path.startsWith("/summary-report") || path.startsWith("/payment-history") || path.startsWith("/shop-detail") || path.startsWith("/shop-list") || path.startsWith("/category-list") || path.startsWith("/manage-expense") || path.startsWith("/manage-income")) {
-      title = "Báo cáo thống kê | Hưng Tín";
+      title = "Báo cáo thống kê | Pawna";
     } else if (path.startsWith("/warning-")) {
-      title = "Cảnh báo hệ thống | Hưng Tín";
+      title = "Cảnh báo hệ thống | Pawna";
     } else if (path.startsWith("/terms")) {
-      title = "Điều khoản sử dụng | Hưng Tín";
+      title = "Điều khoản sử dụng | Pawna";
     } else if (path.startsWith("/login")) {
-      title = "Đăng nhập hệ thống | Hưng Tín";
+      title = "Đăng nhập hệ thống | Pawna";
     }
     
     document.title = title;
