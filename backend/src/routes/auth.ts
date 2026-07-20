@@ -159,16 +159,16 @@ router.post("/bootstrap", async (req, res) => {
         },
       });
 
-      // Ensure all predefined permissions exist in the database (Upsert)
-      const seededPermissions = [];
-      for (const p of permissionsData) {
-        const perm = await tx.permission.upsert({
-          where: { code: p.code },
-          update: { name: p.name, category: p.category, description: p.description },
-          create: p,
-        });
-        seededPermissions.push(perm);
-      }
+      // Ensure all predefined permissions exist in the database (Upsert in parallel)
+      const seededPermissions = await Promise.all(
+        permissionsData.map((p) =>
+          tx.permission.upsert({
+            where: { code: p.code },
+            update: { name: p.name, category: p.category, description: p.description },
+            create: p,
+          })
+        )
+      );
 
       // Assign all of them to the newly created admin
       await tx.employeePermission.createMany({
