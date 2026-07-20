@@ -133,7 +133,19 @@ router.post("/bootstrap", async (req, res) => {
 
     const hash = await bcrypt.hash(password, 10);
 
-    // Create branch and admin employee in a transaction
+    // Step 1: Seed permissions OUTSIDE the transaction to avoid timeout on remote DB.
+    // permissionsData has 50+ entries; upserts on a remote DB would exceed the 5s limit.
+    const seededPermissions = await Promise.all(
+      permissionsData.map((p) =>
+        prisma.permission.upsert({
+          where: { code: p.code },
+          update: { name: p.name, category: p.category, description: p.description },
+          create: p,
+        })
+      )
+    );
+
+    // Step 2: Atomic transaction — only the 4 fast writes that MUST be atomic.
     const result = await prisma.$transaction(async (tx) => {
       const branch = await tx.branch.create({
         data: {
@@ -159,18 +171,7 @@ router.post("/bootstrap", async (req, res) => {
         },
       });
 
-      // Ensure all predefined permissions exist in the database (Upsert in parallel)
-      const seededPermissions = await Promise.all(
-        permissionsData.map((p) =>
-          tx.permission.upsert({
-            where: { code: p.code },
-            update: { name: p.name, category: p.category, description: p.description },
-            create: p,
-          })
-        )
-      );
-
-      // Assign all of them to the newly created admin
+      // Assign all seeded permissions to the newly created admin
       await tx.employeePermission.createMany({
         data: seededPermissions.map((p) => ({
           employee_id: admin.id,
