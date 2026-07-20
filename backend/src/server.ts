@@ -8,7 +8,7 @@ dotenv.config();
 
 // Initialize routers
 import authRouter from "./routes/auth";
-import storesRouter from "./routes/stores";
+import branchesRouter from "./routes/branches";
 import employeesRouter from "./routes/employees";
 import customersRouter from "./routes/customers";
 import collaboratorsRouter from "./routes/collaborators";
@@ -35,7 +35,8 @@ app.use(express.json());
 
 // API Routes
 app.use("/api/auth", authRouter);
-app.use("/api/stores", storesRouter);
+app.use("/api/branches", branchesRouter);
+app.use("/api/stores", branchesRouter); // Backward compatibility
 app.use("/api/employees", employeesRouter);
 app.use("/api/customers", customersRouter);
 app.use("/api/collaborators", collaboratorsRouter);

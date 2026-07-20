@@ -10,20 +10,20 @@ router.use(authenticateToken as any);
 // 1. Get all customers (with search & store filtering)
 router.get("/", async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const { search, store_id, status } = req.query;
+    const { search, branch_id, status } = req.query;
 
     const whereClause: any = {};
 
-    // Filter by store_id if provided; otherwise default to employee's store_id
-    let targetStoreId = req.user!.store_id;
-    if (store_id && store_id !== req.user!.store_id) {
+    // Filter by branch_id if provided; otherwise default to employee's branch_id
+    let targetStoreId = req.user!.branch_id;
+    if (branch_id && branch_id !== req.user!.branch_id) {
       const hasPermission = req.user!.permissions.includes("STORES_MANAGE") || req.user!.permissions.includes("SETTINGS_MANAGE");
       if (!hasPermission) {
         return res.status(403).json({ error: "Không có quyền truy cập thông tin chi nhánh khác." });
       }
-      targetStoreId = store_id as string;
+      targetStoreId = branch_id as string;
     }
-    whereClause.store_id = targetStoreId;
+    whereClause.branch_id = targetStoreId;
 
     // Filter by status if provided (active, inactive, blacklist); otherwise exclude blacklisted customers by default
     if (status) {
@@ -50,7 +50,7 @@ router.get("/", async (req: AuthenticatedRequest, res: Response) => {
       const customers = await prisma.customer.findMany({
         where: whereClause,
         include: {
-          store: { select: { name: true } },
+          branch: { select: { name: true } },
           _count: {
             select: {
               pawn_contracts: true,
@@ -79,7 +79,7 @@ router.get("/", async (req: AuthenticatedRequest, res: Response) => {
     const customers = await prisma.customer.findMany({
       where: whereClause,
       include: {
-        store: { select: { name: true } },
+        branch: { select: { name: true } },
         _count: {
           select: {
             pawn_contracts: true,
@@ -103,11 +103,11 @@ router.get("/:id", async (req: AuthenticatedRequest, res: Response) => {
     const cust = await prisma.customer.findUnique({
       where: { id: req.params.id },
       include: {
-        store: true,
+        branch: true,
         blacklist_records: {
           include: {
             reporter: { select: { full_name: true } },
-            store: { select: { name: true } },
+            branch: { select: { name: true } },
           },
           orderBy: { created_at: "desc" },
         },
@@ -126,7 +126,7 @@ router.get("/:id", async (req: AuthenticatedRequest, res: Response) => {
 router.post("/", requirePermission(["CUSTOMERS_MANAGE"]) as any, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const {
-      store_id,
+      branch_id,
       full_name,
       phone,
       address,
@@ -150,8 +150,8 @@ router.post("/", requirePermission(["CUSTOMERS_MANAGE"]) as any, async (req: Aut
       return res.status(400).json({ error: "Customer name is required" });
     }
 
-    // Set default store_id to employee's store if not provided
-    const targetStoreId = store_id || req.user!.store_id;
+    // Set default branch_id to employee's store if not provided
+    const targetStoreId = branch_id || req.user!.branch_id;
 
     let duplicateWarning = false;
     if (identity_card_number) {
@@ -165,7 +165,7 @@ router.post("/", requirePermission(["CUSTOMERS_MANAGE"]) as any, async (req: Aut
 
     const newCust = await prisma.customer.create({
       data: {
-        store_id: targetStoreId,
+        branch_id: targetStoreId,
         full_name,
         phone,
         address,
@@ -199,7 +199,7 @@ router.post("/", requirePermission(["CUSTOMERS_MANAGE"]) as any, async (req: Aut
 router.put("/:id", requirePermission(["CUSTOMERS_MANAGE"]) as any, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const {
-      store_id,
+      branch_id,
       full_name,
       phone,
       address,
@@ -240,7 +240,7 @@ router.put("/:id", requirePermission(["CUSTOMERS_MANAGE"]) as any, async (req: A
     const updated = await prisma.customer.update({
       where: { id: req.params.id },
       data: {
-        store_id: store_id || undefined,
+        branch_id: branch_id || undefined,
         full_name: full_name || undefined,
         phone: phone !== undefined ? phone : undefined,
         address: address !== undefined ? address : undefined,
@@ -300,7 +300,7 @@ router.post("/:id/blacklist", requirePermission(["CUSTOMERS_MANAGE", "CONTRACTS_
         data: {
           customer_id: customerId,
           reporter_id: req.user!.id,
-          store_id: req.user!.store_id,
+          branch_id: req.user!.branch_id,
           reason,
         },
       });

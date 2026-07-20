@@ -32,28 +32,28 @@ router.get("/overview", requirePermission([
 ]) as any, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const today = normalizeToMidnight(new Date());
-    const stores = await prisma.store.findMany({
+    const stores = await prisma.branch.findMany({
       where: { status: "active" },
     });
 
     const result = [];
-    for (const store of stores) {
+    for (const branch of stores) {
       // Quỹ tiền mặt (current cash)
       const dailyCash = await prisma.dailyCash.findUnique({
         where: {
-          store_id_date: {
-            store_id: store.id,
+          branch_id_date: {
+            branch_id: branch.id,
             date: today,
           },
         },
       });
 
-      let currentCash = Number(store.investment_capital);
+      let currentCash = Number(branch.investment_capital);
       if (dailyCash) {
         currentCash = Number(dailyCash.current_cash);
       } else {
         const lastDaily = await prisma.dailyCash.findFirst({
-          where: { store_id: store.id, date: { lt: today } },
+          where: { branch_id: branch.id, date: { lt: today } },
           orderBy: { date: "desc" },
         });
         if (lastDaily) {
@@ -63,21 +63,21 @@ router.get("/overview", requirePermission([
 
       // Cho vay Cầm đồ
       const pawnSum = await prisma.pawnContract.aggregate({
-        where: { store_id: store.id, status: { in: ["active", "overdue"] } },
+        where: { branch_id: branch.id, status: { in: ["active", "overdue"] } },
         _sum: { loan_amount: true },
       });
       const pawnLending = Number(pawnSum._sum.loan_amount || 0);
 
       // Cho Tín chấp
       const unsecuredSum = await prisma.unsecuredContract.aggregate({
-        where: { store_id: store.id, status: { in: ["active", "overdue"] } },
+        where: { branch_id: branch.id, status: { in: ["active", "overdue"] } },
         _sum: { loan_amount: true },
       });
       const unsecuredLending = Number(unsecuredSum._sum.loan_amount || 0);
 
       // Cho Trả góp
       const installmentContracts = await prisma.installmentContract.findMany({
-        where: { store_id: store.id, status: { in: ["active", "overdue"] } },
+        where: { branch_id: branch.id, status: { in: ["active", "overdue"] } },
         include: { payments: true },
       });
       let installmentLending = 0;
@@ -91,11 +91,11 @@ router.get("/overview", requirePermission([
 
       // Lãi dự kiến
       const pawnExpected = await prisma.pawnInterestPayment.aggregate({
-        where: { contract: { store_id: store.id }, is_paid: false },
+        where: { contract: { branch_id: branch.id }, is_paid: false },
         _sum: { expected_interest: true },
       });
       const unsecuredExpected = await prisma.unsecuredInterestPayment.aggregate({
-        where: { contract: { store_id: store.id }, is_paid: false },
+        where: { contract: { branch_id: branch.id }, is_paid: false },
         _sum: { expected_interest: true },
       });
       const expectedInterest = Number(pawnExpected._sum.expected_interest || 0) + 
@@ -103,20 +103,20 @@ router.get("/overview", requirePermission([
 
       // Lãi đã thu
       const pawnPaid = await prisma.pawnInterestPayment.aggregate({
-        where: { contract: { store_id: store.id }, is_paid: true },
+        where: { contract: { branch_id: branch.id }, is_paid: true },
         _sum: { actual_paid: true },
       });
       const unsecuredPaid = await prisma.unsecuredInterestPayment.aggregate({
-        where: { contract: { store_id: store.id }, is_paid: true },
+        where: { contract: { branch_id: branch.id }, is_paid: true },
         _sum: { actual_paid: true },
       });
       const collectedInterest = Number(pawnPaid._sum.actual_paid || 0) + 
                                 Number(unsecuredPaid._sum.actual_paid || 0);
 
       result.push({
-        id: store.id,
-        name: store.name,
-        investment_capital: Number(store.investment_capital),
+        id: branch.id,
+        name: branch.name,
+        investment_capital: Number(branch.investment_capital),
         current_cash: currentCash,
         pawn_lending: pawnLending,
         unsecured_lending: unsecuredLending,
@@ -135,7 +135,7 @@ router.get("/overview", requirePermission([
 // 2. Transactions Summary & Sổ cái chi tiết (Tổng kết giao dịch)
 router.get("/transactions", requirePermission(["REPORT_TRANSACTIONS"]) as any, async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const storeId = req.user!.store_id;
+    const storeId = req.user!.branch_id;
     const { startDate, endDate } = req.query;
 
     const start = startDate ? normalizeToMidnight(startDate as string) : normalizeToMidnight(new Date());
@@ -144,7 +144,7 @@ router.get("/transactions", requirePermission(["REPORT_TRANSACTIONS"]) as any, a
     // 1. Get daily cash records to find beginning/ending cash
     const dailyCashList = await prisma.dailyCash.findMany({
       where: {
-        store_id: storeId,
+        branch_id: storeId,
         date: { gte: start, lte: end },
       },
       orderBy: { date: "asc" },
@@ -159,15 +159,15 @@ router.get("/transactions", requirePermission(["REPORT_TRANSACTIONS"]) as any, a
     } else {
       // Find the most recent record before start
       const lastDaily = await prisma.dailyCash.findFirst({
-        where: { store_id: storeId, date: { lt: start } },
+        where: { branch_id: storeId, date: { lt: start } },
         orderBy: { date: "desc" },
       });
       if (lastDaily) {
         beginningCash = Number(lastDaily.current_cash);
         endingCash = Number(lastDaily.current_cash);
       } else {
-        const store = await prisma.store.findUnique({ where: { id: storeId } });
-        beginningCash = store ? Number(store.investment_capital) : 0;
+        const branch = await prisma.branch.findUnique({ where: { id: storeId } });
+        beginningCash = branch ? Number(branch.investment_capital) : 0;
         endingCash = beginningCash;
       }
     }
@@ -175,7 +175,7 @@ router.get("/transactions", requirePermission(["REPORT_TRANSACTIONS"]) as any, a
     // 2. Get all CashFundHistory records in range to compute totals
     const cashHistories = await prisma.cashFundHistory.findMany({
       where: {
-        store_id: storeId,
+        branch_id: storeId,
         date: { gte: start, lte: end },
       },
     });
@@ -209,7 +209,7 @@ router.get("/transactions", requirePermission(["REPORT_TRANSACTIONS"]) as any, a
 
     // Receipt Vouchers
     const receipts = await prisma.receiptVoucher.findMany({
-      where: { store_id: storeId, voucher_date: { gte: start, lte: end }, status: "active" },
+      where: { branch_id: storeId, voucher_date: { gte: start, lte: end }, status: "active" },
       include: { employee: { select: { full_name: true } }, category: true },
     });
     receipts.forEach((r) => {
@@ -228,7 +228,7 @@ router.get("/transactions", requirePermission(["REPORT_TRANSACTIONS"]) as any, a
 
     // Payment Vouchers
     const payments = await prisma.paymentVoucher.findMany({
-      where: { store_id: storeId, voucher_date: { gte: start, lte: end }, status: "active" },
+      where: { branch_id: storeId, voucher_date: { gte: start, lte: end }, status: "active" },
       include: { employee: { select: { full_name: true } }, category: true },
     });
     payments.forEach((p) => {
@@ -247,7 +247,7 @@ router.get("/transactions", requirePermission(["REPORT_TRANSACTIONS"]) as any, a
 
     // Capital Contracts
     const capitals = await prisma.capitalContract.findMany({
-      where: { store_id: storeId, investment_date: { gte: start, lte: end } },
+      where: { branch_id: storeId, investment_date: { gte: start, lte: end } },
     });
     capitals.forEach((c) => {
       if (c.status === "active") {
@@ -279,7 +279,7 @@ router.get("/transactions", requirePermission(["REPORT_TRANSACTIONS"]) as any, a
 
     // Pawn Ledgers
     const pawnLedgers = await prisma.pawnTransactionLedger.findMany({
-      where: { contract: { store_id: storeId }, created_at: { gte: start, lte: end } },
+      where: { contract: { branch_id: storeId }, created_at: { gte: start, lte: end } },
       include: { employee: { select: { full_name: true } }, contract: { include: { customer: true } } },
     });
     pawnLedgers.forEach((l) => {
@@ -298,7 +298,7 @@ router.get("/transactions", requirePermission(["REPORT_TRANSACTIONS"]) as any, a
 
     // Unsecured Ledgers
     const unsecuredLedgers = await prisma.unsecuredTransactionLedger.findMany({
-      where: { contract: { store_id: storeId }, created_at: { gte: start, lte: end } },
+      where: { contract: { branch_id: storeId }, created_at: { gte: start, lte: end } },
       include: { employee: { select: { full_name: true } }, contract: { include: { customer: true } } },
     });
     unsecuredLedgers.forEach((l) => {
@@ -317,7 +317,7 @@ router.get("/transactions", requirePermission(["REPORT_TRANSACTIONS"]) as any, a
 
     // Installment Ledgers
     const installmentLedgers = await prisma.installmentTransactionLedger.findMany({
-      where: { contract: { store_id: storeId }, created_at: { gte: start, lte: end } },
+      where: { contract: { branch_id: storeId }, created_at: { gte: start, lte: end } },
       include: { employee: { select: { full_name: true } }, contract: { include: { customer: true } } },
     });
     installmentLedgers.forEach((l) => {
@@ -358,7 +358,7 @@ router.get("/transactions", requirePermission(["REPORT_TRANSACTIONS"]) as any, a
 // 3. Profit Summary (Tổng kết lợi nhuận)
 router.get("/profit", requirePermission(["REPORT_PROFIT"]) as any, async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const storeId = req.user!.store_id;
+    const storeId = req.user!.branch_id;
     const { startDate, endDate } = req.query;
 
     const start = startDate ? normalizeToMidnight(startDate as string) : normalizeToMidnight(new Date());
@@ -373,7 +373,7 @@ router.get("/profit", requirePermission(["REPORT_PROFIT"]) as any, async (req: A
 
     // --- Pawn Contracts ---
     const pawns = await prisma.pawnContract.findMany({
-      where: { store_id: storeId, status: { not: "cancelled" } },
+      where: { branch_id: storeId, status: { not: "cancelled" } },
       include: { interest_payments: true },
     });
     for (const c of pawns) {
@@ -406,7 +406,7 @@ router.get("/profit", requirePermission(["REPORT_PROFIT"]) as any, async (req: A
 
     // --- Unsecured Contracts ---
     const unsecureds = await prisma.unsecuredContract.findMany({
-      where: { store_id: storeId, status: { not: "cancelled" } },
+      where: { branch_id: storeId, status: { not: "cancelled" } },
       include: { interest_payments: true },
     });
     for (const c of unsecureds) {
@@ -438,7 +438,7 @@ router.get("/profit", requirePermission(["REPORT_PROFIT"]) as any, async (req: A
 
     // --- Installment Contracts ---
     const installments = await prisma.installmentContract.findMany({
-      where: { store_id: storeId, status: { not: "cancelled" } },
+      where: { branch_id: storeId, status: { not: "cancelled" } },
       include: { payments: true },
     });
     for (const c of installments) {
@@ -477,7 +477,7 @@ router.get("/profit", requirePermission(["REPORT_PROFIT"]) as any, async (req: A
 
     // --- Capital Contracts ---
     const capitals = await prisma.capitalContract.findMany({
-      where: { store_id: storeId, status: { not: "cancelled" } },
+      where: { branch_id: storeId, status: { not: "cancelled" } },
     });
     for (const c of capitals) {
       result.capital.total++;
@@ -506,7 +506,7 @@ router.get("/profit", requirePermission(["REPORT_PROFIT"]) as any, async (req: A
 // 4. Interest Details (Chi tiết tiền lãi & Tổng hợp tháng)
 router.get("/interest", requirePermission(["REPORT_INTEREST"]) as any, async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const storeId = req.user!.store_id;
+    const storeId = req.user!.branch_id;
     const { year, type } = req.query;
 
     const targetYear = year ? Number(year) : new Date().getFullYear();
@@ -515,7 +515,7 @@ router.get("/interest", requirePermission(["REPORT_INTEREST"]) as any, async (re
       // Get monthly totals for targetYear
       const pawnPayments = await prisma.pawnInterestPayment.findMany({
         where: {
-          contract: { store_id: storeId },
+          contract: { branch_id: storeId },
           is_paid: true,
           paid_date: {
             gte: new Date(Date.UTC(targetYear, 0, 1)),
@@ -526,7 +526,7 @@ router.get("/interest", requirePermission(["REPORT_INTEREST"]) as any, async (re
 
       const unsecuredPayments = await prisma.unsecuredInterestPayment.findMany({
         where: {
-          contract: { store_id: storeId },
+          contract: { branch_id: storeId },
           is_paid: true,
           paid_date: {
             gte: new Date(Date.UTC(targetYear, 0, 1)),
@@ -561,7 +561,7 @@ router.get("/interest", requirePermission(["REPORT_INTEREST"]) as any, async (re
     const list: any[] = [];
 
     const pawnPayments = await prisma.pawnInterestPayment.findMany({
-      where: { contract: { store_id: storeId }, is_paid: true },
+      where: { contract: { branch_id: storeId }, is_paid: true },
       include: { contract: { include: { customer: true, commodity: true } } },
       orderBy: { paid_date: "desc" },
       take: 200,
@@ -583,7 +583,7 @@ router.get("/interest", requirePermission(["REPORT_INTEREST"]) as any, async (re
     });
 
     const unsecuredPayments = await prisma.unsecuredInterestPayment.findMany({
-      where: { contract: { store_id: storeId }, is_paid: true },
+      where: { contract: { branch_id: storeId }, is_paid: true },
       include: { contract: { include: { customer: true, commodity: true } } },
       orderBy: { paid_date: "desc" },
       take: 200,
@@ -615,14 +615,21 @@ router.get("/interest", requirePermission(["REPORT_INTEREST"]) as any, async (re
 // 5. Employee Money Collection Statistics (Thống kê thu tiền nhân viên)
 router.get("/collection", requirePermission(["REPORT_COLLECTIONS"]) as any, async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const storeId = req.user!.store_id;
+    const storeId = req.user!.branch_id;
     const { startDate, endDate } = req.query;
 
     const start = startDate ? normalizeToMidnight(startDate as string) : normalizeToMidnight(new Date());
     const end = endDate ? normalizeToMidnight(endDate as string) : normalizeToMidnight(new Date());
 
     const employees = await prisma.employee.findMany({
-      where: { store_id: storeId, status: "active" },
+      where: {
+        branches: {
+          some: {
+            branch_id: storeId,
+          },
+        },
+        status: "active",
+      },
     });
 
     const result = [];
@@ -676,7 +683,7 @@ router.get("/collection", requirePermission(["REPORT_COLLECTIONS"]) as any, asyn
 // 6. Filter contracts list for specific report categories (Hợp đồng đang vay, chờ thanh lý, tất toán, đã thanh lý, đã xóa)
 router.get("/contracts", async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const storeId = req.user!.store_id;
+    const storeId = req.user!.branch_id;
     const { category, search } = req.query;
 
     if (!category) {
@@ -709,9 +716,9 @@ router.get("/contracts", async (req: AuthenticatedRequest, res: Response) => {
     let installmentContracts: any[] = [];
 
     // Construct filter clauses
-    let pawnFilter: any = { store_id: storeId };
-    let unsecuredFilter: any = { store_id: storeId };
-    let installmentFilter: any = { store_id: storeId };
+    let pawnFilter: any = { branch_id: storeId };
+    let unsecuredFilter: any = { branch_id: storeId };
+    let installmentFilter: any = { branch_id: storeId };
 
     if (search) {
       const searchOR = [
@@ -797,15 +804,15 @@ router.get("/contracts", async (req: AuthenticatedRequest, res: Response) => {
 // 7. Shift Handover (Biên bản bàn giao ca)
 router.get("/shift-handover", requirePermission(["REPORT_HANDOVER"]) as any, async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const storeId = req.user!.store_id;
+    const storeId = req.user!.branch_id;
     const { date } = req.query;
 
     const targetDate = date ? normalizeToMidnight(date as string) : normalizeToMidnight(new Date());
 
     const dailyCash = await prisma.dailyCash.findUnique({
       where: {
-        store_id_date: {
-          store_id: storeId,
+        branch_id_date: {
+          branch_id: storeId,
           date: targetDate,
         },
       },
@@ -816,7 +823,7 @@ router.get("/shift-handover", requirePermission(["REPORT_HANDOVER"]) as any, asy
 
     // Get transactions for that date to split by category
     const histories = await prisma.cashFundHistory.findMany({
-      where: { store_id: storeId, date: targetDate },
+      where: { branch_id: storeId, date: targetDate },
     });
 
     let pawnFlow = 0;
@@ -836,12 +843,12 @@ router.get("/shift-handover", requirePermission(["REPORT_HANDOVER"]) as any, asy
 
     // Active Assets lists to handover
     const pawnAssets = await prisma.pawnContract.findMany({
-      where: { store_id: storeId, status: { in: ["active", "overdue"] } },
+      where: { branch_id: storeId, status: { in: ["active", "overdue"] } },
       include: { customer: true, commodity: true },
     });
 
     const unsecuredAssets = await prisma.unsecuredContract.findMany({
-      where: { store_id: storeId, status: { in: ["active", "overdue"] } },
+      where: { branch_id: storeId, status: { in: ["active", "overdue"] } },
       include: { customer: true, commodity: true, interest_payments: true },
     });
 
@@ -858,7 +865,7 @@ router.get("/shift-handover", requirePermission(["REPORT_HANDOVER"]) as any, asy
     });
 
     const installmentContracts = await prisma.installmentContract.findMany({
-      where: { store_id: storeId, status: { in: ["active", "overdue"] } },
+      where: { branch_id: storeId, status: { in: ["active", "overdue"] } },
       include: { customer: true, payments: true },
     });
 
@@ -902,7 +909,7 @@ router.get("/shift-handover", requirePermission(["REPORT_HANDOVER"]) as any, asy
 // 8. Daily Cash Flow Ledger (Dòng tiền theo ngày)
 router.get("/cashflow", requirePermission(["REPORT_DAILY_CASH"]) as any, async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const storeId = req.user!.store_id;
+    const storeId = req.user!.branch_id;
     const { startDate, endDate } = req.query;
 
     const start = startDate ? normalizeToMidnight(startDate as string) : normalizeToMidnight(new Date());
@@ -910,12 +917,12 @@ router.get("/cashflow", requirePermission(["REPORT_DAILY_CASH"]) as any, async (
 
     // Fetch all DailyCash records in range
     const dailyCashList = await prisma.dailyCash.findMany({
-      where: { store_id: storeId, date: { gte: start, lte: end } },
+      where: { branch_id: storeId, date: { gte: start, lte: end } },
       orderBy: { date: "asc" },
     });
 
     const cashHistories = await prisma.cashFundHistory.findMany({
-      where: { store_id: storeId, date: { gte: start, lte: end } },
+      where: { branch_id: storeId, date: { gte: start, lte: end } },
     });
 
     const list = [];
@@ -943,20 +950,20 @@ router.get("/cashflow", requirePermission(["REPORT_DAILY_CASH"]) as any, async (
       // Calculate Total Assets for this day
       // Active Pawn loan totals up to this date
       const pawnLoans = await prisma.pawnContract.aggregate({
-        where: { store_id: storeId, loan_date: { lte: dc.date }, status: { in: ["active", "overdue"] } },
+        where: { branch_id: storeId, loan_date: { lte: dc.date }, status: { in: ["active", "overdue"] } },
         _sum: { loan_amount: true },
       });
       const pawnLending = Number(pawnLoans._sum.loan_amount || 0);
 
       const unsecuredLoans = await prisma.unsecuredContract.aggregate({
-        where: { store_id: storeId, loan_date: { lte: dc.date }, status: { in: ["active", "overdue"] } },
+        where: { branch_id: storeId, loan_date: { lte: dc.date }, status: { in: ["active", "overdue"] } },
         _sum: { loan_amount: true },
       });
       const unsecuredLending = Number(unsecuredLoans._sum.loan_amount || 0);
 
       // Installment outstanding up to this date
       const installmentContracts = await prisma.installmentContract.findMany({
-        where: { store_id: storeId, loan_date: { lte: dc.date }, status: { in: ["active", "overdue"] } },
+        where: { branch_id: storeId, loan_date: { lte: dc.date }, status: { in: ["active", "overdue"] } },
         include: { payments: true },
       });
       let installmentLending = 0;
@@ -970,7 +977,7 @@ router.get("/cashflow", requirePermission(["REPORT_DAILY_CASH"]) as any, async (
 
       // Active Capital outstanding up to this date
       const capitalOustanding = await prisma.capitalContract.aggregate({
-        where: { store_id: storeId, investment_date: { lte: dc.date }, status: "active" },
+        where: { branch_id: storeId, investment_date: { lte: dc.date }, status: "active" },
         _sum: { amount: true },
       });
       const activeCapital = Number(capitalOustanding._sum.amount || 0);
@@ -1007,7 +1014,7 @@ router.get("/cashflow", requirePermission(["REPORT_DAILY_CASH"]) as any, async (
 // 9. Collaborator Report (Báo cáo CTV)
 router.get("/collaborators", requirePermission(["REPORT_COLLABORATORS"]) as any, async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const storeId = req.user!.store_id;
+    const storeId = req.user!.branch_id;
 
     const collaborators = await prisma.collaborator.findMany({
       orderBy: { full_name: "asc" },
@@ -1017,36 +1024,36 @@ router.get("/collaborators", requirePermission(["REPORT_COLLABORATORS"]) as any,
     for (const col of collaborators) {
       // Count referred contracts
       const pawnCount = await prisma.pawnContract.count({
-        where: { store_id: storeId, collaborator_id: col.id, status: { not: "cancelled" } },
+        where: { branch_id: storeId, collaborator_id: col.id, status: { not: "cancelled" } },
       });
       const unsecuredCount = await prisma.unsecuredContract.count({
-        where: { store_id: storeId, collaborator_id: col.id, status: { not: "cancelled" } },
+        where: { branch_id: storeId, collaborator_id: col.id, status: { not: "cancelled" } },
       });
       const installmentCount = await prisma.installmentContract.count({
-        where: { store_id: storeId, collaborator_id: col.id, status: { not: "cancelled" } },
+        where: { branch_id: storeId, collaborator_id: col.id, status: { not: "cancelled" } },
       });
 
       // Sum referred disbursed amount
       const pawnSum = await prisma.pawnContract.aggregate({
-        where: { store_id: storeId, collaborator_id: col.id, status: { not: "cancelled" } },
+        where: { branch_id: storeId, collaborator_id: col.id, status: { not: "cancelled" } },
         _sum: { loan_amount: true },
       });
       const unsecuredSum = await prisma.unsecuredContract.aggregate({
-        where: { store_id: storeId, collaborator_id: col.id, status: { not: "cancelled" } },
+        where: { branch_id: storeId, collaborator_id: col.id, status: { not: "cancelled" } },
         _sum: { loan_amount: true },
       });
       const installmentSum = await prisma.installmentContract.aggregate({
-        where: { store_id: storeId, collaborator_id: col.id, status: { not: "cancelled" } },
+        where: { branch_id: storeId, collaborator_id: col.id, status: { not: "cancelled" } },
         _sum: { disbursed_amount: true },
       });
 
       // Sum interest paid
       const pawnPaid = await prisma.pawnInterestPayment.aggregate({
-        where: { contract: { store_id: storeId, collaborator_id: col.id }, is_paid: true },
+        where: { contract: { branch_id: storeId, collaborator_id: col.id }, is_paid: true },
         _sum: { actual_paid: true },
       });
       const unsecuredPaid = await prisma.unsecuredInterestPayment.aggregate({
-        where: { contract: { store_id: storeId, collaborator_id: col.id }, is_paid: true },
+        where: { contract: { branch_id: storeId, collaborator_id: col.id }, is_paid: true },
         _sum: { actual_paid: true },
       });
 
@@ -1074,30 +1081,30 @@ router.get("/collaborators", requirePermission(["REPORT_COLLABORATORS"]) as any,
 // 10. Dashboard Metrics (Thống kê nhanh Dashboard)
 router.get("/dashboard-metrics", async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const storeId = req.user!.store_id;
+    const storeId = req.user!.branch_id;
 
     const [pawnCount, unsecuredCount, installmentCount, blacklistCount] = await Promise.all([
       prisma.pawnContract.count({
         where: {
-          store_id: storeId,
+          branch_id: storeId,
           status: { in: ["active", "overdue"] }
         }
       }),
       prisma.unsecuredContract.count({
         where: {
-          store_id: storeId,
+          branch_id: storeId,
           status: { in: ["active", "overdue"] }
         }
       }),
       prisma.installmentContract.count({
         where: {
-          store_id: storeId,
+          branch_id: storeId,
           status: { in: ["active", "overdue"] }
         }
       }),
       prisma.customer.count({
         where: {
-          store_id: storeId,
+          branch_id: storeId,
           status: "blacklist"
         }
       })

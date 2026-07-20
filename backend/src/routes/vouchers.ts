@@ -49,7 +49,7 @@ router.get("/receipts", async (req: AuthenticatedRequest, res: Response) => {
     const { search, startDate, endDate, category_id } = req.query;
 
     const whereClause: any = {
-      store_id: req.user!.store_id,
+      branch_id: req.user!.branch_id,
       status: "active",
     };
 
@@ -95,7 +95,7 @@ router.get("/payments", async (req: AuthenticatedRequest, res: Response) => {
     const { search, startDate, endDate, category_id } = req.query;
 
     const whereClause: any = {
-      store_id: req.user!.store_id,
+      branch_id: req.user!.branch_id,
       status: "active",
     };
 
@@ -140,7 +140,7 @@ router.get("/", async (req: AuthenticatedRequest, res: Response) => {
     const { search, startDate, endDate, category_id, type } = req.query;
 
     const whereClause: any = {
-      store_id: req.user!.store_id,
+      branch_id: req.user!.branch_id,
       status: "active",
     };
 
@@ -195,7 +195,7 @@ router.get("/", async (req: AuthenticatedRequest, res: Response) => {
 // 4. Create Receipt Voucher (PT)
 router.post("/receipts", requirePermission(["VOUCHERS_MANAGE"]) as any, async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const storeId = req.user!.store_id;
+    const storeId = req.user!.branch_id;
     const employeeId = req.user!.id;
     const { category_id, amount, recipient_name, notes } = req.body;
 
@@ -214,7 +214,7 @@ router.post("/receipts", requirePermission(["VOUCHERS_MANAGE"]) as any, async (r
 
       const voucher = await tx.receiptVoucher.create({
         data: {
-          store_id: storeId,
+          branch_id: storeId,
           voucher_code: code,
           category_id,
           amount: value,
@@ -249,7 +249,7 @@ router.post("/receipts", requirePermission(["VOUCHERS_MANAGE"]) as any, async (r
 // 5. Create Payment Voucher (PC)
 router.post("/payments", requirePermission(["VOUCHERS_MANAGE"]) as any, async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const storeId = req.user!.store_id;
+    const storeId = req.user!.branch_id;
     const employeeId = req.user!.id;
     const { category_id, amount, recipient_name, notes } = req.body;
 
@@ -268,7 +268,7 @@ router.post("/payments", requirePermission(["VOUCHERS_MANAGE"]) as any, async (r
 
       const voucher = await tx.paymentVoucher.create({
         data: {
-          store_id: storeId,
+          branch_id: storeId,
           voucher_code: code,
           category_id,
           amount: value,
@@ -302,7 +302,7 @@ router.post("/payments", requirePermission(["VOUCHERS_MANAGE"]) as any, async (r
 
 router.post("/", requirePermission(["VOUCHERS_MANAGE"]) as any, async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const storeId = req.user!.store_id;
+    const storeId = req.user!.branch_id;
     const employeeId = req.user!.id;
     const { category_id, amount, recipient_name, notes, voucher_date, type } = req.body;
 
@@ -322,7 +322,7 @@ router.post("/", requirePermission(["VOUCHERS_MANAGE"]) as any, async (req: Auth
         const code = await generateVoucherCode(tx, "payment");
         const voucher = await tx.paymentVoucher.create({
           data: {
-            store_id: storeId,
+            branch_id: storeId,
             voucher_code: code,
             category_id,
             amount: value,
@@ -352,7 +352,7 @@ router.post("/", requirePermission(["VOUCHERS_MANAGE"]) as any, async (req: Auth
         const code = await generateVoucherCode(tx, "receipt");
         const voucher = await tx.receiptVoucher.create({
           data: {
-            store_id: storeId,
+            branch_id: storeId,
             voucher_code: code,
             category_id,
             amount: value,
@@ -410,7 +410,7 @@ router.put("/receipts/:id/cancel", requirePermission(["VOUCHERS_MANAGE"]) as any
       // Reverse Cash flow (- amount)
       await adjustDailyCash(
         tx,
-        voucher.store_id,
+        voucher.branch_id,
         new Date(),
         -Number(voucher.amount),
         "receipt_cancelled",
@@ -454,7 +454,7 @@ router.put("/payments/:id/cancel", requirePermission(["VOUCHERS_MANAGE"]) as any
       // Reverse Cash flow (+ amount)
       await adjustDailyCash(
         tx,
-        voucher.store_id,
+        voucher.branch_id,
         new Date(),
         Number(voucher.amount),
         "payment_cancelled",
@@ -474,14 +474,14 @@ router.put("/payments/:id/cancel", requirePermission(["VOUCHERS_MANAGE"]) as any
 // Helper functions for cancel/void logic
 async function cancelReceiptVoucher(tx: any, voucher: any, employeeId: string) {
   // Check daily cash lock for voucher date and today
-  await checkDailyCashLock(tx, voucher.store_id, voucher.voucher_date);
-  await checkDailyCashLock(tx, voucher.store_id, new Date());
+  await checkDailyCashLock(tx, voucher.branch_id, voucher.voucher_date);
+  await checkDailyCashLock(tx, voucher.branch_id, new Date());
 
   if (voucher.status === "active") {
     // Reverse Daily Cash flow since it was active
     await adjustDailyCash(
       tx,
-      voucher.store_id,
+      voucher.branch_id,
       new Date(),
       -Number(voucher.amount),
       "receipt_voided",
@@ -498,14 +498,14 @@ async function cancelReceiptVoucher(tx: any, voucher: any, employeeId: string) {
 
 async function cancelPaymentVoucher(tx: any, voucher: any, employeeId: string) {
   // Check daily cash lock for voucher date and today
-  await checkDailyCashLock(tx, voucher.store_id, voucher.voucher_date);
-  await checkDailyCashLock(tx, voucher.store_id, new Date());
+  await checkDailyCashLock(tx, voucher.branch_id, voucher.voucher_date);
+  await checkDailyCashLock(tx, voucher.branch_id, new Date());
 
   if (voucher.status === "active") {
     // Reverse Daily Cash flow since it was active
     await adjustDailyCash(
       tx,
-      voucher.store_id,
+      voucher.branch_id,
       new Date(),
       Number(voucher.amount),
       "payment_voided",

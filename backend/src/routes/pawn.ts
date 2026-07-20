@@ -133,10 +133,10 @@ function calculateAccruedInterest(contract: any): number {
 // 1. Get Pawn Contracts list (with search, filter)
 router.get("/", async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const storeId = req.user!.store_id;
+    const storeId = req.user!.branch_id;
     const { status, search, searchAsset, commodityId, page, limit } = req.query;
 
-    const whereClause: any = { store_id: storeId };
+    const whereClause: any = { branch_id: storeId };
     
     if (status) {
       if (status === "all_active") {
@@ -319,6 +319,10 @@ router.get("/:id", async (req: AuthenticatedRequest, res: Response) => {
       return res.status(404).json({ error: "Pawn contract not found" });
     }
 
+    if (!req.user!.branch_ids.includes(contract.branch_id)) {
+      return res.status(403).json({ error: "Forbidden: You do not have access to this branch's data" });
+    }
+
     return res.json(contract);
   } catch (error: any) {
     if (error instanceof InvalidLoanParamsError) {
@@ -331,7 +335,7 @@ router.get("/:id", async (req: AuthenticatedRequest, res: Response) => {
 // 3. Create Pawn Contract
 router.post("/", requirePermission(["CONTRACTS_MANAGE"]) as any, async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const storeId = req.user!.store_id;
+    const storeId = req.user!.branch_id;
     const employeeId = req.user!.id;
 
     const {
@@ -454,7 +458,7 @@ router.post("/", requirePermission(["CONTRACTS_MANAGE"]) as any, async (req: Aut
       const contract = await tx.pawnContract.create({
         data: {
           id: contractId,
-          store_id: storeId,
+          branch_id: storeId,
           contract_code: contractCode,
           customer_id,
           commodity_id,
@@ -583,7 +587,7 @@ router.post("/:id/pay-interest", requirePermission(["CONTRACTS_OPERATE"]) as any
       // Update cash fund (+ payAmount)
       await adjustDailyCash(
         tx,
-        payment.contract.store_id,
+        payment.contract.branch_id,
         today,
         payAmount,
         "pawn_interest_pay",
@@ -646,7 +650,7 @@ const handleCancelInterest = async (req: AuthenticatedRequest, res: Response) =>
       // Revert daily cash (- refundAmount)
       await adjustDailyCash(
         tx,
-        payment.contract.store_id,
+        payment.contract.branch_id,
         today,
         -refundAmount,
         "pawn_interest_cancel",
@@ -744,7 +748,7 @@ router.post("/:id/pay-down", requirePermission(["CONTRACTS_OPERATE"]) as any, as
       // 3. Adjust daily cash (+ paydownAmount)
       await adjustDailyCash(
         tx,
-        contract.store_id,
+        contract.branch_id,
         date,
         paydownAmount,
         "pawn_principal_paydown",
@@ -826,7 +830,7 @@ router.post("/:id/borrow-more", requirePermission(["CONTRACTS_OPERATE"]) as any,
       // 3. Adjust daily cash (- borrowAmount)
       await adjustDailyCash(
         tx,
-        contract.store_id,
+        contract.branch_id,
         date,
         -borrowAmount,
         "pawn_principal_borrow_more",
@@ -880,7 +884,7 @@ router.delete("/:id/principal-transaction/:txId", requirePermission(["CONTRACTS_
       const amount = Number(pTx.amount);
 
       if (pTx.type === "pay_down") {
-        // Restore: Increments contract loan_amount, deducts amount from daily cash
+        // Rebranch: Increments contract loan_amount, deducts amount from daily cash
         await tx.pawnContract.update({
           where: { id: contractId },
           data: { loan_amount: { increment: amount } },
@@ -888,7 +892,7 @@ router.delete("/:id/principal-transaction/:txId", requirePermission(["CONTRACTS_
 
         await adjustDailyCash(
           tx,
-          contract.store_id,
+          contract.branch_id,
           today,
           -amount,
           "pawn_principal_revert",
@@ -907,7 +911,7 @@ router.delete("/:id/principal-transaction/:txId", requirePermission(["CONTRACTS_
           },
         });
       } else if (pTx.type === "borrow_more") {
-        // Restore: Decrements contract loan_amount, adds amount to daily cash
+        // Rebranch: Decrements contract loan_amount, adds amount to daily cash
         await tx.pawnContract.update({
           where: { id: contractId },
           data: { loan_amount: { decrement: amount } },
@@ -915,7 +919,7 @@ router.delete("/:id/principal-transaction/:txId", requirePermission(["CONTRACTS_
 
         await adjustDailyCash(
           tx,
-          contract.store_id,
+          contract.branch_id,
           today,
           amount,
           "pawn_principal_revert",
@@ -1268,7 +1272,7 @@ router.post("/:id/redeem", requirePermission(["CONTRACTS_OPERATE"]) as any, asyn
       // Adjust cash fund (+ totalRedeem)
       await adjustDailyCash(
         tx,
-        contract.store_id,
+        contract.branch_id,
         rDate,
         totalRedeem,
         "pawn_redeem",
@@ -1329,7 +1333,7 @@ router.post("/:id/cancel-redeem", requirePermission(["CONTRACTS_OPERATE"]) as an
       // Revert Cash flow (- refundAmount)
       await adjustDailyCash(
         tx,
-        contract.store_id,
+        contract.branch_id,
         today,
         -refundAmount,
         "pawn_redeem_cancel",
@@ -1496,7 +1500,7 @@ router.post("/:id/pay-debt", requirePermission(["CONTRACTS_OPERATE"]) as any, as
       // 3. Update cash fund (+ value)
       await adjustDailyCash(
         tx,
-        contract.store_id,
+        contract.branch_id,
         today,
         value,
         "pawn_debt_payment",
@@ -1570,7 +1574,7 @@ router.delete("/:id/debt-transaction/:txId", requirePermission(["CONTRACTS_OPERA
 
         await adjustDailyCash(
           tx,
-          contract.store_id,
+          contract.branch_id,
           today,
           -amount,
           "pawn_debt_revert",
@@ -1720,6 +1724,7 @@ router.post("/:id/timers", async (req: AuthenticatedRequest, res: Response) => {
         // Create new global reminder
         await tx.reminder.create({
           data: {
+            branch_id: contract.branch_id,
             employee_id: req.user!.id,
             contract_code: contract.contract_code,
             customer_name: contract.customer.full_name,
@@ -1928,7 +1933,7 @@ router.put("/:id", requirePermission(["CONTRACTS_MANAGE"]) as any, async (req: A
       if (diff !== 0) {
         await adjustDailyCash(
           tx,
-          contract.store_id,
+          contract.branch_id,
           new Date(),
           -diff, // If newNet is higher, cash goes out (-diff). If lower, cash comes in (+diff).
           "contract_edit",
@@ -1983,7 +1988,7 @@ router.delete("/:id", requirePermission(["CONTRACTS_MANAGE"]) as any, async (req
       }
 
       // Check daily cash lock for original loan date
-      await checkDailyCashLock(tx, contract.store_id, contract.loan_date);
+      await checkDailyCashLock(tx, contract.branch_id, contract.loan_date);
 
       // Calculate old upfront
       let oldUpfront = 0;
@@ -2023,7 +2028,7 @@ router.delete("/:id", requirePermission(["CONTRACTS_MANAGE"]) as any, async (req
       if (netCashFlow !== 0) {
         await adjustDailyCash(
           tx,
-          contract.store_id,
+          contract.branch_id,
           new Date(),
           -netCashFlow,
           "contract_deleted",
@@ -2055,7 +2060,7 @@ router.post("/:id/liquidate", requirePermission(["CONTRACTS_OPERATE"]) as any, a
   try {
     const contractId = req.params.id;
     const employeeId = req.user!.id;
-    const storeId = req.user!.store_id;
+    const storeId = req.user!.branch_id;
     const { liquidation_price, buyer, notes } = req.body;
 
     if (liquidation_price === undefined || !buyer) {
@@ -2154,7 +2159,7 @@ router.post("/:id/liquidate", requirePermission(["CONTRACTS_OPERATE"]) as any, a
 
       await tx.receiptVoucher.create({
         data: {
-          store_id: storeId,
+          branch_id: storeId,
           voucher_code: voucherCode,
           category_id: category.id,
           amount: price,

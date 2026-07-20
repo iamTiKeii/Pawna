@@ -29,7 +29,7 @@ router.get("/pawn", async (req: AuthenticatedRequest, res: Response) => {
     // Find all active pawn contracts in this store
     const contracts = await prisma.pawnContract.findMany({
       where: {
-        store_id: req.user!.store_id,
+        branch_id: req.user!.branch_id,
         status: "active",
         ...getSearchFilter(search),
       },
@@ -121,7 +121,7 @@ router.get("/loan", async (req: AuthenticatedRequest, res: Response) => {
 
     const contracts = await prisma.unsecuredContract.findMany({
       where: {
-        store_id: req.user!.store_id,
+        branch_id: req.user!.branch_id,
         status: "active",
         ...getSearchFilter(search),
       },
@@ -217,7 +217,7 @@ router.get("/installment", async (req: AuthenticatedRequest, res: Response) => {
     endOfDay.setHours(23, 59, 59, 999);
 
     const baseWhere: any = {
-      store_id: req.user!.store_id,
+      branch_id: req.user!.branch_id,
       status: status ? String(status) : "active",
       ...getSearchFilter(search),
       payments: {
@@ -295,7 +295,7 @@ router.get("/capital", async (req: AuthenticatedRequest, res: Response) => {
 
     const contracts = await prisma.capitalContract.findMany({
       where: {
-        store_id: req.user!.store_id,
+        branch_id: req.user!.branch_id,
         status: "active",
         ...searchFilter,
         investment_date: {
@@ -337,12 +337,12 @@ router.get("/summary", async (req: AuthenticatedRequest, res: Response) => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    const storeId = req.user!.store_id;
+    const storeId = req.user!.branch_id;
 
     // 1. Pawn warnings count (including overdue contracts and overdue interest payments)
     const pawnContracts = await prisma.pawnContract.findMany({
       where: {
-        store_id: storeId,
+        branch_id: storeId,
         status: "active",
       },
       include: {
@@ -369,7 +369,7 @@ router.get("/summary", async (req: AuthenticatedRequest, res: Response) => {
     // 2. Loan warnings count (including overdue contracts and overdue interest payments)
     const loanContracts = await prisma.unsecuredContract.findMany({
       where: {
-        store_id: storeId,
+        branch_id: storeId,
         status: "active",
       },
       include: {
@@ -398,7 +398,7 @@ router.get("/summary", async (req: AuthenticatedRequest, res: Response) => {
     endOfDay.setHours(23, 59, 59, 999);
     const installmentCount = await prisma.installmentContract.count({
       where: {
-        store_id: storeId,
+        branch_id: storeId,
         status: "active",
         payments: {
           some: {
@@ -417,7 +417,7 @@ router.get("/summary", async (req: AuthenticatedRequest, res: Response) => {
     targetDate.setDate(targetDate.getDate() - 30);
     const capitalCount = await prisma.capitalContract.count({
       where: {
-        store_id: storeId,
+        branch_id: storeId,
         status: "active",
         investment_date: {
           lt: targetDate
@@ -481,6 +481,7 @@ router.post("/reminders", async (req: AuthenticatedRequest, res: Response) => {
 
     const reminder = await prisma.reminder.create({
       data: {
+        branch_id: req.user!.branch_id,
         employee_id: req.user!.id,
         contract_code: contractCode || null,
         customer_name: customerName || null,

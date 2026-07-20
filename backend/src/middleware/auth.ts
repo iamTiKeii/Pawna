@@ -7,7 +7,9 @@ export interface AuthenticatedRequest extends Request {
     id: string;
     username: string;
     full_name: string;
-    store_id: string;
+    store_id: string;      // Active branch ID (for backward compatibility)
+    branch_id: string;     // Active branch ID
+    branch_ids: string[];  // List of all allowed branch IDs
     permissions: string[]; // List of permission codes
   };
 }
@@ -31,6 +33,11 @@ export const authenticateToken = async (
     const employee = await prisma.employee.findUnique({
       where: { id: decoded.id },
       include: {
+        branches: {
+          include: {
+            branch: true,
+          },
+        },
         permissions: {
           include: {
             permission: true,
@@ -43,12 +50,35 @@ export const authenticateToken = async (
       return res.status(403).json({ error: "User is inactive or disabled" });
     }
 
+    const permissions = employee.permissions.map((ep) => ep.permission.code);
+    const isAdmin = permissions.includes("SETTINGS_MANAGE") || permissions.includes("BRANCHES_VIEW_ALL");
+
+    let branchIds: string[] = [];
+    if (isAdmin) {
+      const allBranches = await prisma.branch.findMany({
+        where: { status: "active" },
+        select: { id: true },
+      });
+      branchIds = allBranches.map((b) => b.id);
+    } else {
+      branchIds = employee.branches.map((ub) => ub.branch_id);
+    }
+
+    const reqBranchId = req.headers["x-branch-id"] as string;
+    let activeBranchId = reqBranchId;
+
+    if (!activeBranchId || !branchIds.includes(activeBranchId)) {
+      activeBranchId = branchIds[0] || "";
+    }
+
     req.user = {
       id: employee.id,
       username: employee.username,
       full_name: employee.full_name,
-      store_id: employee.store_id,
-      permissions: employee.permissions.map((ep) => ep.permission.code),
+      store_id: activeBranchId,     // set store_id to active branch for backward compatibility
+      branch_id: activeBranchId,    // set branch_id
+      branch_ids: branchIds,        // list of allowed branches
+      permissions,
     };
 
     next();

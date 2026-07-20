@@ -15,12 +15,21 @@ router.get("/", async (req, res) => {
     try {
         const employees = await db_1.prisma.employee.findMany({
             include: {
-                store: { select: { id: true, name: true, address: true } },
+                branches: { include: { branch: true } },
                 permissions: { include: { permission: true } },
             },
             orderBy: { full_name: "asc" },
         });
-        return res.json(employees);
+        // Map branches back to store object for backward compatibility in UI
+        const mapped = employees.map((emp) => {
+            const defaultBranch = emp.branches[0]?.branch || null;
+            return {
+                ...emp,
+                store: defaultBranch,
+                branches: emp.branches.map((b) => b.branch),
+            };
+        });
+        return res.json(mapped);
     }
     catch (error) {
         return res.status(500).json({ error: error.message });
@@ -44,14 +53,20 @@ router.get("/:id", async (req, res) => {
         const employee = await db_1.prisma.employee.findUnique({
             where: { id: req.params.id },
             include: {
-                store: true,
+                branches: { include: { branch: true } },
                 permissions: { include: { permission: true } },
             },
         });
         if (!employee) {
             return res.status(404).json({ error: "Employee not found" });
         }
-        return res.json(employee);
+        const defaultBranch = employee.branches[0]?.branch || null;
+        const mapped = {
+            ...employee,
+            store: defaultBranch,
+            branches: employee.branches.map((b) => b.branch),
+        };
+        return res.json(mapped);
     }
     catch (error) {
         return res.status(500).json({ error: error.message });
@@ -60,9 +75,16 @@ router.get("/:id", async (req, res) => {
 // 4. Create Employee
 router.post("/", (0, permission_1.requirePermission)(["EMPLOYEES_MANAGE"]), async (req, res) => {
     try {
-        const { store_id, username, password, full_name, phone, email, avatar_url, status, permission_codes } = req.body;
-        if (!store_id || !username || !password || !full_name) {
-            return res.status(400).json({ error: "Missing required fields" });
+        const { store_id, branch_ids, username, password, full_name, phone, email, avatar_url, status, permission_codes } = req.body;
+        let targetBranchIds = [];
+        if (Array.isArray(branch_ids)) {
+            targetBranchIds = branch_ids;
+        }
+        else if (store_id) {
+            targetBranchIds = [store_id];
+        }
+        if (targetBranchIds.length === 0 || !username || !password || !full_name) {
+            return res.status(400).json({ error: "Missing required fields (Username, Password, Full Name, and Branch)" });
         }
         const existingUser = await db_1.prisma.employee.findUnique({
             where: { username },
@@ -74,7 +96,6 @@ router.post("/", (0, permission_1.requirePermission)(["EMPLOYEES_MANAGE"]), asyn
         const newEmployee = await db_1.prisma.$transaction(async (tx) => {
             const emp = await tx.employee.create({
                 data: {
-                    store_id,
                     username,
                     password_hash: hash,
                     full_name,
@@ -83,6 +104,13 @@ router.post("/", (0, permission_1.requirePermission)(["EMPLOYEES_MANAGE"]), asyn
                     avatar_url,
                     status: status || "active",
                 },
+            });
+            // Link to branches
+            await tx.userBranch.createMany({
+                data: targetBranchIds.map((bId) => ({
+                    user_id: emp.id,
+                    branch_id: bId,
+                })),
             });
             if (permission_codes && Array.isArray(permission_codes)) {
                 const perms = await tx.permission.findMany({
@@ -111,11 +139,11 @@ router.put("/:id", async (req, res) => {
         const employeeId = req.params.id;
         // Check permissions: either the user is editing themselves, or they have EMPLOYEES_MANAGE
         const isSelf = req.user.id === employeeId;
-        const hasManage = req.user.permissions.includes("EMPLOYEES_MANAGE");
+        const hasManage = req.user.permissions.includes("EMPLOYEES_MANAGE") || req.user.permissions.includes("SETTINGS_MANAGE");
         if (!isSelf && !hasManage) {
             return res.status(403).json({ error: "Forbidden: You cannot modify other employee profiles" });
         }
-        const { full_name, phone, email, avatar_url, status, password, store_id } = req.body;
+        const { full_name, phone, email, avatar_url, status, password, store_id, branch_ids } = req.body;
         const dataToUpdate = {};
         if (full_name)
             dataToUpdate.full_name = full_name;
@@ -128,15 +156,37 @@ router.put("/:id", async (req, res) => {
         if (hasManage) {
             if (status)
                 dataToUpdate.status = status;
-            if (store_id)
-                dataToUpdate.store_id = store_id;
         }
         if (password) {
             dataToUpdate.password_hash = await bcryptjs_1.default.hash(password, 10);
         }
-        const updated = await db_1.prisma.employee.update({
-            where: { id: employeeId },
-            data: dataToUpdate,
+        const updated = await db_1.prisma.$transaction(async (tx) => {
+            const emp = await tx.employee.update({
+                where: { id: employeeId },
+                data: dataToUpdate,
+            });
+            // Update branches if managed by administrator
+            if (hasManage) {
+                let targetBranchIds = [];
+                if (Array.isArray(branch_ids)) {
+                    targetBranchIds = branch_ids;
+                }
+                else if (store_id) {
+                    targetBranchIds = [store_id];
+                }
+                if (branch_ids !== undefined || store_id !== undefined) {
+                    await tx.userBranch.deleteMany({ where: { user_id: employeeId } });
+                    if (targetBranchIds.length > 0) {
+                        await tx.userBranch.createMany({
+                            data: targetBranchIds.map((bId) => ({
+                                user_id: employeeId,
+                                branch_id: bId,
+                            })),
+                        });
+                    }
+                }
+            }
+            return emp;
         });
         return res.json(updated);
     }

@@ -11,7 +11,7 @@ const dotenv_1 = __importDefault(require("dotenv"));
 dotenv_1.default.config();
 // Initialize routers
 const auth_1 = __importDefault(require("./routes/auth"));
-const stores_1 = __importDefault(require("./routes/stores"));
+const branches_1 = __importDefault(require("./routes/branches"));
 const employees_1 = __importDefault(require("./routes/employees"));
 const customers_1 = __importDefault(require("./routes/customers"));
 const collaborators_1 = __importDefault(require("./routes/collaborators"));
@@ -35,7 +35,8 @@ app.use((0, cors_1.default)());
 app.use(express_1.default.json());
 // API Routes
 app.use("/api/auth", auth_1.default);
-app.use("/api/stores", stores_1.default);
+app.use("/api/branches", branches_1.default);
+app.use("/api/stores", branches_1.default); // Backward compatibility
 app.use("/api/employees", employees_1.default);
 app.use("/api/customers", customers_1.default);
 app.use("/api/collaborators", collaborators_1.default);

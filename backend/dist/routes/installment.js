@@ -54,9 +54,9 @@ function mapInstallmentContract(c, today) {
 // 1. Get Installment Contracts list
 router.get("/", async (req, res) => {
     try {
-        const storeId = req.user.store_id;
+        const storeId = req.user.branch_id;
         const { status, search, page, limit } = req.query;
-        const whereClause = { store_id: storeId };
+        const whereClause = { branch_id: storeId };
         const today = new Date();
         today.setHours(0, 0, 0, 0);
         if (status) {
@@ -162,6 +162,9 @@ router.get("/", async (req, res) => {
         return res.json(mapped);
     }
     catch (error) {
+        if (error instanceof interest_1.InvalidLoanParamsError) {
+            return res.status(400).json({ error: error.message });
+        }
         return res.status(500).json({ error: error.message });
     }
 });
@@ -172,6 +175,9 @@ router.get("/next-code-number", async (req, res) => {
         return res.json({ nextCodeNumber: nextNum });
     }
     catch (error) {
+        if (error instanceof interest_1.InvalidLoanParamsError) {
+            return res.status(400).json({ error: error.message });
+        }
         return res.status(500).json({ error: error.message });
     }
 });
@@ -203,16 +209,22 @@ router.get("/:id", async (req, res) => {
         if (!contract) {
             return res.status(404).json({ error: "Installment contract not found" });
         }
+        if (!req.user.branch_ids.includes(contract.branch_id)) {
+            return res.status(403).json({ error: "Forbidden: You do not have access to this branch's data" });
+        }
         return res.json(contract);
     }
     catch (error) {
+        if (error instanceof interest_1.InvalidLoanParamsError) {
+            return res.status(400).json({ error: error.message });
+        }
         return res.status(500).json({ error: error.message });
     }
 });
 // 3. Create Installment Contract
 router.post("/", (0, permission_1.requirePermission)(["CONTRACTS_MANAGE"]), async (req, res) => {
     try {
-        const storeId = req.user.store_id;
+        const storeId = req.user.branch_id;
         const employeeId = req.user.id;
         const { customer_id, contract_code, repayment_amount, disbursed_amount, period_type, loan_duration, cycle_days, is_upfront_collected, loan_date, collector_id, collaborator_id, notes, } = req.body;
         if (!customer_id || !repayment_amount || !disbursed_amount || !period_type || !loan_duration || !cycle_days || !collector_id) {
@@ -262,7 +274,7 @@ router.post("/", (0, permission_1.requirePermission)(["CONTRACTS_MANAGE"]), asyn
             const contract = await tx.installmentContract.create({
                 data: {
                     id: contractId,
-                    store_id: storeId,
+                    branch_id: storeId,
                     contract_code: contractCode,
                     customer_id,
                     repayment_amount: repayVal,
@@ -281,7 +293,7 @@ router.post("/", (0, permission_1.requirePermission)(["CONTRACTS_MANAGE"]), asyn
                 },
             });
             // Generate schedules
-            const cycles = (0, interest_1.generateInstallmentPayments)(repayVal, duration, cDays, normalizedLoanDate);
+            const cycles = (0, interest_1.generateFlatCollectionSchedule)(repayVal, duration, cDays, normalizedLoanDate);
             if (cycles.length > 0) {
                 await tx.installmentPayment.createMany({
                     data: cycles.map((c) => ({
@@ -321,6 +333,9 @@ router.post("/", (0, permission_1.requirePermission)(["CONTRACTS_MANAGE"]), asyn
         return res.status(201).json(result);
     }
     catch (error) {
+        if (error instanceof interest_1.InvalidLoanParamsError) {
+            return res.status(400).json({ error: error.message });
+        }
         return res.status(500).json({ error: error.message });
     }
 });
@@ -358,7 +373,7 @@ router.post("/:id/pay", (0, permission_1.requirePermission)(["CONTRACTS_OPERATE"
                 },
             });
             // Update cash fund (+ payAmount)
-            await (0, cash_1.adjustDailyCash)(tx, payment.contract.store_id, payDate, payAmount, "installment_pay", employeeId, `Thu góp định kỳ kỳ ${payment.cycle_number} HĐ trả góp ${payment.contract.contract_code}. Thực thu: ${payAmount}`);
+            await (0, cash_1.adjustDailyCash)(tx, payment.contract.branch_id, payDate, payAmount, "installment_pay", employeeId, `Thu góp định kỳ kỳ ${payment.cycle_number} HĐ trả góp ${payment.contract.contract_code}. Thực thu: ${payAmount}`);
             // Ledger log
             await tx.installmentTransactionLedger.create({
                 data: {
@@ -376,6 +391,9 @@ router.post("/:id/pay", (0, permission_1.requirePermission)(["CONTRACTS_OPERATE"
         return res.json(result);
     }
     catch (error) {
+        if (error instanceof interest_1.InvalidLoanParamsError) {
+            return res.status(400).json({ error: error.message });
+        }
         return res.status(500).json({ error: error.message });
     }
 });
@@ -459,7 +477,7 @@ router.post("/:id/pay-period", (0, permission_1.requirePermission)(["CONTRACTS_O
                     },
                 });
             }
-            await (0, cash_1.adjustDailyCash)(tx, contract.store_id, payDate, payAmount, "installment_pay", employeeId, `Thu góp nhanh HĐ trả góp ${contract.contract_code}. Số tiền: ${payAmount}`);
+            await (0, cash_1.adjustDailyCash)(tx, contract.branch_id, payDate, payAmount, "installment_pay", employeeId, `Thu góp nhanh HĐ trả góp ${contract.contract_code}. Số tiền: ${payAmount}`);
             await tx.installmentTransactionLedger.create({
                 data: {
                     contract_id: contractId,
@@ -476,6 +494,9 @@ router.post("/:id/pay-period", (0, permission_1.requirePermission)(["CONTRACTS_O
         return res.json({ success: true, result });
     }
     catch (error) {
+        if (error instanceof interest_1.InvalidLoanParamsError) {
+            return res.status(400).json({ error: error.message });
+        }
         return res.status(500).json({ error: error.message });
     }
 });
@@ -509,7 +530,7 @@ router.post("/:id/cancel-pay", (0, permission_1.requirePermission)(["CONTRACTS_O
             const today = new Date();
             const refundAmount = Number(payment.actual_paid);
             // Revert daily cash (- refundAmount)
-            await (0, cash_1.adjustDailyCash)(tx, payment.contract.store_id, today, -refundAmount, "installment_cancel_pay", employeeId, `Hủy đóng góp kỳ ${payment.cycle_number} HĐ trả góp ${payment.contract.contract_code}. Trừ két: ${refundAmount}`);
+            await (0, cash_1.adjustDailyCash)(tx, payment.contract.branch_id, today, -refundAmount, "installment_cancel_pay", employeeId, `Hủy đóng góp kỳ ${payment.cycle_number} HĐ trả góp ${payment.contract.contract_code}. Trừ két: ${refundAmount}`);
             // Ledger log
             await tx.installmentTransactionLedger.create({
                 data: {
@@ -536,6 +557,9 @@ router.post("/:id/cancel-pay", (0, permission_1.requirePermission)(["CONTRACTS_O
         return res.json(result);
     }
     catch (error) {
+        if (error instanceof interest_1.InvalidLoanParamsError) {
+            return res.status(400).json({ error: error.message });
+        }
         return res.status(500).json({ error: error.message });
     }
 });
@@ -592,7 +616,7 @@ router.post("/:id/redeem", (0, permission_1.requirePermission)(["CONTRACTS_OPERA
                 },
             });
             // Adjust daily cash (+ totalAmount)
-            await (0, cash_1.adjustDailyCash)(tx, contract.store_id, rDate, totalAmount, "installment_redeem", employeeId, `Tất toán sớm HĐ trả góp ${contract.contract_code}. Thu quỹ: ${totalAmount} (Dư góp còn lại: ${outstandingAmount}, Nợ cũ: ${outstandingDebt}, Khác: ${otherVal})`);
+            await (0, cash_1.adjustDailyCash)(tx, contract.branch_id, rDate, totalAmount, "installment_redeem", employeeId, `Tất toán sớm HĐ trả góp ${contract.contract_code}. Thu quỹ: ${totalAmount} (Dư góp còn lại: ${outstandingAmount}, Nợ cũ: ${outstandingDebt}, Khác: ${otherVal})`);
             // Ledger log
             await tx.installmentTransactionLedger.create({
                 data: {
@@ -609,6 +633,9 @@ router.post("/:id/redeem", (0, permission_1.requirePermission)(["CONTRACTS_OPERA
         return res.json(result);
     }
     catch (error) {
+        if (error instanceof interest_1.InvalidLoanParamsError) {
+            return res.status(400).json({ error: error.message });
+        }
         return res.status(500).json({ error: error.message });
     }
 });
@@ -629,7 +656,7 @@ router.post("/:id/cancel-redeem", (0, permission_1.requirePermission)(["CONTRACT
             const today = new Date();
             const refundAmount = Number(redemption.total_amount);
             // Revert Cash flow (- refundAmount)
-            await (0, cash_1.adjustDailyCash)(tx, contract.store_id, today, -refundAmount, "installment_redeem_cancel", employeeId, `Hủy tất toán HĐ trả góp ${contract.contract_code}. Trừ két: ${refundAmount}`);
+            await (0, cash_1.adjustDailyCash)(tx, contract.branch_id, today, -refundAmount, "installment_redeem_cancel", employeeId, `Hủy tất toán HĐ trả góp ${contract.contract_code}. Trừ két: ${refundAmount}`);
             // Restore status
             await tx.installmentContract.update({
                 where: { id: contractId },
@@ -665,6 +692,9 @@ router.post("/:id/cancel-redeem", (0, permission_1.requirePermission)(["CONTRACT
         return res.json(result);
     }
     catch (error) {
+        if (error instanceof interest_1.InvalidLoanParamsError) {
+            return res.status(400).json({ error: error.message });
+        }
         return res.status(500).json({ error: error.message });
     }
 });
@@ -707,6 +737,9 @@ router.post("/:id/record-debt", (0, permission_1.requirePermission)(["CONTRACTS_
         return res.json(result);
     }
     catch (error) {
+        if (error instanceof interest_1.InvalidLoanParamsError) {
+            return res.status(400).json({ error: error.message });
+        }
         return res.status(500).json({ error: error.message });
     }
 });
@@ -743,7 +776,7 @@ router.post("/:id/pay-debt", (0, permission_1.requirePermission)(["CONTRACTS_OPE
                     notes,
                 },
             });
-            await (0, cash_1.adjustDailyCash)(tx, contract.store_id, today, value, "installment_debt_payment", employeeId, `Thu nợ cũ HĐ trả góp ${contract.contract_code}. Số tiền: ${value}`);
+            await (0, cash_1.adjustDailyCash)(tx, contract.branch_id, today, value, "installment_debt_payment", employeeId, `Thu nợ cũ HĐ trả góp ${contract.contract_code}. Số tiền: ${value}`);
             await tx.installmentTransactionLedger.create({
                 data: {
                     contract_id: contractId,
@@ -759,6 +792,9 @@ router.post("/:id/pay-debt", (0, permission_1.requirePermission)(["CONTRACTS_OPE
         return res.json(result);
     }
     catch (error) {
+        if (error instanceof interest_1.InvalidLoanParamsError) {
+            return res.status(400).json({ error: error.message });
+        }
         return res.status(500).json({ error: error.message });
     }
 });
@@ -795,7 +831,7 @@ router.delete("/:id/debt-transaction/:txId", (0, permission_1.requirePermission)
                     where: { id: contractId },
                     data: { debt_amount: { increment: amount } },
                 });
-                await (0, cash_1.adjustDailyCash)(tx, contract.store_id, today, -amount, "installment_debt_revert", employeeId, `Hủy thu nợ cũ HĐ trả góp ${contract.contract_code}. Trừ két: ${amount}`);
+                await (0, cash_1.adjustDailyCash)(tx, contract.branch_id, today, -amount, "installment_debt_revert", employeeId, `Hủy thu nợ cũ HĐ trả góp ${contract.contract_code}. Trừ két: ${amount}`);
                 await tx.installmentTransactionLedger.create({
                     data: {
                         contract_id: contractId,
@@ -813,6 +849,9 @@ router.delete("/:id/debt-transaction/:txId", (0, permission_1.requirePermission)
         return res.json(result);
     }
     catch (error) {
+        if (error instanceof interest_1.InvalidLoanParamsError) {
+            return res.status(400).json({ error: error.message });
+        }
         return res.status(500).json({ error: error.message });
     }
 });
@@ -833,6 +872,9 @@ router.post("/:id/documents", async (req, res) => {
         return res.status(201).json(doc);
     }
     catch (error) {
+        if (error instanceof interest_1.InvalidLoanParamsError) {
+            return res.status(400).json({ error: error.message });
+        }
         return res.status(500).json({ error: error.message });
     }
 });
@@ -845,6 +887,9 @@ router.delete("/:id/documents/:docId", async (req, res) => {
         return res.json({ message: "Document deleted successfully" });
     }
     catch (error) {
+        if (error instanceof interest_1.InvalidLoanParamsError) {
+            return res.status(400).json({ error: error.message });
+        }
         return res.status(500).json({ error: error.message });
     }
 });
@@ -861,6 +906,9 @@ router.post("/:id/reminders/log", async (req, res) => {
         return res.status(201).json(log);
     }
     catch (error) {
+        if (error instanceof interest_1.InvalidLoanParamsError) {
+            return res.status(400).json({ error: error.message });
+        }
         return res.status(500).json({ error: error.message });
     }
 });
@@ -899,6 +947,7 @@ router.post("/:id/timers", async (req, res) => {
                 // Create new global reminder
                 await tx.reminder.create({
                     data: {
+                        branch_id: contract.branch_id,
                         employee_id: req.user.id,
                         contract_code: contract.contract_code,
                         customer_name: contract.customer.full_name,
@@ -916,6 +965,9 @@ router.post("/:id/timers", async (req, res) => {
         return res.status(201).json(result);
     }
     catch (error) {
+        if (error instanceof interest_1.InvalidLoanParamsError) {
+            return res.status(400).json({ error: error.message });
+        }
         return res.status(500).json({ error: error.message });
     }
 });
@@ -943,6 +995,9 @@ router.put("/:id/timers/:timerId/stop", async (req, res) => {
         return res.json(result);
     }
     catch (error) {
+        if (error instanceof interest_1.InvalidLoanParamsError) {
+            return res.status(400).json({ error: error.message });
+        }
         return res.status(500).json({ error: error.message });
     }
 });
@@ -991,7 +1046,7 @@ router.put("/:id", (0, permission_1.requirePermission)(["CONTRACTS_MANAGE"]), as
             const newUpfront = is_upfront_collected !== undefined ? !!is_upfront_collected : contract.is_upfront_collected;
             const newLoanDate = loan_date ? new Date(loan_date) : new Date(contract.loan_date);
             // Generate new cycles
-            const cycles = (0, interest_1.generateInstallmentPayments)(newRepay, newDuration, newCycleDays, newLoanDate);
+            const cycles = (0, interest_1.generateFlatCollectionSchedule)(newRepay, newDuration, newCycleDays, newLoanDate);
             // Compute new net
             let newUpfrontAmt = 0;
             if (newUpfront && cycles.length > 0) {
@@ -1045,7 +1100,7 @@ router.put("/:id", (0, permission_1.requirePermission)(["CONTRACTS_MANAGE"]), as
             // Sync cash flow difference (Δ = newNet - oldNet)
             const diff = newNetDisbursed - oldNetDisbursed;
             if (diff !== 0) {
-                await (0, cash_1.adjustDailyCash)(tx, contract.store_id, new Date(), -diff, "contract_edit", employeeId, `Điều chỉnh vốn giải ngân HĐ trả góp ${contract.contract_code} do sửa thông số. Chênh lệch: ${-diff}`);
+                await (0, cash_1.adjustDailyCash)(tx, contract.branch_id, new Date(), -diff, "contract_edit", employeeId, `Điều chỉnh vốn giải ngân HĐ trả góp ${contract.contract_code} do sửa thông số. Chênh lệch: ${-diff}`);
                 // Update ledger
                 await tx.installmentTransactionLedger.create({
                     data: {
@@ -1063,6 +1118,9 @@ router.put("/:id", (0, permission_1.requirePermission)(["CONTRACTS_MANAGE"]), as
         return res.json(result);
     }
     catch (error) {
+        if (error instanceof interest_1.InvalidLoanParamsError) {
+            return res.status(400).json({ error: error.message });
+        }
         return res.status(500).json({ error: error.message });
     }
 });
@@ -1084,7 +1142,7 @@ router.delete("/:id", (0, permission_1.requirePermission)(["CONTRACTS_MANAGE"]),
                 throw new Error("Contract not found");
             }
             // Check daily cash lock for original loan date
-            await (0, cash_1.checkDailyCashLock)(tx, contract.store_id, contract.loan_date);
+            await (0, cash_1.checkDailyCashLock)(tx, contract.branch_id, contract.loan_date);
             // Calculate old upfront
             let oldUpfront = 0;
             if (contract.is_upfront_collected && contract.payments.length > 0) {
@@ -1105,7 +1163,7 @@ router.delete("/:id", (0, permission_1.requirePermission)(["CONTRACTS_MANAGE"]),
             const netCashFlow = totalInflows - initialDisbursement;
             // Revert Cash
             if (netCashFlow !== 0) {
-                await (0, cash_1.adjustDailyCash)(tx, contract.store_id, new Date(), -netCashFlow, "contract_deleted", employeeId, `Khấu trừ/Hoàn trả quỹ két do xóa hợp đồng trả góp ${contract.contract_code}. Lượng hoàn két: ${-netCashFlow}`);
+                await (0, cash_1.adjustDailyCash)(tx, contract.branch_id, new Date(), -netCashFlow, "contract_deleted", employeeId, `Khấu trừ/Hoàn trả quỹ két do xóa hợp đồng trả góp ${contract.contract_code}. Lượng hoàn két: ${-netCashFlow}`);
             }
             // Soft delete: set status to 'cancelled'
             await tx.installmentContract.update({
@@ -1117,6 +1175,9 @@ router.delete("/:id", (0, permission_1.requirePermission)(["CONTRACTS_MANAGE"]),
         return res.json(result);
     }
     catch (error) {
+        if (error instanceof interest_1.InvalidLoanParamsError) {
+            return res.status(400).json({ error: error.message });
+        }
         return res.status(500).json({ error: error.message });
     }
 });

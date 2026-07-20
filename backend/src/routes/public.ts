@@ -31,18 +31,18 @@ router.get("/contracts/lookup", async (req: Request, res: Response) => {
       include: {
         customer: true,
         commodity: true,
-        store: true,
+        branch: true,
         interest_payments: { orderBy: { cycle_number: "asc" } },
       },
     });
 
-    if (pawn && pawn.store_id === storeId && pawn.lookup_token === lookupToken) {
+    if (pawn && pawn.branch_id === storeId && pawn.lookup_token === lookupToken) {
       const maskedName = maskCustomerName(pawn.customer?.full_name || "");
       return res.json({
         type: "pawn",
         contract_code: pawn.contract_code,
         customer_name: maskedName,
-        store_name: pawn.store?.name,
+        branch_name: pawn.branch?.name,
         asset_name: pawn.asset_name,
         commodity_name: pawn.commodity?.name,
         loan_amount: Number(pawn.loan_amount),
@@ -68,18 +68,18 @@ router.get("/contracts/lookup", async (req: Request, res: Response) => {
       where: { id: contractId },
       include: {
         customer: true,
-        store: true,
+        branch: true,
         interest_payments: { orderBy: { cycle_number: "asc" } },
       },
     });
 
-    if (unsecured && unsecured.store_id === storeId && unsecured.lookup_token === lookupToken) {
+    if (unsecured && unsecured.branch_id === storeId && unsecured.lookup_token === lookupToken) {
       const maskedName = maskCustomerName(unsecured.customer?.full_name || "");
       return res.json({
         type: "unsecured",
         contract_code: unsecured.contract_code,
         customer_name: maskedName,
-        store_name: unsecured.store?.name,
+        branch_name: unsecured.branch?.name,
         loan_amount: Number(unsecured.loan_amount),
         loan_date: unsecured.loan_date,
         loan_days: unsecured.loan_days,
@@ -103,18 +103,18 @@ router.get("/contracts/lookup", async (req: Request, res: Response) => {
       where: { id: contractId },
       include: {
         customer: true,
-        store: true,
+        branch: true,
         payments: { orderBy: { cycle_number: "asc" } },
       },
     });
 
-    if (installment && installment.store_id === storeId && installment.lookup_token === lookupToken) {
+    if (installment && installment.branch_id === storeId && installment.lookup_token === lookupToken) {
       const maskedName = maskCustomerName(installment.customer?.full_name || "");
       return res.json({
         type: "installment",
         contract_code: installment.contract_code,
         customer_name: maskedName,
-        store_name: installment.store?.name,
+        branch_name: installment.branch?.name,
         repayment_amount: Number(installment.repayment_amount),
         disbursed_amount: Number(installment.disbursed_amount),
         loan_date: installment.loan_date,

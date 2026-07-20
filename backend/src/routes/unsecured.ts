@@ -134,10 +134,10 @@ function calculateAccruedInterest(contract: any): number {
 // 1. Get Unsecured Contracts list
 router.get("/", async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const storeId = req.user!.store_id;
+    const storeId = req.user!.branch_id;
     const { status, search, page, limit } = req.query;
 
-    const whereClause: any = { store_id: storeId };
+    const whereClause: any = { branch_id: storeId };
     
     if (status) {
       if (status === "all_active") {
@@ -306,6 +306,10 @@ router.get("/:id", async (req: AuthenticatedRequest, res: Response) => {
       return res.status(404).json({ error: "Unsecured contract not found" });
     }
 
+    if (!req.user!.branch_ids.includes(contract.branch_id)) {
+      return res.status(403).json({ error: "Forbidden: You do not have access to this branch's data" });
+    }
+
     return res.json(mapUnsecuredContract(contract));
   } catch (error: any) {
     if (error instanceof InvalidLoanParamsError) {
@@ -318,7 +322,7 @@ router.get("/:id", async (req: AuthenticatedRequest, res: Response) => {
 // 3. Create Unsecured Contract
 router.post("/", requirePermission(["CONTRACTS_MANAGE"]) as any, async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const storeId = req.user!.store_id;
+    const storeId = req.user!.branch_id;
     const employeeId = req.user!.id;
 
     const {
@@ -437,7 +441,7 @@ router.post("/", requirePermission(["CONTRACTS_MANAGE"]) as any, async (req: Aut
       const contract = await tx.unsecuredContract.create({
         data: {
           id: contractId,
-          store_id: storeId,
+          branch_id: storeId,
           contract_code: contractCode,
           customer_id,
           commodity_id,
@@ -573,7 +577,7 @@ router.post("/:id/pay-interest", requirePermission(["CONTRACTS_OPERATE"]) as any
       // Update cash fund (+ payAmount)
       await adjustDailyCash(
         tx,
-        payment.contract.store_id,
+        payment.contract.branch_id,
         today,
         payAmount,
         "unsecured_interest_pay",
@@ -636,7 +640,7 @@ const handleCancelInterest = async (req: AuthenticatedRequest, res: Response) =>
       // Revert daily cash (- refundAmount)
       await adjustDailyCash(
         tx,
-        payment.contract.store_id,
+        payment.contract.branch_id,
         today,
         -refundAmount,
         "unsecured_interest_cancel",
@@ -734,7 +738,7 @@ router.post("/:id/pay-down", requirePermission(["CONTRACTS_OPERATE"]) as any, as
       // Adjust daily cash (+ paydownAmount)
       await adjustDailyCash(
         tx,
-        contract.store_id,
+        contract.branch_id,
         date,
         paydownAmount,
         "unsecured_principal_paydown",
@@ -826,7 +830,7 @@ router.post("/:id/borrow-more", requirePermission(["CONTRACTS_OPERATE"]) as any,
       // Adjust daily cash (- borrowAmount)
       await adjustDailyCash(
         tx,
-        contract.store_id,
+        contract.branch_id,
         date,
         -borrowAmount,
         "unsecured_principal_borrow_more",
@@ -895,7 +899,7 @@ router.delete("/:id/principal-transaction/:txId", requirePermission(["CONTRACTS_
 
         await adjustDailyCash(
           tx,
-          contract.store_id,
+          contract.branch_id,
           today,
           -amount,
           "unsecured_principal_revert",
@@ -925,7 +929,7 @@ router.delete("/:id/principal-transaction/:txId", requirePermission(["CONTRACTS_
 
         await adjustDailyCash(
           tx,
-          contract.store_id,
+          contract.branch_id,
           today,
           amount,
           "unsecured_principal_revert",
@@ -1246,7 +1250,7 @@ router.post("/:id/redeem", requirePermission(["CONTRACTS_OPERATE"]) as any, asyn
       // Adjust cash fund (+ totalRedeem)
       await adjustDailyCash(
         tx,
-        contract.store_id,
+        contract.branch_id,
         rDate,
         totalRedeem,
         "unsecured_redeem",
@@ -1307,7 +1311,7 @@ router.post("/:id/cancel-redeem", requirePermission(["CONTRACTS_OPERATE"]) as an
       // Revert Cash flow (- refundAmount)
       await adjustDailyCash(
         tx,
-        contract.store_id,
+        contract.branch_id,
         today,
         -refundAmount,
         "unsecured_redeem_cancel",
@@ -1466,7 +1470,7 @@ router.post("/:id/pay-debt", requirePermission(["CONTRACTS_OPERATE"]) as any, as
 
       await adjustDailyCash(
         tx,
-        contract.store_id,
+        contract.branch_id,
         today,
         value,
         "unsecured_debt_payment",
@@ -1544,7 +1548,7 @@ router.delete("/:id/debt-transaction/:txId", requirePermission(["CONTRACTS_OPERA
 
         await adjustDailyCash(
           tx,
-          contract.store_id,
+          contract.branch_id,
           today,
           -amount,
           "unsecured_debt_revert",
@@ -1779,7 +1783,7 @@ router.put("/:id", requirePermission(["CONTRACTS_MANAGE"]) as any, async (req: A
       if (diff !== 0) {
         await adjustDailyCash(
           tx,
-          contract.store_id,
+          contract.branch_id,
           new Date(),
           -diff,
           "contract_edit",
@@ -1845,7 +1849,7 @@ router.delete("/:id", requirePermission(["CONTRACTS_MANAGE"]) as any, async (req
       }
 
       // Check daily cash lock for original loan date
-      await checkDailyCashLock(tx, contract.store_id, contract.loan_date);
+      await checkDailyCashLock(tx, contract.branch_id, contract.loan_date);
 
       // Calculate old upfront
       let oldUpfront = 0;
@@ -1883,7 +1887,7 @@ router.delete("/:id", requirePermission(["CONTRACTS_MANAGE"]) as any, async (req
       if (netCashFlow !== 0) {
         await adjustDailyCash(
           tx,
-          contract.store_id,
+          contract.branch_id,
           new Date(),
           -netCashFlow,
           "contract_deleted",
@@ -1952,6 +1956,7 @@ router.post("/:id/timers", async (req: AuthenticatedRequest, res: Response) => {
         // Create new global reminder
         await tx.reminder.create({
           data: {
+            branch_id: contract.branch_id,
             employee_id: req.user!.id,
             contract_code: contract.contract_code,
             customer_name: contract.customer.full_name,

@@ -13,8 +13,8 @@ async function checkDailyCashLock(tx, storeId, dateInput) {
     const date = normalizeToMidnight(dateInput);
     const dailyCash = await tx.dailyCash.findUnique({
         where: {
-            store_id_date: {
-                store_id: storeId,
+            branch_id_date: {
+                branch_id: storeId,
                 date: date,
             },
         },
@@ -31,8 +31,8 @@ async function adjustDailyCash(tx, storeId, dateInput, amount, type, employeeId,
     // 1. Check if DailyCash record exists for this store and date
     let dailyCash = await tx.dailyCash.findUnique({
         where: {
-            store_id_date: {
-                store_id: storeId,
+            branch_id_date: {
+                branch_id: storeId,
                 date: date,
             },
         },
@@ -52,7 +52,7 @@ async function adjustDailyCash(tx, storeId, dateInput, amount, type, employeeId,
         // Create new daily cash. Find the most recent daily cash before this date.
         const lastDailyCash = await tx.dailyCash.findFirst({
             where: {
-                store_id: storeId,
+                branch_id: storeId,
                 date: {
                     lt: date,
                 },
@@ -67,17 +67,17 @@ async function adjustDailyCash(tx, storeId, dateInput, amount, type, employeeId,
         }
         else {
             // If no daily cash history, use store's initial investment capital
-            const store = await tx.store.findUnique({
+            const branch = await tx.branch.findUnique({
                 where: { id: storeId },
             });
-            if (store) {
-                beginningCash = store.investment_capital;
+            if (branch) {
+                beginningCash = branch.investment_capital;
             }
         }
         const currentCash = beginningCash.add(changeAmt);
         dailyCash = await tx.dailyCash.create({
             data: {
-                store_id: storeId,
+                branch_id: storeId,
                 date: date,
                 beginning_cash: beginningCash,
                 current_cash: currentCash,
@@ -87,7 +87,7 @@ async function adjustDailyCash(tx, storeId, dateInput, amount, type, employeeId,
     // 2. Create CashFundHistory record
     await tx.cashFundHistory.create({
         data: {
-            store_id: storeId,
+            branch_id: storeId,
             date: date,
             employee_id: employeeId,
             amount: changeAmt,

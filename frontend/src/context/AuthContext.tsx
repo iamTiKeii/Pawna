@@ -16,17 +16,22 @@ export interface UserInfo {
   email?: string;
   avatar_url?: string;
   store: StoreInfo;
+  activeBranch?: StoreInfo;
+  branches?: StoreInfo[];
   permissions: string[];
 }
 
 interface AuthContextType {
   token: string | null;
   user: UserInfo | null;
-  activeStore: StoreInfo | null;
+  activeStore: StoreInfo | null; // For backward compatibility
+  activeBranch: StoreInfo | null;
+  branches: StoreInfo[];
   loading: boolean;
   login: (token: string, user: UserInfo) => void;
   logout: () => void;
-  switchStore: (store: StoreInfo) => void;
+  switchStore: (store: StoreInfo) => void; // For backward compatibility
+  switchBranch: (branch: StoreInfo) => void;
   hasPermission: (code: string) => boolean;
   fetchProfile: () => Promise<void>;
 }
@@ -36,7 +41,8 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [token, setToken] = useState<string | null>(localStorage.getItem("token"));
   const [user, setUser] = useState<UserInfo | null>(null);
-  const [activeStore, setActiveStore] = useState<StoreInfo | null>(null);
+  const [activeBranch, setActiveBranch] = useState<StoreInfo | null>(null);
+  const [branches, setBranches] = useState<StoreInfo[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Set default auth header for Axios
@@ -46,13 +52,31 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     delete axios.defaults.headers.common["Authorization"];
   }
 
+  // Set branch header on load if it exists
+  const activeBranchIdFromStorage = localStorage.getItem("active_branch_id");
+  if (activeBranchIdFromStorage) {
+    axios.defaults.headers.common["X-Branch-ID"] = activeBranchIdFromStorage;
+  } else {
+    delete axios.defaults.headers.common["X-Branch-ID"];
+  }
+
   const fetchProfile = async () => {
     try {
       setLoading(true);
       const res = await axios.get("/api/auth/me");
       setUser(res.data);
-      // Initialize activeStore with the employee's direct store
-      setActiveStore((prev) => prev || res.data.store);
+      const userBranches = res.data.branches || [];
+      setBranches(userBranches);
+      
+      const storedBranchId = localStorage.getItem("active_branch_id");
+      const foundStored = userBranches.find((b: StoreInfo) => b.id === storedBranchId);
+      const initialBranch = foundStored || res.data.activeBranch || userBranches[0] || null;
+      
+      if (initialBranch) {
+        localStorage.setItem("active_branch_id", initialBranch.id);
+        axios.defaults.headers.common["X-Branch-ID"] = initialBranch.id;
+        setActiveBranch(initialBranch);
+      }
     } catch (err) {
       console.error("Failed to load user profile:", err);
       logout();
@@ -69,20 +93,31 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, [token]);
 
-  const login = (newToken: string, newUser: UserInfo) => {
+  const login = (newToken: string, newUser: any) => {
     localStorage.setItem("token", newToken);
     axios.defaults.headers.common["Authorization"] = `Bearer ${newToken}`;
     setToken(newToken);
     setUser(newUser);
-    setActiveStore(newUser.store);
+    const userBranches = newUser.branches || [];
+    setBranches(userBranches);
+
+    const initialBranch = newUser.activeBranch || userBranches[0] || null;
+    if (initialBranch) {
+      localStorage.setItem("active_branch_id", initialBranch.id);
+      axios.defaults.headers.common["X-Branch-ID"] = initialBranch.id;
+      setActiveBranch(initialBranch);
+    }
   };
 
   const logout = () => {
     localStorage.removeItem("token");
+    localStorage.removeItem("active_branch_id");
     delete axios.defaults.headers.common["Authorization"];
+    delete axios.defaults.headers.common["X-Branch-ID"];
     setToken(null);
     setUser(null);
-    setActiveStore(null);
+    setActiveBranch(null);
+    setBranches([]);
   };
 
   // Auto-logout when API returns 401 or 403 (e.g. token expired after 12h)
@@ -99,10 +134,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           } else if (status === 403) {
             toast.warning("Bạn không có quyền thực hiện chức năng này!");
           }
-          // Don't auto-toast here — let individual handlers decide
-          // because they have context-specific messages
         } else if (error.request) {
-          // Network error (no response received)
           toast.error("Lỗi kết nối mạng. Vui lòng kiểm tra đường truyền.");
         }
         return Promise.reject(error);
@@ -113,10 +145,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   }, []);
 
+  const switchBranch = (branch: StoreInfo) => {
+    localStorage.setItem("active_branch_id", branch.id);
+    axios.defaults.headers.common["X-Branch-ID"] = branch.id;
+    setActiveBranch(branch);
+    
+    // Refresh page or trigger context updates so components fetch new data
+    toast.success(`Đã chuyển sang chi nhánh: ${branch.name}`);
+    setTimeout(() => {
+      window.location.reload();
+    }, 500);
+  };
+
   const switchStore = (store: StoreInfo) => {
-    if (user?.permissions.includes("STORES_MANAGE")) {
-      setActiveStore(store);
-    }
+    switchBranch(store);
   };
 
   const hasPermission = (code: string): boolean => {
@@ -129,11 +171,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       value={{
         token,
         user,
-        activeStore,
+        activeStore: activeBranch, // Backward compatibility
+        activeBranch,
+        branches,
         loading,
         login,
         logout,
-        switchStore,
+        switchStore, // Backward compatibility
+        switchBranch,
         hasPermission,
         fetchProfile,
       }}

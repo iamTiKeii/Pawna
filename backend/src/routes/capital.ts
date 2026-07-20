@@ -11,10 +11,10 @@ router.use(authenticateToken as any);
 // 1. Get all capital contracts
 router.get("/", async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const storeId = req.user!.store_id;
+    const storeId = req.user!.branch_id;
     const { status, search } = req.query;
 
-    const whereClause: any = { store_id: storeId };
+    const whereClause: any = { branch_id: storeId };
     
     if (status) {
       whereClause.status = status;
@@ -47,7 +47,7 @@ router.get("/:id", async (req: AuthenticatedRequest, res: Response) => {
     const contract = await prisma.capitalContract.findFirst({
       where: {
         id: req.params.id,
-        store_id: req.user!.store_id,
+        branch_id: req.user!.branch_id,
       },
       include: {
         interest_type: true,
@@ -71,7 +71,7 @@ router.get("/:id", async (req: AuthenticatedRequest, res: Response) => {
 // 3. Create capital contract
 router.post("/", requirePermission(["FUNDS_MANAGE"]) as any, async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const storeId = req.user!.store_id;
+    const storeId = req.user!.branch_id;
     const employeeId = req.user!.id;
 
     const {
@@ -104,12 +104,12 @@ router.post("/", requirePermission(["FUNDS_MANAGE"]) as any, async (req: Authent
         let existingCustomer = null;
         if (investor_phone) {
           existingCustomer = await tx.customer.findFirst({
-            where: { phone: investor_phone, store_id: storeId, status: { not: "blacklist" } }
+            where: { phone: investor_phone, branch_id: storeId, status: { not: "blacklist" } }
           });
         }
         if (!existingCustomer && investor_id_card) {
           existingCustomer = await tx.customer.findFirst({
-            where: { identity_card_number: investor_id_card, store_id: storeId, status: { not: "blacklist" } }
+            where: { identity_card_number: investor_id_card, branch_id: storeId, status: { not: "blacklist" } }
           });
         }
 
@@ -119,7 +119,7 @@ router.post("/", requirePermission(["FUNDS_MANAGE"]) as any, async (req: Authent
           // Create new customer record
           const newCust = await tx.customer.create({
             data: {
-              store_id: storeId,
+              branch_id: storeId,
               full_name: investor_name,
               phone: investor_phone || null,
               address: investor_address || null,
@@ -144,7 +144,7 @@ router.post("/", requirePermission(["FUNDS_MANAGE"]) as any, async (req: Authent
 
       const contract = await tx.capitalContract.create({
         data: {
-          store_id: storeId,
+          branch_id: storeId,
           customer_id: finalCustomerId,
           investor_name,
           investor_id_card,
@@ -182,7 +182,7 @@ router.post("/", requirePermission(["FUNDS_MANAGE"]) as any, async (req: Authent
 // 4. Update capital contract
 router.put("/:id", requirePermission(["FUNDS_MANAGE"]) as any, async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const storeId = req.user!.store_id;
+    const storeId = req.user!.branch_id;
     const employeeId = req.user!.id;
     const contractId = req.params.id;
 
@@ -202,7 +202,7 @@ router.put("/:id", requirePermission(["FUNDS_MANAGE"]) as any, async (req: Authe
 
     const result = await prisma.$transaction(async (tx) => {
       const existing = await tx.capitalContract.findFirst({
-        where: { id: contractId, store_id: storeId },
+        where: { id: contractId, branch_id: storeId },
       });
 
       if (!existing) {
@@ -225,12 +225,12 @@ router.put("/:id", requirePermission(["FUNDS_MANAGE"]) as any, async (req: Authe
 
           if (searchPhone) {
             existingCustomer = await tx.customer.findFirst({
-              where: { phone: searchPhone, store_id: storeId, status: { not: "blacklist" } }
+              where: { phone: searchPhone, branch_id: storeId, status: { not: "blacklist" } }
             });
           }
           if (!existingCustomer && searchCard) {
             existingCustomer = await tx.customer.findFirst({
-              where: { identity_card_number: searchCard, store_id: storeId, status: { not: "blacklist" } }
+              where: { identity_card_number: searchCard, branch_id: storeId, status: { not: "blacklist" } }
             });
           }
 
@@ -240,7 +240,7 @@ router.put("/:id", requirePermission(["FUNDS_MANAGE"]) as any, async (req: Authe
             // Create a new Customer record
             const newCust = await tx.customer.create({
               data: {
-                store_id: storeId,
+                branch_id: storeId,
                 full_name: searchName,
                 phone: searchPhone || null,
                 address: (investor_address !== undefined ? investor_address : existing.investor_address) || null,
@@ -352,13 +352,13 @@ router.put("/:id", requirePermission(["FUNDS_MANAGE"]) as any, async (req: Authe
 // 5. Cancel / Soft-Delete capital contract
 router.delete("/:id", requirePermission(["FUNDS_MANAGE"]) as any, async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const storeId = req.user!.store_id;
+    const storeId = req.user!.branch_id;
     const employeeId = req.user!.id;
     const contractId = req.params.id;
 
     const result = await prisma.$transaction(async (tx) => {
       const existing = await tx.capitalContract.findFirst({
-        where: { id: contractId, store_id: storeId },
+        where: { id: contractId, branch_id: storeId },
       });
 
       if (!existing) {
@@ -396,7 +396,7 @@ router.delete("/:id", requirePermission(["FUNDS_MANAGE"]) as any, async (req: Au
 // 6. Post transaction for a capital contract
 router.post("/:id/transactions", requirePermission(["FUNDS_MANAGE"]) as any, async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const storeId = req.user!.store_id;
+    const storeId = req.user!.branch_id;
     const employeeId = req.user!.id;
     const contractId = req.params.id;
 
@@ -410,7 +410,7 @@ router.post("/:id/transactions", requirePermission(["FUNDS_MANAGE"]) as any, asy
 
     const result = await prisma.$transaction(async (tx) => {
       const contract = await tx.capitalContract.findFirst({
-        where: { id: contractId, store_id: storeId },
+        where: { id: contractId, branch_id: storeId },
       });
 
       if (!contract) {

@@ -94,7 +94,8 @@ function calculateAccruedInterest(contract) {
     let startDate = new Date(contract.loan_date);
     if (paidPayments.length > 0) {
         const sorted = [...paidPayments].sort((a, b) => b.cycle_number - a.cycle_number);
-        startDate = new Date(sorted[0].to_date);
+        const lastToDate = new Date(sorted[0].to_date);
+        startDate = new Date(lastToDate.getFullYear(), lastToDate.getMonth(), lastToDate.getDate() + 1);
     }
     const startMidnight = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate());
     const today = new Date();
@@ -102,7 +103,7 @@ function calculateAccruedInterest(contract) {
     const diffMs = todayMidnight.getTime() - startMidnight.getTime();
     if (diffMs < 0)
         return 0;
-    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24)) + 1;
+    const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24)) + 1;
     const principal = Number(contract.loan_amount) || 0;
     const rate = Number(contract.interest_rate) || 0;
     const pValue = Number(contract.period_value) || 1;
@@ -113,9 +114,9 @@ function calculateAccruedInterest(contract) {
 // 1. Get Unsecured Contracts list
 router.get("/", async (req, res) => {
     try {
-        const storeId = req.user.store_id;
+        const storeId = req.user.branch_id;
         const { status, search, page, limit } = req.query;
-        const whereClause = { store_id: storeId };
+        const whereClause = { branch_id: storeId };
         if (status) {
             if (status === "all_active") {
                 whereClause.status = "active";
@@ -224,6 +225,9 @@ router.get("/", async (req, res) => {
         return res.json(mapUnsecuredContracts(contracts));
     }
     catch (error) {
+        if (error instanceof interest_1.InvalidLoanParamsError) {
+            return res.status(400).json({ error: error.message });
+        }
         return res.status(500).json({ error: error.message });
     }
 });
@@ -234,6 +238,9 @@ router.get("/next-code-number", async (req, res) => {
         return res.json({ nextCodeNumber: nextNum });
     }
     catch (error) {
+        if (error instanceof interest_1.InvalidLoanParamsError) {
+            return res.status(400).json({ error: error.message });
+        }
         return res.status(500).json({ error: error.message });
     }
 });
@@ -271,16 +278,22 @@ router.get("/:id", async (req, res) => {
         if (!contract) {
             return res.status(404).json({ error: "Unsecured contract not found" });
         }
+        if (!req.user.branch_ids.includes(contract.branch_id)) {
+            return res.status(403).json({ error: "Forbidden: You do not have access to this branch's data" });
+        }
         return res.json(mapUnsecuredContract(contract));
     }
     catch (error) {
+        if (error instanceof interest_1.InvalidLoanParamsError) {
+            return res.status(400).json({ error: error.message });
+        }
         return res.status(500).json({ error: error.message });
     }
 });
 // 3. Create Unsecured Contract
 router.post("/", (0, permission_1.requirePermission)(["CONTRACTS_MANAGE"]), async (req, res) => {
     try {
-        const storeId = req.user.store_id;
+        const storeId = req.user.branch_id;
         const employeeId = req.user.id;
         const { customer_id, commodity_id, loan_amount, interest_type_id, is_upfront_interest, loan_days, period_value, interest_rate, loan_date, collector_id, collaborator_id, notes, contract_code, } = req.body;
         let comm = null;
@@ -357,7 +370,7 @@ router.post("/", (0, permission_1.requirePermission)(["CONTRACTS_MANAGE"]), asyn
             const contract = await tx.unsecuredContract.create({
                 data: {
                     id: contractId,
-                    store_id: storeId,
+                    branch_id: storeId,
                     contract_code: contractCode,
                     customer_id,
                     commodity_id,
@@ -428,6 +441,9 @@ router.post("/", (0, permission_1.requirePermission)(["CONTRACTS_MANAGE"]), asyn
         return res.status(201).json(result);
     }
     catch (error) {
+        if (error instanceof interest_1.InvalidLoanParamsError) {
+            return res.status(400).json({ error: error.message });
+        }
         return res.status(500).json({ error: error.message });
     }
 });
@@ -465,7 +481,7 @@ router.post("/:id/pay-interest", (0, permission_1.requirePermission)(["CONTRACTS
                 },
             });
             // Update cash fund (+ payAmount)
-            await (0, cash_1.adjustDailyCash)(tx, payment.contract.store_id, today, payAmount, "unsecured_interest_pay", employeeId, `Thu lãi kỳ ${payment.cycle_number} HĐ tín chấp ${payment.contract.contract_code}. Thực thu: ${payAmount}`);
+            await (0, cash_1.adjustDailyCash)(tx, payment.contract.branch_id, today, payAmount, "unsecured_interest_pay", employeeId, `Thu lãi kỳ ${payment.cycle_number} HĐ tín chấp ${payment.contract.contract_code}. Thực thu: ${payAmount}`);
             // Save to ledger
             await tx.unsecuredTransactionLedger.create({
                 data: {
@@ -483,6 +499,9 @@ router.post("/:id/pay-interest", (0, permission_1.requirePermission)(["CONTRACTS
         return res.json(result);
     }
     catch (error) {
+        if (error instanceof interest_1.InvalidLoanParamsError) {
+            return res.status(400).json({ error: error.message });
+        }
         return res.status(500).json({ error: error.message });
     }
 });
@@ -508,7 +527,7 @@ const handleCancelInterest = async (req, res) => {
             const today = new Date();
             const refundAmount = Number(payment.actual_paid);
             // Revert daily cash (- refundAmount)
-            await (0, cash_1.adjustDailyCash)(tx, payment.contract.store_id, today, -refundAmount, "unsecured_interest_cancel", employeeId, `Hủy thu lãi kỳ ${payment.cycle_number} HĐ tín chấp ${payment.contract.contract_code}. Trừ két: ${refundAmount}`);
+            await (0, cash_1.adjustDailyCash)(tx, payment.contract.branch_id, today, -refundAmount, "unsecured_interest_cancel", employeeId, `Hủy thu lãi kỳ ${payment.cycle_number} HĐ tín chấp ${payment.contract.contract_code}. Trừ két: ${refundAmount}`);
             // Save to ledger
             await tx.unsecuredTransactionLedger.create({
                 data: {
@@ -535,6 +554,9 @@ const handleCancelInterest = async (req, res) => {
         return res.json(result);
     }
     catch (error) {
+        if (error instanceof interest_1.InvalidLoanParamsError) {
+            return res.status(400).json({ error: error.message });
+        }
         return res.status(500).json({ error: error.message });
     }
 };
@@ -582,7 +604,7 @@ router.post("/:id/pay-down", (0, permission_1.requirePermission)(["CONTRACTS_OPE
                 },
             });
             // Adjust daily cash (+ paydownAmount)
-            await (0, cash_1.adjustDailyCash)(tx, contract.store_id, date, paydownAmount, "unsecured_principal_paydown", employeeId, `Khách đóng bớt gốc HĐ tín chấp ${contract.contract_code}. Nhận: ${paydownAmount}`);
+            await (0, cash_1.adjustDailyCash)(tx, contract.branch_id, date, paydownAmount, "unsecured_principal_paydown", employeeId, `Khách đóng bớt gốc HĐ tín chấp ${contract.contract_code}. Nhận: ${paydownAmount}`);
             // Ledger
             await tx.unsecuredTransactionLedger.create({
                 data: {
@@ -607,6 +629,9 @@ router.post("/:id/pay-down", (0, permission_1.requirePermission)(["CONTRACTS_OPE
         return res.json(result);
     }
     catch (error) {
+        if (error instanceof interest_1.InvalidLoanParamsError) {
+            return res.status(400).json({ error: error.message });
+        }
         return res.status(500).json({ error: error.message });
     }
 });
@@ -651,7 +676,7 @@ router.post("/:id/borrow-more", (0, permission_1.requirePermission)(["CONTRACTS_
                 },
             });
             // Adjust daily cash (- borrowAmount)
-            await (0, cash_1.adjustDailyCash)(tx, contract.store_id, date, -borrowAmount, "unsecured_principal_borrow_more", employeeId, `Khách vay thêm gốc HĐ tín chấp ${contract.contract_code}. Giải ngân: ${borrowAmount}`);
+            await (0, cash_1.adjustDailyCash)(tx, contract.branch_id, date, -borrowAmount, "unsecured_principal_borrow_more", employeeId, `Khách vay thêm gốc HĐ tín chấp ${contract.contract_code}. Giải ngân: ${borrowAmount}`);
             // Ledger
             await tx.unsecuredTransactionLedger.create({
                 data: {
@@ -676,6 +701,9 @@ router.post("/:id/borrow-more", (0, permission_1.requirePermission)(["CONTRACTS_
         return res.json(result);
     }
     catch (error) {
+        if (error instanceof interest_1.InvalidLoanParamsError) {
+            return res.status(400).json({ error: error.message });
+        }
         return res.status(500).json({ error: error.message });
     }
 });
@@ -699,7 +727,7 @@ router.delete("/:id/principal-transaction/:txId", (0, permission_1.requirePermis
                     where: { id: contractId },
                     data: { loan_amount: { increment: amount } },
                 });
-                await (0, cash_1.adjustDailyCash)(tx, contract.store_id, today, -amount, "unsecured_principal_revert", employeeId, `Hủy thu nợ gốc HĐ tín chấp ${contract.contract_code}. Trừ két: ${amount}`);
+                await (0, cash_1.adjustDailyCash)(tx, contract.branch_id, today, -amount, "unsecured_principal_revert", employeeId, `Hủy thu nợ gốc HĐ tín chấp ${contract.contract_code}. Trừ két: ${amount}`);
                 await tx.unsecuredTransactionLedger.create({
                     data: {
                         contract_id: contractId,
@@ -720,7 +748,7 @@ router.delete("/:id/principal-transaction/:txId", (0, permission_1.requirePermis
                         initial_loan_amount: { decrement: amount },
                     },
                 });
-                await (0, cash_1.adjustDailyCash)(tx, contract.store_id, today, amount, "unsecured_principal_revert", employeeId, `Hủy giải ngân thêm nợ gốc HĐ tín chấp ${contract.contract_code}. Hoàn lại két: ${amount}`);
+                await (0, cash_1.adjustDailyCash)(tx, contract.branch_id, today, amount, "unsecured_principal_revert", employeeId, `Hủy giải ngân thêm nợ gốc HĐ tín chấp ${contract.contract_code}. Hoàn lại két: ${amount}`);
                 await tx.unsecuredTransactionLedger.create({
                     data: {
                         contract_id: contractId,
@@ -741,6 +769,9 @@ router.delete("/:id/principal-transaction/:txId", (0, permission_1.requirePermis
         return res.json(result);
     }
     catch (error) {
+        if (error instanceof interest_1.InvalidLoanParamsError) {
+            return res.status(400).json({ error: error.message });
+        }
         return res.status(500).json({ error: error.message });
     }
 });
@@ -821,6 +852,9 @@ router.post("/:id/extend", (0, permission_1.requirePermission)(["CONTRACTS_OPERA
         return res.json(result);
     }
     catch (error) {
+        if (error instanceof interest_1.InvalidLoanParamsError) {
+            return res.status(400).json({ error: error.message });
+        }
         return res.status(500).json({ error: error.message });
     }
 });
@@ -882,6 +916,9 @@ router.delete("/:id/extend/:extendId", (0, permission_1.requirePermission)(["CON
         return res.json(result);
     }
     catch (error) {
+        if (error instanceof interest_1.InvalidLoanParamsError) {
+            return res.status(400).json({ error: error.message });
+        }
         return res.status(500).json({ error: error.message });
     }
 });
@@ -912,9 +949,19 @@ router.post("/:id/redeem", (0, permission_1.requirePermission)(["CONTRACTS_OPERA
             const lastPaid = contract.interest_payments
                 .filter((p) => p.is_paid)
                 .pop();
-            const accrualStart = lastPaid ? new Date(lastPaid.to_date) : new Date(contract.loan_date);
-            // Calculate accrued interest up to redeem date based on initial_loan_amount
-            const daysAccrued = Math.max(0, Math.round((rDate.getTime() - accrualStart.getTime()) / (1000 * 60 * 60 * 24)));
+            let accrualStart = new Date(contract.loan_date);
+            if (lastPaid) {
+                const lastToDate = new Date(lastPaid.to_date);
+                accrualStart = new Date(lastToDate.getFullYear(), lastToDate.getMonth(), lastToDate.getDate() + 1);
+            }
+            // Normalize dates to midnight to compute absolute difference in days
+            const startMidnight = new Date(accrualStart.getFullYear(), accrualStart.getMonth(), accrualStart.getDate());
+            const endMidnight = new Date(rDate.getFullYear(), rDate.getMonth(), rDate.getDate());
+            const diffMs = endMidnight.getTime() - startMidnight.getTime();
+            let daysAccrued = 0;
+            if (diffMs >= 0) {
+                daysAccrued = Math.round(diffMs / (1000 * 60 * 60 * 24)) + 1;
+            }
             const dailyRate = (0, pawn_1.calculateDailyInterestRate)(Number(contract.initial_loan_amount), Number(contract.interest_rate), contract.period_value, contract.interest_type.code);
             const interestAmount = Math.round(dailyRate * daysAccrued);
             const otherVal = Number(otherAmount) || 0;
@@ -957,7 +1004,7 @@ router.post("/:id/redeem", (0, permission_1.requirePermission)(["CONTRACTS_OPERA
                 },
             });
             // Adjust cash fund (+ totalRedeem)
-            await (0, cash_1.adjustDailyCash)(tx, contract.store_id, rDate, totalRedeem, "unsecured_redeem", employeeId, `Tất toán Đóng HĐ tín chấp ${contract.contract_code}. Thu quỹ: ${totalRedeem} (Dư gốc: ${principal}, Nợ cũ: ${outstandingDebt}, Lãi tích lũy: ${interestAmount})`);
+            await (0, cash_1.adjustDailyCash)(tx, contract.branch_id, rDate, totalRedeem, "unsecured_redeem", employeeId, `Tất toán Đóng HĐ tín chấp ${contract.contract_code}. Thu quỹ: ${totalRedeem} (Dư gốc: ${principal}, Nợ cũ: ${outstandingDebt}, Lãi tích lũy: ${interestAmount})`);
             // Ledger log
             await tx.unsecuredTransactionLedger.create({
                 data: {
@@ -974,6 +1021,9 @@ router.post("/:id/redeem", (0, permission_1.requirePermission)(["CONTRACTS_OPERA
         return res.json(result);
     }
     catch (error) {
+        if (error instanceof interest_1.InvalidLoanParamsError) {
+            return res.status(400).json({ error: error.message });
+        }
         return res.status(500).json({ error: error.message });
     }
 });
@@ -998,7 +1048,7 @@ router.post("/:id/cancel-redeem", (0, permission_1.requirePermission)(["CONTRACT
             const today = new Date();
             const refundAmount = Number(redemption.total_amount);
             // Revert Cash flow (- refundAmount)
-            await (0, cash_1.adjustDailyCash)(tx, contract.store_id, today, -refundAmount, "unsecured_redeem_cancel", employeeId, `Hủy đóng HĐ tín chấp ${contract.contract_code}. Trừ két: ${refundAmount}`);
+            await (0, cash_1.adjustDailyCash)(tx, contract.branch_id, today, -refundAmount, "unsecured_redeem_cancel", employeeId, `Hủy đóng HĐ tín chấp ${contract.contract_code}. Trừ két: ${refundAmount}`);
             // Restore status
             await tx.unsecuredContract.update({
                 where: { id: contractId },
@@ -1038,6 +1088,9 @@ router.post("/:id/cancel-redeem", (0, permission_1.requirePermission)(["CONTRACT
         return res.json(result);
     }
     catch (error) {
+        if (error instanceof interest_1.InvalidLoanParamsError) {
+            return res.status(400).json({ error: error.message });
+        }
         return res.status(500).json({ error: error.message });
     }
 });
@@ -1086,6 +1139,9 @@ router.post("/:id/record-debt", (0, permission_1.requirePermission)(["CONTRACTS_
         return res.json(result);
     }
     catch (error) {
+        if (error instanceof interest_1.InvalidLoanParamsError) {
+            return res.status(400).json({ error: error.message });
+        }
         return res.status(500).json({ error: error.message });
     }
 });
@@ -1122,7 +1178,7 @@ router.post("/:id/pay-debt", (0, permission_1.requirePermission)(["CONTRACTS_OPE
                     notes,
                 },
             });
-            await (0, cash_1.adjustDailyCash)(tx, contract.store_id, today, value, "unsecured_debt_payment", employeeId, `Thu nợ cũ HĐ tín chấp ${contract.contract_code}. Số tiền: ${value}`);
+            await (0, cash_1.adjustDailyCash)(tx, contract.branch_id, today, value, "unsecured_debt_payment", employeeId, `Thu nợ cũ HĐ tín chấp ${contract.contract_code}. Số tiền: ${value}`);
             await tx.unsecuredTransactionLedger.create({
                 data: {
                     contract_id: contractId,
@@ -1144,6 +1200,9 @@ router.post("/:id/pay-debt", (0, permission_1.requirePermission)(["CONTRACTS_OPE
         return res.json(result);
     }
     catch (error) {
+        if (error instanceof interest_1.InvalidLoanParamsError) {
+            return res.status(400).json({ error: error.message });
+        }
         return res.status(500).json({ error: error.message });
     }
 });
@@ -1180,7 +1239,7 @@ router.delete("/:id/debt-transaction/:txId", (0, permission_1.requirePermission)
                     where: { id: contractId },
                     data: { debt_amount: { increment: amount } },
                 });
-                await (0, cash_1.adjustDailyCash)(tx, contract.store_id, today, -amount, "unsecured_debt_revert", employeeId, `Hủy thu nợ cũ HĐ tín chấp ${contract.contract_code}. Trừ két: ${amount}`);
+                await (0, cash_1.adjustDailyCash)(tx, contract.branch_id, today, -amount, "unsecured_debt_revert", employeeId, `Hủy thu nợ cũ HĐ tín chấp ${contract.contract_code}. Trừ két: ${amount}`);
                 await tx.unsecuredTransactionLedger.create({
                     data: {
                         contract_id: contractId,
@@ -1198,6 +1257,9 @@ router.delete("/:id/debt-transaction/:txId", (0, permission_1.requirePermission)
         return res.json(result);
     }
     catch (error) {
+        if (error instanceof interest_1.InvalidLoanParamsError) {
+            return res.status(400).json({ error: error.message });
+        }
         return res.status(500).json({ error: error.message });
     }
 });
@@ -1218,6 +1280,9 @@ router.post("/:id/documents", async (req, res) => {
         return res.status(201).json(doc);
     }
     catch (error) {
+        if (error instanceof interest_1.InvalidLoanParamsError) {
+            return res.status(400).json({ error: error.message });
+        }
         return res.status(500).json({ error: error.message });
     }
 });
@@ -1230,6 +1295,9 @@ router.delete("/:id/documents/:docId", async (req, res) => {
         return res.json({ message: "Document deleted successfully" });
     }
     catch (error) {
+        if (error instanceof interest_1.InvalidLoanParamsError) {
+            return res.status(400).json({ error: error.message });
+        }
         return res.status(500).json({ error: error.message });
     }
 });
@@ -1246,6 +1314,9 @@ router.post("/:id/reminders/log", async (req, res) => {
         return res.status(201).json(log);
     }
     catch (error) {
+        if (error instanceof interest_1.InvalidLoanParamsError) {
+            return res.status(400).json({ error: error.message });
+        }
         return res.status(500).json({ error: error.message });
     }
 });
@@ -1352,7 +1423,7 @@ router.put("/:id", (0, permission_1.requirePermission)(["CONTRACTS_MANAGE"]), as
             // Sync cash flow difference (Δ = newNet - oldNet)
             const diff = newNetDisbursed - oldNetDisbursed;
             if (diff !== 0) {
-                await (0, cash_1.adjustDailyCash)(tx, contract.store_id, new Date(), -diff, "contract_edit", employeeId, `Điều chỉnh vốn giải ngân HĐ tín chấp ${contract.contract_code} do sửa thông số. Chênh lệch: ${-diff}`);
+                await (0, cash_1.adjustDailyCash)(tx, contract.branch_id, new Date(), -diff, "contract_edit", employeeId, `Điều chỉnh vốn giải ngân HĐ tín chấp ${contract.contract_code} do sửa thông số. Chênh lệch: ${-diff}`);
                 // Update ledger
                 await tx.unsecuredTransactionLedger.create({
                     data: {
@@ -1380,6 +1451,9 @@ router.put("/:id", (0, permission_1.requirePermission)(["CONTRACTS_MANAGE"]), as
         return res.json(result);
     }
     catch (error) {
+        if (error instanceof interest_1.InvalidLoanParamsError) {
+            return res.status(400).json({ error: error.message });
+        }
         return res.status(500).json({ error: error.message });
     }
 });
@@ -1402,7 +1476,7 @@ router.delete("/:id", (0, permission_1.requirePermission)(["CONTRACTS_MANAGE"]),
                 throw new Error("Contract not found");
             }
             // Check daily cash lock for original loan date
-            await (0, cash_1.checkDailyCashLock)(tx, contract.store_id, contract.loan_date);
+            await (0, cash_1.checkDailyCashLock)(tx, contract.branch_id, contract.loan_date);
             // Calculate old upfront
             let oldUpfront = 0;
             if (contract.is_upfront_interest && contract.interest_payments.length > 0) {
@@ -1430,7 +1504,7 @@ router.delete("/:id", (0, permission_1.requirePermission)(["CONTRACTS_MANAGE"]),
             const netCashFlow = totalInflows - totalOutflows;
             // Revert Cash
             if (netCashFlow !== 0) {
-                await (0, cash_1.adjustDailyCash)(tx, contract.store_id, new Date(), -netCashFlow, "contract_deleted", employeeId, `Khấu trừ/Hoàn trả quỹ két do xóa hợp đồng tín chấp ${contract.contract_code}. Lượng hoàn két: ${-netCashFlow}`);
+                await (0, cash_1.adjustDailyCash)(tx, contract.branch_id, new Date(), -netCashFlow, "contract_deleted", employeeId, `Khấu trừ/Hoàn trả quỹ két do xóa hợp đồng tín chấp ${contract.contract_code}. Lượng hoàn két: ${-netCashFlow}`);
             }
             // Soft delete: set status to 'cancelled'
             await tx.unsecuredContract.update({
@@ -1442,6 +1516,9 @@ router.delete("/:id", (0, permission_1.requirePermission)(["CONTRACTS_MANAGE"]),
         return res.json(result);
     }
     catch (error) {
+        if (error instanceof interest_1.InvalidLoanParamsError) {
+            return res.status(400).json({ error: error.message });
+        }
         return res.status(500).json({ error: error.message });
     }
 });
@@ -1481,6 +1558,7 @@ router.post("/:id/timers", async (req, res) => {
                 // Create new global reminder
                 await tx.reminder.create({
                     data: {
+                        branch_id: contract.branch_id,
                         employee_id: req.user.id,
                         contract_code: contract.contract_code,
                         customer_name: contract.customer.full_name,
@@ -1498,6 +1576,9 @@ router.post("/:id/timers", async (req, res) => {
         return res.status(201).json(result);
     }
     catch (error) {
+        if (error instanceof interest_1.InvalidLoanParamsError) {
+            return res.status(400).json({ error: error.message });
+        }
         return res.status(500).json({ error: error.message });
     }
 });
@@ -1525,6 +1606,9 @@ router.put("/:id/timers/:timerId/stop", async (req, res) => {
         return res.json(result);
     }
     catch (error) {
+        if (error instanceof interest_1.InvalidLoanParamsError) {
+            return res.status(400).json({ error: error.message });
+        }
         return res.status(500).json({ error: error.message });
     }
 });

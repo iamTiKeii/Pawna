@@ -3,7 +3,6 @@ import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { prisma } from "../utils/db";
 import { authenticateToken, AuthenticatedRequest } from "../middleware/auth";
-import { requirePermission } from "../middleware/permission";
 
 const router = Router();
 
@@ -12,8 +11,8 @@ const JWT_SECRET = process.env.JWT_SECRET || "pawn_manager_secret_key_2026";
 // Status Check
 router.get("/status", async (req, res) => {
   try {
-    const storeCount = await prisma.store.count();
-    return res.json({ bootstrapped: storeCount > 0 });
+    const branchCount = await prisma.branch.count();
+    return res.json({ bootstrapped: branchCount > 0 });
   } catch (error: any) {
     return res.status(500).json({ error: error.message });
   }
@@ -115,13 +114,14 @@ const permissionsData = [
   { code: "CONTRACTS_OPERATE", name: "Thực hiện Giao dịch Hợp đồng (Legacy)", category: "Hệ thống", description: "Legacy CONTRACTS_OPERATE" },
   { code: "VOUCHERS_MANAGE", name: "Quản lý Thu Chi ngoài nghiệp vụ (Legacy)", category: "Hệ thống", description: "Legacy VOUCHERS_MANAGE" },
   { code: "SETTINGS_MANAGE", name: "Quản trị hệ thống (Admin)", category: "Hệ thống", description: "Quyền quản trị cao nhất của hệ thống" },
+  { code: "BRANCHES_VIEW_ALL", name: "Xem chéo tất cả chi nhánh", category: "Hệ thống", description: "Cho phép xem và quản lý dữ liệu của tất cả các chi nhánh" },
 ];
 
-// 1. Bootstrapping Endpoint - Creates first store & admin if system is empty
+// 1. Bootstrapping Endpoint - Creates first branch & admin if system is empty
 router.post("/bootstrap", async (req, res) => {
   try {
-    const storeCount = await prisma.store.count();
-    if (storeCount > 0) {
+    const branchCount = await prisma.branch.count();
+    if (branchCount > 0) {
       return res.status(400).json({ error: "System is already bootstrapped" });
     }
 
@@ -133,9 +133,9 @@ router.post("/bootstrap", async (req, res) => {
 
     const hash = await bcrypt.hash(password, 10);
 
-    // Create store and admin employee in a transaction
+    // Create branch and admin employee in a transaction
     const result = await prisma.$transaction(async (tx) => {
-      const store = await tx.store.create({
+      const branch = await tx.branch.create({
         data: {
           name: storeName,
           investment_capital: Number(investmentCapital) || 0,
@@ -145,11 +145,17 @@ router.post("/bootstrap", async (req, res) => {
 
       const admin = await tx.employee.create({
         data: {
-          store_id: store.id,
           username,
           password_hash: hash,
           full_name: fullName,
           status: "active",
+        },
+      });
+
+      await tx.userBranch.create({
+        data: {
+          user_id: admin.id,
+          branch_id: branch.id,
         },
       });
 
@@ -172,7 +178,7 @@ router.post("/bootstrap", async (req, res) => {
         })),
       });
 
-      return { store, admin };
+      return { branch, admin };
     });
 
     const token = jwt.sign({ id: result.admin.id, username: result.admin.username }, JWT_SECRET, {
@@ -186,7 +192,23 @@ router.post("/bootstrap", async (req, res) => {
         id: result.admin.id,
         username: result.admin.username,
         full_name: result.admin.full_name,
-        store_id: result.admin.store_id,
+        store_id: result.branch.id,
+        store: {
+          id: result.branch.id,
+          name: result.branch.name,
+          investment_capital: Number(result.branch.investment_capital),
+        },
+        activeBranch: {
+          id: result.branch.id,
+          name: result.branch.name,
+          investment_capital: Number(result.branch.investment_capital),
+        },
+        branches: [{
+          id: result.branch.id,
+          name: result.branch.name,
+          investment_capital: Number(result.branch.investment_capital),
+        }],
+        permissions: permissionsData.map((p) => p.code),
       },
     });
   } catch (error: any) {
@@ -206,7 +228,11 @@ router.post("/login", async (req, res) => {
     const employee = await prisma.employee.findUnique({
       where: { username },
       include: {
-        store: true,
+        branches: {
+          include: {
+            branch: true,
+          },
+        },
         permissions: {
           include: {
             permission: true,
@@ -228,6 +254,30 @@ router.post("/login", async (req, res) => {
       expiresIn: "12h",
     });
 
+    const permissions = employee.permissions.map((ep) => ep.permission.code);
+    const isAdmin = permissions.includes("SETTINGS_MANAGE") || permissions.includes("BRANCHES_VIEW_ALL");
+
+    let allowedBranches: any[] = [];
+    if (isAdmin) {
+      const allBranches = await prisma.branch.findMany({
+        where: { status: "active" },
+        orderBy: { name: "asc" },
+      });
+      allowedBranches = allBranches.map((b) => ({
+        id: b.id,
+        name: b.name,
+        investment_capital: Number(b.investment_capital),
+      }));
+    } else {
+      allowedBranches = employee.branches.map((ub) => ({
+        id: ub.branch.id,
+        name: ub.branch.name,
+        investment_capital: Number(ub.branch.investment_capital),
+      }));
+    }
+
+    const activeBranch = allowedBranches[0] || { id: "", name: "Không có chi nhánh", investment_capital: 0 };
+
     return res.json({
       message: "Login successful",
       token,
@@ -235,9 +285,12 @@ router.post("/login", async (req, res) => {
         id: employee.id,
         username: employee.username,
         full_name: employee.full_name,
-        store_id: employee.store_id,
-        store_name: employee.store.name,
-        permissions: employee.permissions.map((ep) => ep.permission.code),
+        store_id: activeBranch.id,
+        store_name: activeBranch.name,
+        store: activeBranch,
+        activeBranch: activeBranch,
+        branches: allowedBranches,
+        permissions,
       },
     });
   } catch (error: any) {
@@ -251,7 +304,11 @@ router.get("/me", authenticateToken as any, async (req: AuthenticatedRequest, re
     const employee = await prisma.employee.findUnique({
       where: { id: req.user!.id },
       include: {
-        store: true,
+        branches: {
+          include: {
+            branch: true,
+          },
+        },
         permissions: {
           include: {
             permission: true,
@@ -263,6 +320,30 @@ router.get("/me", authenticateToken as any, async (req: AuthenticatedRequest, re
     if (!employee) {
       return res.status(404).json({ error: "User not found" });
     }
+
+    const permissions = employee.permissions.map((ep) => ep.permission.code);
+    const isAdmin = permissions.includes("SETTINGS_MANAGE") || permissions.includes("BRANCHES_VIEW_ALL");
+
+    let allowedBranches: any[] = [];
+    if (isAdmin) {
+      const allBranches = await prisma.branch.findMany({
+        where: { status: "active" },
+        orderBy: { name: "asc" },
+      });
+      allowedBranches = allBranches.map((b) => ({
+        id: b.id,
+        name: b.name,
+        investment_capital: Number(b.investment_capital),
+      }));
+    } else {
+      allowedBranches = employee.branches.map((ub) => ({
+        id: ub.branch.id,
+        name: ub.branch.name,
+        investment_capital: Number(ub.branch.investment_capital),
+      }));
+    }
+
+    const activeBranch = allowedBranches.find((b) => b.id === req.user!.branch_id) || allowedBranches[0] || { id: "", name: "Không có chi nhánh", investment_capital: 0 };
 
     return res.json({
       id: employee.id,
@@ -276,12 +357,10 @@ router.get("/me", authenticateToken as any, async (req: AuthenticatedRequest, re
       gender: employee.gender,
       birthday: employee.birthday,
       two_factor_enabled: employee.two_factor_enabled,
-      store: {
-        id: employee.store.id,
-        name: employee.store.name,
-        investment_capital: employee.store.investment_capital,
-      },
-      permissions: employee.permissions.map((ep) => ep.permission.code),
+      store: activeBranch,
+      activeBranch: activeBranch,
+      branches: allowedBranches,
+      permissions,
     });
   } catch (error: any) {
     return res.status(500).json({ error: error.message });

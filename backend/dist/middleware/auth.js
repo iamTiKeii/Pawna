@@ -18,6 +18,11 @@ const authenticateToken = async (req, res, next) => {
         const employee = await db_1.prisma.employee.findUnique({
             where: { id: decoded.id },
             include: {
+                branches: {
+                    include: {
+                        branch: true,
+                    },
+                },
                 permissions: {
                     include: {
                         permission: true,
@@ -28,12 +33,32 @@ const authenticateToken = async (req, res, next) => {
         if (!employee || employee.status !== "active") {
             return res.status(403).json({ error: "User is inactive or disabled" });
         }
+        const permissions = employee.permissions.map((ep) => ep.permission.code);
+        const isAdmin = permissions.includes("SETTINGS_MANAGE") || permissions.includes("BRANCHES_VIEW_ALL");
+        let branchIds = [];
+        if (isAdmin) {
+            const allBranches = await db_1.prisma.branch.findMany({
+                where: { status: "active" },
+                select: { id: true },
+            });
+            branchIds = allBranches.map((b) => b.id);
+        }
+        else {
+            branchIds = employee.branches.map((ub) => ub.branch_id);
+        }
+        const reqBranchId = req.headers["x-branch-id"];
+        let activeBranchId = reqBranchId;
+        if (!activeBranchId || !branchIds.includes(activeBranchId)) {
+            activeBranchId = branchIds[0] || "";
+        }
         req.user = {
             id: employee.id,
             username: employee.username,
             full_name: employee.full_name,
-            store_id: employee.store_id,
-            permissions: employee.permissions.map((ep) => ep.permission.code),
+            store_id: activeBranchId, // set store_id to active branch for backward compatibility
+            branch_id: activeBranchId, // set branch_id
+            branch_ids: branchIds, // list of allowed branches
+            permissions,
         };
         next();
     }

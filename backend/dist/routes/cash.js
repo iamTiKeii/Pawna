@@ -11,12 +11,12 @@ router.use(auth_1.authenticateToken);
 // 1. Get daily cash summary (beginning cash, current cash, details)
 router.get("/summary", async (req, res) => {
     try {
-        const storeId = req.user.store_id;
+        const storeId = req.user.branch_id;
         const today = (0, cash_1.normalizeToMidnight)(new Date());
         let dailyCash = await db_1.prisma.dailyCash.findUnique({
             where: {
-                store_id_date: {
-                    store_id: storeId,
+                branch_id_date: {
+                    branch_id: storeId,
                     date: today,
                 },
             },
@@ -24,7 +24,7 @@ router.get("/summary", async (req, res) => {
         if (!dailyCash) {
             // Find the most recent record before today
             const lastDaily = await db_1.prisma.dailyCash.findFirst({
-                where: { store_id: storeId, date: { lt: today } },
+                where: { branch_id: storeId, date: { lt: today } },
                 orderBy: { date: "desc" },
             });
             let beginningCash = 0;
@@ -32,13 +32,13 @@ router.get("/summary", async (req, res) => {
                 beginningCash = Number(lastDaily.current_cash);
             }
             else {
-                const store = await db_1.prisma.store.findUnique({ where: { id: storeId } });
-                beginningCash = store ? Number(store.investment_capital) : 0;
+                const branch = await db_1.prisma.branch.findUnique({ where: { id: storeId } });
+                beginningCash = branch ? Number(branch.investment_capital) : 0;
             }
             // Automatically initialize today's daily cash
             dailyCash = await db_1.prisma.dailyCash.create({
                 data: {
-                    store_id: storeId,
+                    branch_id: storeId,
                     date: today,
                     beginning_cash: beginningCash,
                     current_cash: beginningCash,
@@ -54,9 +54,9 @@ router.get("/summary", async (req, res) => {
 // 2. Get cash history logs
 router.get("/history", async (req, res) => {
     try {
-        const storeId = req.user.store_id;
+        const storeId = req.user.branch_id;
         const { startDate, endDate } = req.query;
-        const whereClause = { store_id: storeId };
+        const whereClause = { branch_id: storeId };
         if (startDate || endDate) {
             whereClause.date = {};
             if (startDate) {
@@ -82,7 +82,7 @@ router.get("/history", async (req, res) => {
 // 3. Make manual Cash Adjustment
 router.post("/adjust", (0, permission_1.requirePermission)(["FUNDS_MANAGE"]), async (req, res) => {
     try {
-        const storeId = req.user.store_id;
+        const storeId = req.user.branch_id;
         const employeeId = req.user.id;
         const { amount, type, description } = req.body;
         if (amount === undefined || !type || !description) {
@@ -106,7 +106,7 @@ router.post("/adjust", (0, permission_1.requirePermission)(["FUNDS_MANAGE"]), as
 // 4. Set/Update Beginning Cash for today
 router.post("/beginning", (0, permission_1.requirePermission)(["FUNDS_MANAGE"]), async (req, res) => {
     try {
-        const storeId = req.user.store_id;
+        const storeId = req.user.branch_id;
         const employeeId = req.user.id;
         const { beginning_cash } = req.body;
         if (beginning_cash === undefined) {
@@ -120,8 +120,8 @@ router.post("/beginning", (0, permission_1.requirePermission)(["FUNDS_MANAGE"]),
         const result = await db_1.prisma.$transaction(async (tx) => {
             let dailyCash = await tx.dailyCash.findUnique({
                 where: {
-                    store_id_date: {
-                        store_id: storeId,
+                    branch_id_date: {
+                        branch_id: storeId,
                         date: today,
                     },
                 },
@@ -143,7 +143,7 @@ router.post("/beginning", (0, permission_1.requirePermission)(["FUNDS_MANAGE"]),
             else {
                 dailyCash = await tx.dailyCash.create({
                     data: {
-                        store_id: storeId,
+                        branch_id: storeId,
                         date: today,
                         beginning_cash: value,
                         current_cash: value,
@@ -153,7 +153,7 @@ router.post("/beginning", (0, permission_1.requirePermission)(["FUNDS_MANAGE"]),
             // Record in cash history
             await tx.cashFundHistory.create({
                 data: {
-                    store_id: storeId,
+                    branch_id: storeId,
                     date: today,
                     employee_id: employeeId,
                     amount: diff,
@@ -172,7 +172,7 @@ router.post("/beginning", (0, permission_1.requirePermission)(["FUNDS_MANAGE"]),
 // 5. Daily Cash Balance and locking (Chốt quỹ cuối ngày)
 router.post("/balance", (0, permission_1.requirePermission)(["FUNDS_MANAGE"]), async (req, res) => {
     try {
-        const storeId = req.user.store_id;
+        const storeId = req.user.branch_id;
         const employeeId = req.user.id;
         const { physical_cash } = req.body;
         if (physical_cash === undefined) {
@@ -186,8 +186,8 @@ router.post("/balance", (0, permission_1.requirePermission)(["FUNDS_MANAGE"]), a
         const result = await db_1.prisma.$transaction(async (tx) => {
             let dailyCash = await tx.dailyCash.findUnique({
                 where: {
-                    store_id_date: {
-                        store_id: storeId,
+                    branch_id_date: {
+                        branch_id: storeId,
                         date: today,
                     },
                 },
@@ -213,7 +213,7 @@ router.post("/balance", (0, permission_1.requirePermission)(["FUNDS_MANAGE"]), a
                 const code = await (0, codeGen_1.generateVoucherCode)(tx, "receipt");
                 await tx.receiptVoucher.create({
                     data: {
-                        store_id: storeId,
+                        branch_id: storeId,
                         voucher_code: code,
                         category_id: category.id,
                         amount: variance,
@@ -227,7 +227,7 @@ router.post("/balance", (0, permission_1.requirePermission)(["FUNDS_MANAGE"]), a
                 // Log history
                 await tx.cashFundHistory.create({
                     data: {
-                        store_id: storeId,
+                        branch_id: storeId,
                         date: today,
                         employee_id: employeeId,
                         amount: variance,
@@ -249,7 +249,7 @@ router.post("/balance", (0, permission_1.requirePermission)(["FUNDS_MANAGE"]), a
                 const absoluteVariance = Math.abs(variance);
                 await tx.paymentVoucher.create({
                     data: {
-                        store_id: storeId,
+                        branch_id: storeId,
                         voucher_code: code,
                         category_id: category.id,
                         amount: absoluteVariance,
@@ -263,7 +263,7 @@ router.post("/balance", (0, permission_1.requirePermission)(["FUNDS_MANAGE"]), a
                 // Log history
                 await tx.cashFundHistory.create({
                     data: {
-                        store_id: storeId,
+                        branch_id: storeId,
                         date: today,
                         employee_id: employeeId,
                         amount: variance, // negative value
@@ -288,8 +288,8 @@ router.post("/balance", (0, permission_1.requirePermission)(["FUNDS_MANAGE"]), a
             tomorrow.setDate(tomorrow.getDate() + 1);
             await tx.dailyCash.upsert({
                 where: {
-                    store_id_date: {
-                        store_id: storeId,
+                    branch_id_date: {
+                        branch_id: storeId,
                         date: tomorrow,
                     },
                 },
@@ -298,7 +298,7 @@ router.post("/balance", (0, permission_1.requirePermission)(["FUNDS_MANAGE"]), a
                     current_cash: physicalAmt,
                 },
                 create: {
-                    store_id: storeId,
+                    branch_id: storeId,
                     date: tomorrow,
                     beginning_cash: physicalAmt,
                     current_cash: physicalAmt,

@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import axios from "axios";
-import { useAuth, type StoreInfo } from "../context/AuthContext";
+import { useAuth } from "../context/AuthContext";
 import { UserDropdown } from "./UserDropdown";
 import {
   Shield,
@@ -40,11 +40,10 @@ export const Navbar: React.FC<NavbarProps> = ({
 }) => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { user, activeStore, switchStore, hasPermission } = useAuth();
+  const { user, activeStore, switchStore, branches, hasPermission } = useAuth();
   
   const [systemLogo, setSystemLogo] = useState("");
   const [systemName, setSystemName] = useState("Hưng Tín");
-  const [stores, setStores] = useState<StoreInfo[]>([]);
   
   // Warning counts
   const [counts, setCounts] = useState({
@@ -76,17 +75,6 @@ export const Navbar: React.FC<NavbarProps> = ({
       })
       .catch(err => console.error("Error fetching logo in navbar", err));
   }, []);
-
-  // Load stores list
-  useEffect(() => {
-    if (hasPermission("STORES_MANAGE")) {
-      axios.get("/api/stores")
-        .then((res) => {
-          setStores(res.data.filter((s: any) => s.status === "active"));
-        })
-        .catch(err => console.error("Error loading stores in navbar", err));
-    }
-  }, [user]);
 
   // Fetch warning counts
   const fetchWarningCounts = async () => {
@@ -253,7 +241,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           <div className="h-6 w-px bg-slate-200 mx-1 hidden sm:block"></div>
 
           {/* Active Store Swapper */}
-          {hasPermission("STORES_MANAGE") && stores.length > 0 ? (
+          {branches && branches.length > 1 ? (
             <div className="dropdown">
               <label tabIndex={0} className="flex items-center gap-1.5 cursor-pointer hover:bg-slate-50 px-2 py-1.5 rounded-xl transition-all text-slate-700 font-semibold text-xs">
                 <Store className="w-4 h-4 text-blue-500 shrink-0" />
@@ -262,7 +250,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               </label>
               <ul tabIndex={0} className="dropdown-content z-[60] menu p-2 shadow-2xl bg-white border border-slate-200 rounded-2xl w-56 mt-2">
                 <li className="menu-title text-slate-500 text-[10px] px-2.5 py-1 font-semibold uppercase tracking-wider">Chọn chi nhánh làm việc</li>
-                {stores.map((s) => (
+                {branches.map((s) => (
                   <li key={s.id}>
                     <button
                       onClick={() => switchStore(s)}
