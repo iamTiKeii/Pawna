@@ -26,6 +26,10 @@ import settingsRouter from "./routes/settings";
 import interestTypesRouter from "./routes/interestTypes";
 import publicRouter from "./routes/public";
 
+// Global error handler
+import { errorHandler } from "./middleware/errorHandler";
+
+
 const app = express();
 const PORT = process.env.PORT || 5001;
 
@@ -72,6 +76,9 @@ app.get("*", (req, res, next) => {
     }
   });
 });
+
+// Global error handler — MUST be last middleware
+app.use(errorHandler);
 
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);

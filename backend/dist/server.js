@@ -28,6 +28,8 @@ const warnings_1 = __importDefault(require("./routes/warnings"));
 const settings_1 = __importDefault(require("./routes/settings"));
 const interestTypes_1 = __importDefault(require("./routes/interestTypes"));
 const public_1 = __importDefault(require("./routes/public"));
+// Global error handler
+const errorHandler_1 = require("./middleware/errorHandler");
 const app = (0, express_1.default)();
 const PORT = process.env.PORT || 5001;
 // Middlewares
@@ -70,6 +72,8 @@ app.get("*", (req, res, next) => {
         }
     });
 });
+// Global error handler — MUST be last middleware
+app.use(errorHandler_1.errorHandler);
 app.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
 });

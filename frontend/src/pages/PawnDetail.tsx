@@ -1,5 +1,4 @@
 import React, { useEffect, useState } from "react";
-import axios from "axios";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { useConfirm } from "../context/ConfirmContext";
 import { formatInterestRateText, getPawnDetailedStatus } from "../utils/interestFormatter";
@@ -32,6 +31,7 @@ import {
   ContractActionBar,
   ContractAuditInfo
 } from "../components/contracts";
+import { usePawnDetail } from "../hooks/usePawnDetail";
 
 
 interface PawnDetailProps {
@@ -47,131 +47,105 @@ export const PawnDetail: React.FC<PawnDetailProps> = ({ idProp, onClose, isModal
   const id = idProp || paramId;
   const confirm = useConfirm();
 
-  const [contract, setContract] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
-  
-  const setError = (msg: string) => {
-    if (msg) toast.error(msg);
-  };
-  const setSuccess = (msg: string) => {
-    if (msg) toast.success(msg);
-  };
+  // ─── Hook — tập trung toàn bộ data fetching & operations ────────────────
+  const {
+    contract,
+    loading,
+    submitting,
+    payAmounts,
+    payOthers,
+    payChecked,
+    setPayAmounts,
+    setPayOthers,
+    setPayChecked,
+    refresh: fetchContractDetails,
+    payInterest,
+    cancelInterest,
+    principalTx,
+    extend,
+    redeem,
+    cancelRedeem,
+    liquidate,
+    recordDebt,
+    payDebt,
+    addReminderLog,
+    uploadDoc,
+    deleteDoc,
+    setTimer,
+    stopTimer,
+    blacklistCustomer,
+    deleteContract,
+  } = usePawnDetail(id);
 
   // Tabs: interest, pay_down, borrow_more, extend, redeem, debt, docs, history, timer, blacklist
   const [activeTab, setActiveTab] = useState<string>(defaultTab);
 
-  // Form Fields
-  const [payAmounts, setPayAmounts] = useState<Record<string, string>>({});
-  const [payOthers, setPayOthers] = useState<Record<string, string>>({});
-  const [payChecked, setPayChecked] = useState<Record<string, boolean>>({});
-
-  // Principal state
+  // Principal state (form-local)
   const [principalAmount, setPrincipalAmount] = useState("");
   const [principalNotes, setPrincipalNotes] = useState("");
 
-  // Extend state
+  // Extend state (form-local)
   const [extendDays, setExtendDays] = useState("");
   const [extendNotes, setExtendNotes] = useState("");
 
-  // Redeem state
+  // Redeem state (form-local)
   const [redeemDate, setRedeemDate] = useState("");
   const [redeemOther, setRedeemOther] = useState("");
   const [redeemNotes, setRedeemNotes] = useState("");
 
-  // Debt state
+  // Debt state (form-local)
   const [recordDebtAmount, setRecordDebtAmount] = useState("");
   const [payDebtAmount, setPayDebtAmount] = useState("");
   const [reminderContent, setReminderContent] = useState("");
 
-  // Timer state
+  // Timer state (form-local)
   const [timerDate, setTimerDate] = useState("");
   const [timerNotes, setTimerNotes] = useState("");
 
-
-
-  // Blacklist state
+  // Blacklist state (form-local)
   const [blacklistReason, setBlacklistReason] = useState("");
-  const [submitting, setSubmitting] = useState(false);
 
-  // Liquidation state
+  // Liquidation state (form-local)
   const [liquidationPrice, setLiquidationPrice] = useState("");
   const [liquidationBuyer, setLiquidationBuyer] = useState("");
   const [liquidationNotes, setLiquidationNotes] = useState("");
 
-  const fetchContractDetails = async (silent = false) => {
-    try {
-      if (!silent) setLoading(true);
-      setError("");
-      const res = await axios.get(`/api/contracts/pawn/${id}`);
-      setContract(res.data);
-
-      // Initialize inline values for payment inputs
-      const initialAmounts: Record<string, string> = {};
-      const initialOthers: Record<string, string> = {};
-      const initialChecked: Record<string, boolean> = {};
-      res.data.interest_payments?.forEach((p: any) => {
-        initialAmounts[p.id] = String(Number(p.expected_interest));
-        initialOthers[p.id] = String(Number(p.other_amount || 0));
-        initialChecked[p.id] = p.is_paid;
-      });
-      setPayAmounts(initialAmounts);
-      setPayOthers(initialOthers);
-      setPayChecked(initialChecked);
-
-      // Initialize redeem fields
-      if (res.data.status === "closed" && res.data.redemptions?.[0]) {
-        const rDateObj = new Date(res.data.redemptions[0].redeem_date);
-        setRedeemDate(rDateObj.toISOString().split("T")[0]);
-        setRedeemOther(String(Number(res.data.redemptions[0].other_amount || 0)));
-        setRedeemNotes(res.data.redemptions[0].notes || "");
-      } else {
-        setRedeemDate(new Date().toISOString().split("T")[0]);
-        setRedeemOther("");
-        setRedeemNotes("");
-      }
-    } catch (err: any) {
-      setError(err.response?.data?.error || "Không thể tải chi tiết hợp đồng.");
-    } finally {
-      if (!silent) setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    if (id) {
-      fetchContractDetails();
-    }
-  }, [id]);
-
+  // ─── Effects ────────────────────────────────────────────────────────────
   useEffect(() => {
     if (defaultTab) {
       setActiveTab(defaultTab);
     }
   }, [defaultTab]);
 
+  // Initialize redeem fields when contract loads / changes
+  useEffect(() => {
+    if (!contract) return;
+    if (contract.status === "closed" && contract.redemptions?.[0]) {
+      const rDateObj = new Date(contract.redemptions[0].redeem_date);
+      setRedeemDate(rDateObj.toISOString().split("T")[0]);
+      setRedeemOther(String(Number(contract.redemptions[0].other_amount || 0)));
+      setRedeemNotes(contract.redemptions[0].notes || "");
+    } else {
+      setRedeemDate(new Date().toISOString().split("T")[0]);
+      setRedeemOther("");
+      setRedeemNotes("");
+    }
+  }, [contract?.id, contract?.status]);
+
+  // ─── Handlers ────────────────────────────────────────────────────────────
   const formatCurrency = (val: number | string) => {
     return new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" }).format(Number(val) || 0);
   };
-  const handlePayInterestInline = async (paymentId: string, cycleNum: number) => {
-    try {
-      setSubmitting(true);
-      setError("");
-      setSuccess("");
-      const amount = payAmounts[paymentId] || "0";
-      const other = payOthers[paymentId] || "0";
 
-      await axios.post(`/api/contracts/pawn/${id}/pay-interest`, {
-        paymentId,
-        actualPaid: Number(amount),
-        otherAmount: Number(other),
-        notes: `Thu lãi kỳ ${cycleNum} trực tiếp từ chi tiết`,
-      });
-      setSuccess(`Đã thu lãi thành công kỳ ${cycleNum}!`);
-      await fetchContractDetails(true);
-    } catch (err: any) {
-      setError(err.response?.data?.error || "Lỗi đóng lãi kỳ.");
-    } finally {
-      setSubmitting(false);
-    }
+  const formatVND = (val: number | string) => {
+    const rounded = Math.round(Number(val) || 0);
+    return new Intl.NumberFormat("en-US").format(rounded) + " VNĐ";
+  };
+
+  const handlePayInterestInline = async (paymentId: string, cycleNum: number) => {
+    const amount = payAmounts[paymentId] || "0";
+    const other = payOthers[paymentId] || "0";
+    await payInterest(paymentId, cycleNum, amount, other);
   };
 
   const handleCancelPayInterest = (paymentId: string, cycleNum: number, e: React.MouseEvent) => {
@@ -181,84 +155,30 @@ export const PawnDetail: React.FC<PawnDetailProps> = ({ idProp, onClose, isModal
       type: "danger",
       event: e,
       onConfirm: async () => {
-        try {
-          setSubmitting(true);
-          setError("");
-          setSuccess("");
-          await axios.post(`/api/contracts/pawn/${id}/cancel-interest`, { paymentId });
-          await fetchContractDetails(true);
-        } catch (err: any) {
-          setError(err.response?.data?.error || "Lỗi hủy đóng lãi.");
-        } finally {
-          setSubmitting(false);
-        }
+        await cancelInterest(paymentId, cycleNum);
       },
       successMessage: `Đã hủy đóng lãi kỳ ${cycleNum} thành công.`,
     });
   };
 
   const handlePrincipalTx = async (action: "borrow_more" | "pay_down") => {
-    try {
-      setSubmitting(true);
-      setError("");
-      setSuccess("");
-      const endpoint = action === "borrow_more" ? "borrow-more" : "pay-down";
-      await axios.post(`/api/contracts/pawn/${id}/${endpoint}`, {
-        amount: Number(principalAmount),
-        notes: principalNotes,
-      });
-      setSuccess(`Giao dịch ${action === "borrow_more" ? "vay thêm" : "trả bớt"} gốc thành công!`);
-      setPrincipalAmount("");
-      setPrincipalNotes("");
-      fetchContractDetails();
-    } catch (err: any) {
-      setError(err.response?.data?.error || "Lỗi thay đổi nợ gốc.");
-    } finally {
-      setSubmitting(false);
-    }
+    await principalTx(action, Number(principalAmount), principalNotes);
+    setPrincipalAmount("");
+    setPrincipalNotes("");
   };
 
   const handleExtend = async (e: React.FormEvent) => {
     e.preventDefault();
-    try {
-      setSubmitting(true);
-      setError("");
-      setSuccess("");
-      await axios.post(`/api/contracts/pawn/${id}/extend`, {
-        extendedDays: Number(extendDays),
-        notes: extendNotes,
-      });
-      setSuccess(`Gia hạn hợp đồng thành công thêm ${extendDays} ngày!`);
-      setExtendDays("");
-      setExtendNotes("");
-      fetchContractDetails();
-    } catch (err: any) {
-      setError(err.response?.data?.error || "Lỗi gia hạn hợp đồng.");
-    } finally {
-      setSubmitting(false);
-    }
+    await extend(Number(extendDays), extendNotes);
+    setExtendDays("");
+    setExtendNotes("");
   };
 
   const handleRedeem = async (e: React.FormEvent) => {
     e.preventDefault();
-    try {
-      setSubmitting(true);
-      setError("");
-      setSuccess("");
-      await axios.post(`/api/contracts/pawn/${id}/redeem`, {
-        redeemDate: redeemDate || undefined,
-        otherAmount: Number(redeemOther) || 0,
-        notes: redeemNotes,
-      });
-      setSuccess("Tất toán chuộc đồ đóng hợp đồng thành công!");
-      setRedeemOther("");
-      setRedeemNotes("");
-      fetchContractDetails();
-    } catch (err: any) {
-      setError(err.response?.data?.error || "Lỗi tất toán.");
-    } finally {
-      setSubmitting(false);
-    }
+    await redeem(redeemDate, Number(redeemOther) || 0, redeemNotes);
+    setRedeemOther("");
+    setRedeemNotes("");
   };
 
   const handleCancelRedeem = (e: React.MouseEvent) => {
@@ -268,10 +188,7 @@ export const PawnDetail: React.FC<PawnDetailProps> = ({ idProp, onClose, isModal
       type: "danger",
       event: e,
       onConfirm: async () => {
-        setError("");
-        setSuccess("");
-        await axios.post(`/api/contracts/pawn/${id}/cancel-redeem`);
-        fetchContractDetails();
+        await cancelRedeem();
       },
       successMessage: "Khôi phục trạng thái hoạt động hợp đồng thành công.",
     });
@@ -280,149 +197,44 @@ export const PawnDetail: React.FC<PawnDetailProps> = ({ idProp, onClose, isModal
   const handleLiquidate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!id) return;
-    try {
-      setSubmitting(true);
-      setError("");
-      setSuccess("");
-      await axios.post(`/api/contracts/pawn/${id}/liquidate`, {
-        liquidation_price: Number(liquidationPrice),
-        buyer: liquidationBuyer,
-        notes: liquidationNotes,
-      });
-      setSuccess("Thanh lý tài sản hợp đồng thành công!");
-      setLiquidationPrice("");
-      setLiquidationBuyer("");
-      setLiquidationNotes("");
-      fetchContractDetails();
-    } catch (err: any) {
-      setError(err.response?.data?.error || "Lỗi thanh lý tài sản.");
-    } finally {
-      setSubmitting(false);
-    }
+    await liquidate(Number(liquidationPrice), liquidationBuyer, liquidationNotes);
+    setLiquidationPrice("");
+    setLiquidationBuyer("");
+    setLiquidationNotes("");
   };
 
   const handleStopTimer = async (timerId: string) => {
-    try {
-      setSubmitting(true);
-      setError("");
-      await axios.put(`/api/contracts/pawn/${id}/timers/${timerId}/stop`);
-      setSuccess("Đã hủy ngày hẹn đóng.");
-      fetchContractDetails();
-    } catch (err: any) {
-      setError(err.response?.data?.error || "Lỗi hủy hẹn.");
-    } finally {
-      setSubmitting(false);
-    }
+    await stopTimer(timerId);
   };
 
   const handleRecordDebtSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    try {
-      setSubmitting(true);
-      setError("");
-      setSuccess("");
-      await axios.post(`/api/contracts/pawn/${id}/record-debt`, {
-        amount: Number(recordDebtAmount),
-        notes: "",
-      });
-      setSuccess("Giao dịch ghi nợ thành công!");
-      setRecordDebtAmount("");
-      fetchContractDetails();
-    } catch (err: any) {
-      setError(err.response?.data?.error || "Lỗi ghi nợ.");
-    } finally {
-      setSubmitting(false);
-    }
+    await recordDebt(Number(recordDebtAmount));
+    setRecordDebtAmount("");
   };
 
   const handlePayDebtSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    try {
-      setSubmitting(true);
-      setError("");
-      setSuccess("");
-      await axios.post(`/api/contracts/pawn/${id}/pay-debt`, {
-        amount: Number(payDebtAmount),
-        notes: "",
-      });
-      setSuccess("Giao dịch thu nợ thành công!");
-      setPayDebtAmount("");
-      fetchContractDetails();
-    } catch (err: any) {
-      setError(err.response?.data?.error || "Lỗi thu nợ.");
-    } finally {
-      setSubmitting(false);
-    }
+    await payDebt(Number(payDebtAmount));
+    setPayDebtAmount("");
   };
 
   const handleAddReminderLog = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!reminderContent) return;
-    try {
-      setSubmitting(true);
-      setError("");
-      setSuccess("");
-      await axios.post(`/api/contracts/pawn/${id}/reminders/log`, {
-        content: reminderContent,
-      });
-      setSuccess("Lưu lịch sử nhắc nợ thành công!");
-      setReminderContent("");
-      fetchContractDetails();
-    } catch (err: any) {
-      setError(err.response?.data?.error || "Lỗi lưu lịch sử nhắc nợ.");
-    } finally {
-      setSubmitting(false);
-    }
+    await addReminderLog(reminderContent);
+    setReminderContent("");
   };
 
   const handleLocalDocUpload = async (file: File, documentType: string) => {
-    try {
-      setSubmitting(true);
-      setError("");
-      setSuccess("");
-      const reader = new FileReader();
-      reader.onloadend = async () => {
-        const base64Url = reader.result as string;
-        try {
-          await axios.post(`/api/contracts/pawn/${id}/documents`, {
-            document_type: documentType,
-            image_url: base64Url,
-            file_name: file.name,
-          });
-          setSuccess(`Upload ảnh đính kèm thành công!`);
-          fetchContractDetails();
-        } catch (err: any) {
-          setError(err.response?.data?.error || "Lỗi tải tài liệu lên.");
-        } finally {
-          setSubmitting(false);
-        }
-      };
-      reader.readAsDataURL(file);
-    } catch (err) {
-      console.error(err);
-      setError("Không thể đọc tệp tin.");
-      setSubmitting(false);
-    }
+    await uploadDoc(file, documentType);
   };
 
   const handleSetTimer = async (e: React.FormEvent) => {
     e.preventDefault();
-    try {
-      setSubmitting(true);
-      setError("");
-      await axios.post(`/api/contracts/pawn/${id}/timers`, {
-        reminder_date: timerDate,
-        content: timerNotes,
-      });
-      setSuccess("Hẹn ngày thanh toán thành công!");
-      setTimerDate("");
-      setTimerNotes("");
-      fetchContractDetails();
-    } catch (err: any) {
-      setError(err.response?.data?.error || "Lỗi đặt lịch hẹn.");
-    } finally {
-      setSubmitting(false);
-    }
+    await setTimer(timerDate, timerNotes);
+    setTimerDate("");
+    setTimerNotes("");
   };
 
   const handleDeleteDoc = (docId: string, e: React.MouseEvent) => {
@@ -432,29 +244,16 @@ export const PawnDetail: React.FC<PawnDetailProps> = ({ idProp, onClose, isModal
       type: "danger",
       event: e,
       onConfirm: async () => {
-        await axios.delete(`/api/contracts/pawn/${id}/documents/${docId}`);
-        fetchContractDetails();
+        await deleteDoc(docId);
       },
     });
   };
 
   const handleBlacklist = async (e: React.FormEvent) => {
     e.preventDefault();
-    try {
-      setSubmitting(true);
-      setError("");
-      setSuccess("");
-      await axios.post(`/api/customers/${contract.customer_id}/blacklist`, {
-        reason: blacklistReason || "Khách nợ xấu hoặc vi phạm hợp đồng",
-      });
-      setSuccess("Đã báo xấu khách hàng và đưa vào danh sách đen thành công!");
-      setBlacklistReason("");
-      fetchContractDetails();
-    } catch (err: any) {
-      setError(err.response?.data?.error || "Lỗi báo xấu khách hàng.");
-    } finally {
-      setSubmitting(false);
-    }
+    if (!contract) return;
+    await blacklistCustomer(contract.customer_id, blacklistReason || "Khách nợ xấu hoặc vi phạm hợp đồng");
+    setBlacklistReason("");
   };
 
   const handleDeleteContract = (e: React.MouseEvent) => {
@@ -464,17 +263,19 @@ export const PawnDetail: React.FC<PawnDetailProps> = ({ idProp, onClose, isModal
       type: "danger",
       event: e,
       onConfirm: async () => {
-        setError("");
-        await axios.delete(`/api/contracts/pawn/${id}`);
-        if (onClose) {
-          onClose();
-        } else {
-          navigate("/contracts");
+        const ok = await deleteContract();
+        if (ok) {
+          if (onClose) {
+            onClose();
+          } else {
+            navigate("/contracts");
+          }
         }
       },
     });
   };
 
+  // ─── Loading / Empty guards ───────────────────────────────────────────────
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center p-12 text-slate-500">
@@ -529,7 +330,7 @@ export const PawnDetail: React.FC<PawnDetailProps> = ({ idProp, onClose, isModal
     );
   };
 
-  // Standard modal content structure
+  // ─── Tính toán chuộc đồ ────────────────────────────────────────────────
   const calculateRedeemData = () => {
     if (!contract) {
       return { principal: 0, outstandingDebt: 0, interestAmount: 0, daysAccrued: 0, totalRedeemAmount: 0 };
@@ -542,11 +343,10 @@ export const PawnDetail: React.FC<PawnDetailProps> = ({ idProp, onClose, isModal
       const interestAmount = Number(red.interest_amount || 0);
       const totalRedeemAmount = Number(red.total_amount || 0);
 
-      // Estimate days accrued for display
-      const lastPaid = contract.interest_payments?.filter((p: any) => p.is_paid && p.paid_date !== red.redeem_date).pop();
+      const lastPaidItem = contract.interest_payments?.filter((p: any) => p.is_paid && p.paid_date !== red.redeem_date).pop();
       let accrualStart = new Date(contract.loan_date);
-      if (lastPaid) {
-        const lastToDate = new Date(lastPaid.to_date);
+      if (lastPaidItem) {
+        const lastToDate = new Date(lastPaidItem.to_date);
         accrualStart = new Date(lastToDate.getFullYear(), lastToDate.getMonth(), lastToDate.getDate() + 1);
       }
       const start = new Date(accrualStart);
@@ -558,7 +358,6 @@ export const PawnDetail: React.FC<PawnDetailProps> = ({ idProp, onClose, isModal
       if (diffMs >= 0) {
         daysAccrued = Math.round(diffMs / (1000 * 60 * 60 * 24)) + 1;
       }
-
       return { principal, outstandingDebt, interestAmount, daysAccrued, totalRedeemAmount };
     }
 
@@ -570,10 +369,10 @@ export const PawnDetail: React.FC<PawnDetailProps> = ({ idProp, onClose, isModal
       return new Date(d.getFullYear(), d.getMonth(), d.getDate());
     };
 
-    const lastPaid = contract.interest_payments?.filter((p: any) => p.is_paid).pop();
+    const lastPaidItem = contract.interest_payments?.filter((p: any) => p.is_paid).pop();
     let accrualStart = new Date(contract.loan_date);
-    if (lastPaid) {
-      const lastToDate = new Date(lastPaid.to_date);
+    if (lastPaidItem) {
+      const lastToDate = new Date(lastPaidItem.to_date);
       accrualStart = new Date(lastToDate.getFullYear(), lastToDate.getMonth(), lastToDate.getDate() + 1);
     }
 
@@ -631,11 +430,7 @@ export const PawnDetail: React.FC<PawnDetailProps> = ({ idProp, onClose, isModal
 
   const { principal, outstandingDebt, interestAmount, daysAccrued, totalRedeemAmount } = calculateRedeemData();
 
-  const formatVND = (val: number | string) => {
-    const rounded = Math.round(Number(val) || 0);
-    return new Intl.NumberFormat("en-US").format(rounded) + " VNĐ";
-  };
-
+  // ─── Render lịch sử giao dịch gốc ─────────────────────────────────────
   const renderPrincipalTxHistory = () => {
     const txs = contract.principal_transactions || [];
     return (
@@ -677,6 +472,7 @@ export const PawnDetail: React.FC<PawnDetailProps> = ({ idProp, onClose, isModal
     );
   };
 
+  // ─── Tab content rendering ────────────────────────────────────────────
   const renderTabContent = () => {
     return (
       <>
@@ -985,7 +781,7 @@ export const PawnDetail: React.FC<PawnDetailProps> = ({ idProp, onClose, isModal
           </form>
         )}
 
-        {/* TAB: Thanh lý */}
+        {/* TAB: Thanh lý — đã thanh lý */}
         {activeTab === "liquidate" && contract.status === "liquidated" && (
           <div className="w-full max-w-xl space-y-4 font-sans text-xs text-slate-800">
             <h3 className="font-extrabold text-sm text-slate-800 border-b border-slate-100 pb-2 flex items-center gap-2">
@@ -1011,6 +807,7 @@ export const PawnDetail: React.FC<PawnDetailProps> = ({ idProp, onClose, isModal
           </div>
         )}
 
+        {/* TAB: Thanh lý — form */}
         {activeTab === "liquidate" && contract.status !== "liquidated" && (
           <form onSubmit={handleLiquidate} className="w-full max-w-xl space-y-4 text-slate-800">
             <h3 className="font-bold text-slate-800 border-b border-slate-100 pb-2">Thực hiện thanh lý tài sản thế chấp</h3>
@@ -1081,7 +878,7 @@ export const PawnDetail: React.FC<PawnDetailProps> = ({ idProp, onClose, isModal
         {/* TAB 6: Nợ */}
         {activeTab === "debt" && (
           <div className="space-y-6 max-w-2xl">
-            {/* Form 1: Khách hàng nợ lãi - Trả tiền thừa */}
+            {/* Form 1: Ghi nợ */}
             <form onSubmit={handleRecordDebtSubmit} className="space-y-4 border-b border-slate-100 pb-6 text-slate-800">
               <h4 className="font-bold text-slate-800 text-xs flex items-center gap-1.5 uppercase tracking-wider">
                 <Coins className="w-4 h-4 text-amber-500" />
@@ -1113,7 +910,7 @@ export const PawnDetail: React.FC<PawnDetailProps> = ({ idProp, onClose, isModal
               </div>
             </form>
 
-            {/* Form 2: Khách hàng trả nợ */}
+            {/* Form 2: Thu nợ */}
             <form onSubmit={handlePayDebtSubmit} className="space-y-4 pb-6 text-slate-800">
               <h4 className="font-bold text-slate-800 text-xs flex items-center gap-1.5 uppercase tracking-wider">
                 <Coins className="w-4 h-4 text-emerald-500" />
@@ -1735,4 +1532,3 @@ export const PawnDetail: React.FC<PawnDetailProps> = ({ idProp, onClose, isModal
     </>
   );
 };
-

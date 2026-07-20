@@ -2,7 +2,8 @@ import { ModalPortal } from "../components/shared/ModalPortal";
 import React, { useEffect, useState, useRef } from "react";
 import { createPortal } from "react-dom";
 import { useReactToPrint } from "react-to-print";
-import axios from "axios";
+import apiClient from "../api/client";
+import { useContracts } from "../hooks/useContracts";
 import { useLocation, useNavigate } from "react-router-dom";
 import { 
   Plus, 
@@ -60,36 +61,48 @@ export const Contracts: React.FC = () => {
     ? "installment"
     : "pawn";
   
-  // Data lists
-  const [pawnList, setPawnList] = useState<any[]>([]);
-  const [unsecuredList, setUnsecuredList] = useState<any[]>([]);
-  const [installmentList, setInstallmentList] = useState<any[]>([]);
-  
-  // Search query & loading/error
+  // ─── Search & filter state (UI-local) ────────────────────────────────────
   const [search, setSearch] = useState("");
   const [searchAsset, setSearchAsset] = useState("");
   const [commodityIdFilter, setCommodityIdFilter] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all_active"); // all_active, closed, overdue, all
-  const [loading, setLoading] = useState(false);
-  const [isPending, setIsPending] = useState(false);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
-  const [totalRecords, setTotalRecords] = useState(0);
-  const limit = 15;
-  const [contractTotals, setContractTotals] = useState({
-    totalLent: 0,
-    totalDebt: 0,
-    totalExpectedInterest: 0,
-    totalPaidInterest: 0
-  });
+  const [statusFilter, setStatusFilter] = useState("all_active");
+
+  // ─── useContracts hook — data fetching & pagination ──────────────────────
+  const {
+    pawnList,
+    unsecuredList,
+    installmentList,
+    contractTotals,
+    cashSummary,
+    currentPage,
+    totalPages,
+    totalRecords,
+    loading,
+    isPending,
+    fetchContracts: _fetchContracts,
+    fetchCashSummary,
+    setCurrentPage,
+    setIsPending,
+  } = useContracts(activeTab as any, activeStore?.id);
+
+  // Wrapper to pass current filters to the hook
+  const fetchContracts = (pageVal?: number) => {
+    const page = typeof pageVal === "number" ? pageVal : currentPage;
+    return _fetchContracts({
+      page,
+      search: search || undefined,
+      status: statusFilter || undefined,
+      searchAsset: searchAsset || undefined,
+      commodityId: commodityIdFilter || undefined,
+      tab: activeTab as any,
+    });
+  };
 
   // Helpers choice lists
-
   const [collaborators, setCollaborators] = useState<any[]>([]);
   const [employees, setEmployees] = useState<any[]>([]);
   const [commodities, setCommodities] = useState<any[]>([]);
   const [interestTypes, setInterestTypes] = useState<any[]>([]);
-  const [cashSummary, setCashSummary] = useState<any>(null);
 
   // Open modals
   const [isPawnOpen, setIsPawnOpen] = useState(false);
@@ -106,96 +119,13 @@ export const Contracts: React.FC = () => {
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [selectedHistoryCustomerId, setSelectedHistoryCustomerId] = useState("");
   const [selectedHistoryCustomerName, setSelectedHistoryCustomerName] = useState("");
-  
+
   // Details Modal Popup State
   const [selectedDetailId, setSelectedDetailId] = useState<string | null>(null);
   const [detailDefaultTab, setDetailDefaultTab] = useState<string>("interest");
-  
+
   const [unsecuredSortField, setUnsecuredSortField] = useState<string | null>(null);
   const [unsecuredSortOrder, setUnsecuredSortOrder] = useState<"asc" | "desc">("asc");
-
-  const fetchContracts = async (pageVal?: number | any) => {
-    if (!activeStore) return;
-    try {
-      setLoading(true);
-      const actualPage = typeof pageVal === "number" ? pageVal : currentPage;
-      const params = new URLSearchParams();
-      if (search) params.append("search", search);
-      if (statusFilter) params.append("status", statusFilter);
-      params.append("page", actualPage.toString());
-      params.append("limit", limit.toString());
-
-      let res;
-      if (activeTab === "pawn") {
-        if (searchAsset) params.append("searchAsset", searchAsset);
-        if (commodityIdFilter) params.append("commodityId", commodityIdFilter);
-        res = await axios.get(`/api/contracts/pawn?${params.toString()}`);
-      } else if (activeTab === "unsecured") {
-        res = await axios.get(`/api/contracts/unsecured?${params.toString()}`);
-      } else {
-        res = await axios.get(`/api/contracts/installment?${params.toString()}`);
-      }
-
-      let data = res.data;
-      let totals = {
-        totalLent: 0,
-        totalDebt: 0,
-        totalExpectedInterest: 0,
-        totalPaidInterest: 0
-      };
-
-      if (res.data && res.data.data) {
-        data = res.data.data;
-        // Bảo vệ: nếu backend không trả totals (lỗi hoặc thiếu field), giữ nguyên default 0
-        totals = res.data.totals ?? totals;
-        setTotalPages(res.data.pagination.totalPages || 1);
-        setTotalRecords(res.data.pagination.total || 0);
-      } else {
-        // compute totals locally for backward compatibility
-        if (activeTab === "pawn") {
-          totals.totalLent = res.data.reduce((sum: number, item: any) => sum + Number(item.loan_amount || 0), 0);
-          totals.totalDebt = res.data.reduce((sum: number, item: any) => sum + Number(item.debt_amount || 0), 0);
-          totals.totalExpectedInterest = res.data.reduce((sum: number, item: any) => sum + getAccruedInterest(item), 0);
-          totals.totalPaidInterest = res.data.reduce((sum: number, item: any) => sum + getPaidInterest(item), 0);
-        } else if (activeTab === "unsecured") {
-          totals.totalLent = res.data.reduce((sum: number, item: any) => sum + Number(item.loan_amount || 0), 0);
-          totals.totalDebt = res.data.reduce((sum: number, item: any) => sum + Number(item.debt_amount || 0), 0);
-          totals.totalExpectedInterest = res.data.filter((item: any) => item.status === "active").reduce((sum: number, item: any) => sum + getAccruedInterest(item), 0);
-          totals.totalPaidInterest = res.data.reduce((sum: number, item: any) => sum + getPaidInterest(item), 0);
-        } else {
-          totals.totalLent = res.data.reduce((sum: number, c: any) => sum + (c.remaining_amount || 0), 0);
-          totals.totalDebt = res.data.reduce((sum: number, c: any) => sum + Number(c.debt_amount || 0), 0);
-          totals.totalExpectedInterest = res.data.reduce((sum: number, c: any) => sum + (c.expected_interest || 0), 0);
-          totals.totalPaidInterest = res.data.reduce((sum: number, c: any) => sum + (c.collected_interest || 0), 0);
-        }
-        setTotalPages(1);
-        setTotalRecords(res.data.length);
-      }
-
-      setContractTotals(totals);
-
-      if (activeTab === "pawn") {
-        setPawnList(data);
-      } else if (activeTab === "unsecured") {
-        setUnsecuredList(data);
-      } else {
-        setInstallmentList(data);
-      }
-    } catch (err: any) {
-      toast.error(err.response?.data?.error || "Lỗi tải danh sách hợp đồng.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchCashSummary = async () => {
-    try {
-      const res = await axios.get("/api/cash/summary");
-      setCashSummary(res.data);
-    } catch (err) {
-      console.error("Error fetching cash summary", err);
-    }
-  };
 
   const handleExportExcel = () => {
     let headers: string[] = [];
@@ -444,11 +374,11 @@ export const Contracts: React.FC = () => {
   const fetchHelpers = async () => {
     try {
       const [collabs, emps, comms, pawnInt, storesRes] = await Promise.all([
-        axios.get("/api/collaborators"),
-        axios.get("/api/employees"),
-        axios.get("/api/commodities"),
-        axios.get("/api/interest-types"),
-        axios.get("/api/stores")
+        apiClient.get("/api/collaborators"),
+        apiClient.get("/api/employees"),
+        apiClient.get("/api/commodities"),
+        apiClient.get("/api/interest-types"),
+        apiClient.get("/api/stores")
       ]);
       setCollaborators(collabs.data);
       setEmployees(emps.data.filter((e: any) => e.status === "active"));
@@ -476,7 +406,7 @@ export const Contracts: React.FC = () => {
 
   useEffect(() => {
     if (isPawnOpen && !editingId) {
-      axios.get("/api/contracts/pawn/next-code-number")
+      apiClient.get("/api/contracts/pawn/next-code-number")
         .then(res => setNextPawnCodeNum(res.data.nextCodeNumber))
         .catch(err => console.error("Failed to fetch next pawn code number", err));
     }
@@ -484,7 +414,7 @@ export const Contracts: React.FC = () => {
 
   useEffect(() => {
     if (isUnsecuredOpen && !editingId) {
-      axios.get("/api/contracts/unsecured/next-code-number")
+      apiClient.get("/api/contracts/unsecured/next-code-number")
         .then(res => setNextUnsecuredCodeNum(res.data.nextCodeNumber))
         .catch(err => console.error("Failed to fetch next unsecured code number", err));
     }
@@ -492,7 +422,7 @@ export const Contracts: React.FC = () => {
 
   useEffect(() => {
     if (isInstallmentOpen && !editingId) {
-      axios.get("/api/contracts/installment/next-code-number")
+      apiClient.get("/api/contracts/installment/next-code-number")
         .then(res => setNextInstallmentCodeNum(res.data.nextCodeNumber))
         .catch(err => console.error("Failed to fetch next installment code number", err));
     }
@@ -536,7 +466,7 @@ export const Contracts: React.FC = () => {
       onConfirm: async () => {
         try {
           setIsPending(true);
-          await axios.delete(`/api/contracts/unsecured/${contractId}`);
+          await apiClient.delete(`/api/contracts/unsecured/${contractId}`);
           fetchContracts();
           fetchCashSummary();
         } catch (err: any) {
@@ -572,7 +502,7 @@ export const Contracts: React.FC = () => {
           toast.warning("Vui lòng nhập tên khách hàng mới");
           return;
         }
-        const custRes = await axios.post("/api/customers", {
+        const custRes = await apiClient.post("/api/customers", {
           full_name: formData.customerName,
           phone: formData.customerPhone || undefined,
           identity_card_number: formData.customerIdCard || undefined,
@@ -620,10 +550,10 @@ export const Contracts: React.FC = () => {
       };
 
       if (editingId) {
-        await axios.put(`/api/contracts/pawn/${editingId}`, payload);
+        await apiClient.put(`/api/contracts/pawn/${editingId}`, payload);
         toast.success("Cập nhật hợp đồng cầm đồ thành công!");
       } else {
-        await axios.post("/api/contracts/pawn", payload);
+        await apiClient.post("/api/contracts/pawn", payload);
         toast.success("Tạo mới hợp đồng cầm đồ thành công!");
       }
 
@@ -648,7 +578,7 @@ export const Contracts: React.FC = () => {
           toast.warning("Vui lòng nhập tên khách hàng mới");
           return;
         }
-        const custRes = await axios.post("/api/customers", {
+        const custRes = await apiClient.post("/api/customers", {
           full_name: formData.customerName,
           phone: formData.customerPhone || undefined,
           identity_card_number: formData.customerIdCard || undefined,
@@ -692,10 +622,10 @@ export const Contracts: React.FC = () => {
       };
 
       if (editingId) {
-        await axios.put(`/api/contracts/unsecured/${editingId}`, payload);
+        await apiClient.put(`/api/contracts/unsecured/${editingId}`, payload);
         toast.success("Cập nhật hợp đồng tín chấp thành công!");
       } else {
-        await axios.post("/api/contracts/unsecured", payload);
+        await apiClient.post("/api/contracts/unsecured", payload);
         toast.success("Tạo mới hợp đồng tín chấp thành công!");
       }
 
@@ -720,7 +650,7 @@ export const Contracts: React.FC = () => {
           toast.warning("Vui lòng nhập tên khách hàng mới");
           return;
         }
-        const custRes = await axios.post("/api/customers", {
+        const custRes = await apiClient.post("/api/customers", {
           full_name: formData.customerName,
           phone: formData.customerPhone || undefined,
           identity_card_number: formData.customerIdCard || undefined,
@@ -753,10 +683,10 @@ export const Contracts: React.FC = () => {
       };
 
       if (editingId) {
-        await axios.put(`/api/contracts/installment/${editingId}`, payload);
+        await apiClient.put(`/api/contracts/installment/${editingId}`, payload);
         toast.success("Cập nhật hợp đồng trả góp thành công!");
       } else {
-        await axios.post("/api/contracts/installment", payload);
+        await apiClient.post("/api/contracts/installment", payload);
         toast.success("Tạo mới hợp đồng trả góp thành công!");
       }
 
@@ -781,7 +711,7 @@ export const Contracts: React.FC = () => {
       onConfirm: async () => {
         try {
           setIsPending(true);
-          await axios.delete(`/api/contracts/pawn/${contractId}`);
+          await apiClient.delete(`/api/contracts/pawn/${contractId}`);
           fetchContracts();
           fetchCashSummary();
         } catch (err: any) {
@@ -803,7 +733,7 @@ export const Contracts: React.FC = () => {
       onConfirm: async () => {
         try {
           setIsPending(true);
-          await axios.delete(`/api/contracts/installment/${contractId}`);
+          await apiClient.delete(`/api/contracts/installment/${contractId}`);
           fetchContracts();
           fetchCashSummary();
         } catch (err: any) {
