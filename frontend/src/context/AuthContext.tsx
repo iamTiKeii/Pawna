@@ -18,7 +18,7 @@ interface AuthContextType {
   activeBranch: BranchInfo | null;
   branches: BranchInfo[];
   loading: boolean;
-  login: (token: string, user: UserInfo) => void;
+  login: (token: string, user: UserInfo, refreshToken?: string) => void;
   logout: () => void;
   switchStore: (store: BranchInfo) => void; // backward compatibility alias
   switchBranch: (branch: BranchInfo) => void;
@@ -76,8 +76,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   }, [token]);
 
   // ─── Login ────────────────────────────────────────────────────────
-  const login = (newToken: string, newUser: UserInfo) => {
+  const login = (newToken: string, newUser: UserInfo, refreshToken?: string) => {
     localStorage.setItem("token", newToken);
+    if (refreshToken) {
+      localStorage.setItem("token_id", refreshToken);
+    }
     setToken(newToken);
     setUser(newUser);
 
@@ -89,13 +92,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   };
 
   // ─── Logout ───────────────────────────────────────────────────────
-  const logout = () => {
-    localStorage.removeItem("token");
-    localStorage.removeItem("active_branch_id");
-    setToken(null);
-    setUser(null);
-    setActiveBranch(null);
-    setBranches([]);
+  const logout = async () => {
+    try {
+      await authApi.logout();
+    } catch {
+      // Bỏ qua lỗi nếu mất mạng, tiếp tục xoá bộ nhớ tạm local
+    } finally {
+      localStorage.removeItem("token");
+      localStorage.removeItem("token_id");
+      localStorage.removeItem("active_branch_id");
+      setToken(null);
+      setUser(null);
+      setActiveBranch(null);
+      setBranches([]);
+    }
   };
 
   // ─── Switch Branch ────────────────────────────────────────────────

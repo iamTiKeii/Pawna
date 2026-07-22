@@ -27,4 +27,16 @@ export const authApi = {
   /** Lấy thông tin user hiện tại */
   getMe: () =>
     apiClient.get<UserInfo>("/api/auth/me").then((r) => r.data),
+
+  /** Đổi access token mới từ token_id (refresh token 12h) */
+  refreshToken: (tokenId: string) =>
+    apiClient
+      .post<{ token: string; refreshToken?: string; token_id?: string }>("/api/auth/refresh", {
+        token_id: tokenId,
+      })
+      .then((r) => r.data),
+
+  /** Đăng xuất & thu hồi tokens (xoá HttpOnly cookies) */
+  logout: () =>
+    apiClient.post<{ message: string }>("/api/auth/logout").then((r) => r.data),
 };

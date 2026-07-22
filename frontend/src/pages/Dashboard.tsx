@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import axios from "axios";
+import apiClient from "../api/client";
 import { useAuth } from "../context/AuthContext";
 import {
   Wallet,
@@ -22,13 +22,14 @@ export const Dashboard: React.FC = () => {
   const [loading, setLoading] = useState(true);
 
   const fetchDashboardData = async () => {
-    if (!activeStore) return;
+    const token = localStorage.getItem("token");
+    if (!activeStore || !token) return;
     try {
       setLoading(true);
       const [summaryRes, historyRes, metricsRes] = await Promise.all([
-        axios.get("/api/cash/summary"),
-        axios.get("/api/cash/history"),
-        axios.get("/api/reports/dashboard-metrics"),
+        apiClient.get("/api/cash/summary"),
+        apiClient.get("/api/cash/history"),
+        apiClient.get("/api/reports/dashboard-metrics"),
       ]);
 
       setCashSummary(summaryRes.data);
@@ -37,8 +38,10 @@ export const Dashboard: React.FC = () => {
       setUnsecuredCount(metricsRes.data.unsecuredCount || 0);
       setInstallmentCount(metricsRes.data.installmentCount || 0);
       setBlacklistCount(metricsRes.data.blacklistCount || 0);
-    } catch (err) {
-      console.error("Error loading dashboard metrics", err);
+    } catch (err: any) {
+      if (err.response?.status !== 401) {
+        console.error("Error loading dashboard metrics", err);
+      }
     } finally {
       setLoading(false);
     }

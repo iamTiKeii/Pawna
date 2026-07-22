@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from "react";
 import { useAuth } from "../context/AuthContext";
 import { authApi } from "../api/auth.api";
-import { Shield, Lock, User, Store, DollarSign, ArrowRight } from "lucide-react";
+import { Shield, Lock, User, Store, ArrowRight } from "lucide-react";
 import { toast } from "../lib/toast";
+import { MoneyInput } from "../components/shared/MoneyInput";
 
 export const Login: React.FC = () => {
   const { login } = useAuth();
@@ -15,7 +16,7 @@ export const Login: React.FC = () => {
 
   // Bootstrap form fields
   const [storeName, setStoreName] = useState("");
-  const [investmentCapital, setInvestmentCapital] = useState("");
+  const [investmentCapital, setInvestmentCapital] = useState<number | string>("");
   const [fullName, setFullName] = useState("");
 
   const checkStatus = async () => {
@@ -42,7 +43,7 @@ export const Login: React.FC = () => {
     try {
       setLoading(true);
       const data = await authApi.login(username, password);
-      login(data.token, data.user);
+      login(data.token, data.user, data.refreshToken || data.token_id);
     } catch (err: any) {
       toast.error(
         err.response?.data?.error ||
@@ -69,7 +70,7 @@ export const Login: React.FC = () => {
         password,
         fullName,
       });
-      login(data.token, data.user);
+      login(data.token, data.user, data.refreshToken || data.token_id);
     } catch (err: any) {
       toast.error(err.response?.data?.error || "Khởi tạo hệ thống thất bại.");
     } finally {
@@ -184,19 +185,13 @@ export const Login: React.FC = () => {
                 </div>
               </div>
               <div>
-                <label className="label text-slate-600 font-semibold text-xs py-1">Vốn đầu tư (VNĐ)</label>
-                <div className="relative">
-                  <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-500">
-                    <DollarSign className="w-4 h-4" />
-                  </span>
-                  <input
-                    type="number"
-                    placeholder="5000000000"
-                    value={investmentCapital}
-                    onChange={(e) => setInvestmentCapital(e.target.value)}
-                    className="input input-bordered w-full pl-9 bg-white border-slate-200 text-slate-800 focus:border-amber-500 focus:outline-none rounded-xl input-sm"
-                  />
-                </div>
+                <label className="label text-slate-600 font-semibold text-xs py-1">Vốn đầu tư</label>
+                <MoneyInput
+                  value={investmentCapital}
+                  onChange={(val) => setInvestmentCapital(val)}
+                  placeholder="5.000.000.000"
+                  className="input-sm bg-white border-slate-200 text-slate-800 focus:border-amber-500 focus:outline-none rounded-xl"
+                />
               </div>
             </div>
 

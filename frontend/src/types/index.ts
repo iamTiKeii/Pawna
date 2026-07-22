@@ -35,6 +35,8 @@ export interface AuthStatusResponse {
 export interface LoginResponse {
   message: string;
   token: string;
+  refreshToken?: string;
+  token_id?: string;
   user: UserInfo;
 }
 
@@ -52,9 +54,11 @@ export interface Customer {
   full_name: string;
   phone?: string;
   id_number?: string;
+  identity_card_number?: string;
   address?: string;
   is_blacklisted?: boolean;
   blacklist_reason?: string;
+  debt_amount?: number;
   created_at?: string;
 }
 
@@ -71,6 +75,7 @@ export interface Collaborator {
 export interface Commodity {
   id: string;
   name: string;
+  code?: string;
   category?: string;
   description?: string;
 }
@@ -80,6 +85,7 @@ export interface InterestPayment {
   id: string;
   cycle_number: number;
   due_date: string;
+  to_date?: string;
   expected_interest: number;
   actual_paid?: number;
   other_amount?: number;
@@ -94,6 +100,9 @@ export interface Redemption {
   id: string;
   redeem_date: string;
   total_amount: number;
+  loan_amount?: number;
+  outstanding_debt?: number;
+  interest_amount?: number;
   other_amount?: number;
   notes?: string;
 }
@@ -104,8 +113,10 @@ export interface ContractBase {
   contract_code: string;
   status: "active" | "closed" | "liquidated" | "cancelled" | string;
   loan_amount: number;
+  disbursed_amount?: number;
   debt_amount?: number;
   start_date: string;
+  loan_date?: string;
   end_date?: string;
   interest_rate: number;
   interest_type_code: string;
@@ -115,20 +126,38 @@ export interface ContractBase {
   customer_id?: string;
   created_at?: string;
   updated_at?: string;
+  created_by?: any;
+  updated_by?: any;
   branch_id?: string;
+  lookup_link?: string;
 }
 
 // ─── Pawn Contract ────────────────────────────────────────────────
 export interface PawnContract extends ContractBase {
   asset_type?: string;
+  asset_name?: string;
   asset_description?: string;
   asset_value?: number;
   commodity?: Commodity;
   commodity_id?: string;
   loan_term_days?: number;
+  loan_days?: number;
+  period_value?: number;
+  license_plate?: string;
+  chassis_number?: string;
+  engine_number?: string;
+  is_upfront_interest?: boolean;
+  liquidation_price?: number;
+  liquidation_buyer?: string;
   interest_payments?: InterestPayment[];
   redemptions?: Redemption[];
   liquidations?: any[];
+  principal_transactions?: any[];
+  debt_history?: any[];
+  documents?: any[];
+  debt_reminders?: any[];
+  transaction_ledgers?: any[];
+  reminders?: any[];
   collaborator?: Collaborator;
   collaborator_id?: string;
   // Dynamic attributes (e.g. license plate, frame number)
@@ -138,7 +167,11 @@ export interface PawnContract extends ContractBase {
 // ─── Unsecured Contract ───────────────────────────────────────────
 export interface UnsecuredContract extends ContractBase {
   loan_term?: number;
+  loan_days?: number;
+  period_value?: number;
   interest_period?: number;
+  totalRepayment?: number;
+  commodity?: Commodity;
   interest_payments?: InterestPayment[];
   redemptions?: Redemption[];
   collaborator?: Collaborator;
@@ -168,6 +201,14 @@ export interface InstallmentContract extends ContractBase {
   remaining_amount?: number;
   expected_interest?: number;
   collected_interest?: number;
+  repayment_amount?: number;
+  loan_duration?: number;
+  paid_cycles?: number;
+  remaining_cycles?: number;
+  next_payment_date?: string;
+  total_paid?: number;
+  daily_payment?: number;
+  commodity?: Commodity;
   installment_periods?: InstallmentPeriod[];
   collaborator?: Collaborator;
   collaborator_id?: string;
@@ -222,6 +263,7 @@ export interface DailyCashRecord {
 
 export interface CashSummary {
   balance: number;
+  current_cash?: number;
   opening_balance: number;
   total_in: number;
   total_out: number;

@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import axios from "axios";
+import apiClient from "../api/client";
 import { useAuth } from "../context/AuthContext";
 import { UserDropdown } from "./UserDropdown";
 import {
@@ -56,7 +56,10 @@ export const Navbar: React.FC<NavbarProps> = ({
 
   // Load system settings
   useEffect(() => {
-    axios.get("/api/settings")
+    const token = localStorage.getItem("token");
+    if (!token) return;
+
+    apiClient.get("/api/settings")
       .then(res => {
         const logo = res.data.system_logo || "";
         setSystemLogo(logo);
@@ -73,15 +76,22 @@ export const Navbar: React.FC<NavbarProps> = ({
           link.href = logo;
         }
       })
-      .catch(err => console.error("Error fetching logo in navbar", err));
+      .catch(err => {
+        if (err.response?.status !== 401) {
+          console.error("Error fetching logo in navbar", err);
+        }
+      });
   }, []);
 
   // Fetch warning counts
   const fetchWarningCounts = async () => {
+    const token = localStorage.getItem("token");
+    if (!token || !user) return;
+
     try {
       const [summaryRes, remindersRes] = await Promise.all([
-        axios.get("/api/warnings/summary"),
-        axios.get("/api/warnings/reminders")
+        apiClient.get("/api/warnings/summary"),
+        apiClient.get("/api/warnings/reminders")
       ]);
 
       const pendingReminders = Array.isArray(remindersRes.data)
@@ -95,15 +105,16 @@ export const Navbar: React.FC<NavbarProps> = ({
         capital: summaryRes.data.capital || 0,
         reminders: pendingReminders
       });
-    } catch (err) {
-      console.error("Error loading navbar warning counts, using screenshot fallback:", err);
-      // Fallback matching screenshot
+    } catch (err: any) {
+      if (err.response?.status !== 401) {
+        console.error("Error loading navbar warning counts:", err);
+      }
       setCounts({
         pawn: 0,
-        loan: 1,
-        installment: 1,
+        loan: 0,
+        installment: 0,
         capital: 0,
-        reminders: 2
+        reminders: 0
       });
     }
   };

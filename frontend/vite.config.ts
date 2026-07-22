@@ -5,7 +5,7 @@ import react from '@vitejs/plugin-react'
 export default defineConfig(({ mode }) => {
   // Load env file from the current directory
   const env = loadEnv(mode, process.cwd(), '');
-  let apiTarget = env.VITE_API_URL || 'http://localhost:5001';
+  let apiTarget = env.VITE_API_URL || 'https://pawna-prod.up.railway.app';
 
   // Tự động chuyển HTTP -> HTTPS cho server Production trên Railway để tránh 301 Redirect gây lỗi CORS
   if (apiTarget.startsWith('http://') && apiTarget.includes('railway.app')) {
@@ -15,12 +15,11 @@ export default defineConfig(({ mode }) => {
   return {
     plugins: [react()],
     server: {
-      port: 3000,
       proxy: {
         '/api': {
-          target: apiTarget,
+          target: 'https://pawna-prod.up.railway.app',
           changeOrigin: true,
-          secure: false,
+          secure: true,
         }
       }
     }

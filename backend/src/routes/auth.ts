@@ -2,11 +2,44 @@ import { Router, Response } from "express";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { prisma } from "../utils/db";
-import { authenticateToken, AuthenticatedRequest } from "../middleware/auth";
+import { authenticateToken, AuthenticatedRequest, getCookieValue } from "../middleware/auth";
 
 const router = Router();
 
 const JWT_SECRET = process.env.JWT_SECRET || "pawn_manager_secret_key_2026";
+
+const setAuthCookies = (res: Response, accessToken: string, refreshToken: string) => {
+  const isProd = process.env.NODE_ENV === "production";
+  const cookieOptions: any = {
+    httpOnly: true,
+    secure: isProd,
+    sameSite: isProd ? "none" : "lax",
+    path: "/",
+  };
+
+  res.cookie("access_token", accessToken, {
+    ...cookieOptions,
+    maxAge: 60 * 60 * 1000, // 60 minutes
+  });
+
+  res.cookie("token_id", refreshToken, {
+    ...cookieOptions,
+    maxAge: 12 * 60 * 60 * 1000, // 12 hours
+  });
+};
+
+const clearAuthCookies = (res: Response) => {
+  const isProd = process.env.NODE_ENV === "production";
+  const cookieOptions: any = {
+    httpOnly: true,
+    secure: isProd,
+    sameSite: isProd ? "none" : "lax",
+    path: "/",
+  };
+
+  res.clearCookie("access_token", cookieOptions);
+  res.clearCookie("token_id", cookieOptions);
+};
 
 // Status Check
 router.get("/status", async (req, res) => {
@@ -182,13 +215,25 @@ router.post("/bootstrap", async (req, res) => {
       return { branch, admin };
     });
 
-    const token = jwt.sign({ id: result.admin.id, username: result.admin.username }, JWT_SECRET, {
-      expiresIn: "12h",
-    });
+    const token = jwt.sign(
+      { id: result.admin.id, username: result.admin.username, type: "access" },
+      JWT_SECRET,
+      { expiresIn: "60m" }
+    );
+
+    const refreshToken = jwt.sign(
+      { id: result.admin.id, username: result.admin.username, type: "refresh" },
+      JWT_SECRET,
+      { expiresIn: "12h" }
+    );
+
+    setAuthCookies(res, token, refreshToken);
 
     return res.status(201).json({
       message: "Bootstrap successful",
       token,
+      refreshToken,
+      token_id: refreshToken,
       user: {
         id: result.admin.id,
         username: result.admin.username,
@@ -251,9 +296,17 @@ router.post("/login", async (req, res) => {
       return res.status(401).json({ error: "Invalid password" });
     }
 
-    const token = jwt.sign({ id: employee.id, username: employee.username }, JWT_SECRET, {
-      expiresIn: "12h",
-    });
+    const token = jwt.sign(
+      { id: employee.id, username: employee.username, type: "access" },
+      JWT_SECRET,
+      { expiresIn: "60m" }
+    );
+
+    const refreshToken = jwt.sign(
+      { id: employee.id, username: employee.username, type: "refresh" },
+      JWT_SECRET,
+      { expiresIn: "12h" }
+    );
 
     const permissions = employee.permissions.map((ep) => ep.permission.code);
     const isAdmin = permissions.includes("SETTINGS_MANAGE") || permissions.includes("BRANCHES_VIEW_ALL");
@@ -279,9 +332,13 @@ router.post("/login", async (req, res) => {
 
     const activeBranch = allowedBranches[0] || { id: "", name: "Không có chi nhánh", investment_capital: 0 };
 
+    setAuthCookies(res, token, refreshToken);
+
     return res.json({
       message: "Login successful",
       token,
+      refreshToken,
+      token_id: refreshToken,
       user: {
         id: employee.id,
         username: employee.username,
@@ -297,6 +354,70 @@ router.post("/login", async (req, res) => {
   } catch (error: any) {
     return res.status(500).json({ error: error.message });
   }
+});
+
+// 2.5 Refresh Token Endpoint (dùng token_id có hạn 12h để đổi access token 60m mới)
+router.post("/refresh", async (req, res) => {
+  try {
+    const token_id = getCookieValue(req, "token_id") || req.body.token_id || req.body.refreshToken;
+
+    if (!token_id) {
+      return res.status(401).json({ error: "Refresh token (token_id) is required", code: "REFRESH_TOKEN_REQUIRED" });
+    }
+
+    let decoded: any;
+    try {
+      decoded = jwt.verify(token_id, JWT_SECRET);
+    } catch (err) {
+      clearAuthCookies(res);
+      return res.status(401).json({
+        error: "Phiên đăng nhập đã hết hạn (quá 12 giờ). Vui lòng đăng nhập lại.",
+        code: "REFRESH_TOKEN_EXPIRED",
+      });
+    }
+
+    if (decoded.type && decoded.type !== "refresh") {
+      return res.status(401).json({ error: "Invalid token type", code: "INVALID_TOKEN_TYPE" });
+    }
+
+    const employee = await prisma.employee.findUnique({
+      where: { id: decoded.id },
+    });
+
+    if (!employee || employee.status !== "active") {
+      clearAuthCookies(res);
+      return res.status(403).json({ error: "Account is suspended or invalid" });
+    }
+
+    const newToken = jwt.sign(
+      { id: employee.id, username: employee.username, type: "access" },
+      JWT_SECRET,
+      { expiresIn: "60m" }
+    );
+
+    const newRefreshToken = jwt.sign(
+      { id: employee.id, username: employee.username, type: "refresh" },
+      JWT_SECRET,
+      { expiresIn: "12h" }
+    );
+
+    setAuthCookies(res, newToken, newRefreshToken);
+
+    return res.json({
+      message: "Token refreshed successfully",
+      token: newToken,
+      refreshToken: newRefreshToken,
+      token_id: newRefreshToken,
+    });
+  } catch (error: any) {
+    return res.status(500).json({ error: error.message });
+  }
+});
+
+// 2.8 Logout & Token Revocation Endpoint (Xóa HttpOnly cookies & thu hồi token)
+router.post("/logout", (req, res) => {
+  clearAuthCookies(res);
+  return res.json({ message: "Thu hồi token và đăng xuất thành công" });
 });
 
 // 3. Get current user profile info

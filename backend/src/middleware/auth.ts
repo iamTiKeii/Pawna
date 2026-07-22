@@ -14,16 +14,30 @@ export interface AuthenticatedRequest extends Request {
   };
 }
 
+export const getCookieValue = (req: Request, name: string): string | undefined => {
+  const reqCookies = (req as any).cookies;
+  if (reqCookies && reqCookies[name]) {
+    return reqCookies[name];
+  }
+  const rawCookie = req.headers.cookie;
+  if (!rawCookie) return undefined;
+
+  const match = rawCookie.match(new RegExp("(?:^|; )" + name.replace(/([\.$?*|{}\(\)\[\]\\\/\+^])/g, "\\$1") + "=([^;]*)"));
+  return match ? decodeURIComponent(match[1]) : undefined;
+};
+
 export const authenticateToken = async (
   req: AuthenticatedRequest,
   res: Response,
   next: NextFunction
 ) => {
   const authHeader = req.headers["authorization"];
-  const token = authHeader && authHeader.split(" ")[1];
+  const bearerToken = authHeader && authHeader.split(" ")[1];
+  const cookieToken = getCookieValue(req, "access_token");
+  const token = bearerToken || cookieToken;
 
   if (!token) {
-    return res.status(401).json({ error: "Access token required" });
+    return res.status(401).json({ error: "Access token required", code: "TOKEN_REQUIRED" });
   }
 
   try {
@@ -83,6 +97,6 @@ export const authenticateToken = async (
 
     next();
   } catch (error) {
-    return res.status(403).json({ error: "Invalid or expired token" });
+    return res.status(401).json({ error: "Invalid or expired access token", code: "TOKEN_EXPIRED" });
   }
 };

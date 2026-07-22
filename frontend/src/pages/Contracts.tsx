@@ -911,7 +911,7 @@ export const Contracts: React.FC = () => {
           </p>
         </div>
         <div className="flex gap-2 w-full md:w-auto">
-          <button onClick={fetchContracts} className="btn btn-outline border-slate-200 text-slate-600 btn-sm">
+          <button onClick={() => fetchContracts()} className="btn btn-outline border-slate-200 text-slate-600 btn-sm">
             <RefreshCw className="w-4 h-4 animate-spin-hover" />
           </button>
         </div>
@@ -1033,7 +1033,7 @@ export const Contracts: React.FC = () => {
 
           {/* Buttons: Lọc, + Thêm mới, ... */}
           <div className="md:col-span-2 flex gap-1.5 w-full justify-end">
-            <button onClick={fetchContracts} className="btn btn-outline border-blue-200 text-blue-500 hover:bg-blue-50 btn-sm text-xs rounded-xl flex items-center gap-1">
+            <button onClick={() => fetchContracts()} className="btn btn-outline border-blue-200 text-blue-500 hover:bg-blue-50 btn-sm text-xs rounded-xl flex items-center gap-1">
               <Filter className="w-3.5 h-3.5" />
               Lọc
             </button>
@@ -1586,7 +1586,7 @@ export const Contracts: React.FC = () => {
                                 {
                                   label: "Load lại dữ liệu tiền",
                                   icon: <RefreshCw className="w-3.5 h-3.5 text-emerald-500" />,
-                                  onClick: fetchContracts
+                                  onClick: () => { fetchContracts(); }
                                 },
                                 {
                                   label: "Sửa hợp đồng",
@@ -1634,46 +1634,45 @@ export const Contracts: React.FC = () => {
           </div>
 
           {/* Pagination Controls */}
-          {totalPages > 1 && (
-            <div className="flex justify-between items-center bg-white border border-slate-200/80 rounded-2xl p-4 mt-4 shadow-sm">
-              <span className="text-xs text-slate-500 font-medium">
-                Hiển thị {(currentPage - 1) * limit + 1} - {Math.min(currentPage * limit, totalRecords)} trong tổng số {totalRecords} hợp đồng
-              </span>
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  disabled={currentPage === 1}
-                  onClick={() => {
-                    setCurrentPage((prev) => {
-                      const next = prev - 1;
-                      fetchContracts(next);
-                      return next;
-                    });
-                  }}
-                  className="btn btn-sm btn-outline border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-50"
-                >
-                  Trang trước
-                </button>
-                <span className="flex items-center text-xs font-semibold text-slate-700 px-3 bg-slate-50 border border-slate-100 rounded-lg">
-                  Trang {currentPage} / {totalPages}
+          {totalPages > 1 && (() => {
+            const pageSize = 15;
+            return (
+              <div className="flex justify-between items-center bg-white border border-slate-200/80 rounded-2xl p-4 mt-4 shadow-sm">
+                <span className="text-xs text-slate-500 font-medium">
+                  Hiển thị {(currentPage - 1) * pageSize + 1} - {Math.min(currentPage * pageSize, totalRecords)} trong tổng số {totalRecords} hợp đồng
                 </span>
-                <button
-                  type="button"
-                  disabled={currentPage === totalPages}
-                  onClick={() => {
-                    setCurrentPage((prev) => {
-                      const next = prev + 1;
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    disabled={currentPage === 1}
+                    onClick={() => {
+                      const next = currentPage - 1;
+                      setCurrentPage(next);
                       fetchContracts(next);
-                      return next;
-                    });
-                  }}
-                  className="btn btn-sm btn-outline border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-50"
-                >
-                  Trang sau
-                </button>
+                    }}
+                    className="btn btn-sm btn-outline border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-50"
+                  >
+                    Trang trước
+                  </button>
+                  <span className="flex items-center text-xs font-semibold text-slate-700 px-3 bg-slate-50 border border-slate-100 rounded-lg">
+                    Trang {currentPage} / {totalPages}
+                  </span>
+                  <button
+                    type="button"
+                    disabled={currentPage === totalPages}
+                    onClick={() => {
+                      const next = currentPage + 1;
+                      setCurrentPage(next);
+                      fetchContracts(next);
+                    }}
+                    className="btn btn-sm btn-outline border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-50"
+                  >
+                    Trang sau
+                  </button>
+                </div>
               </div>
-            </div>
-          )}
+            );
+          })()}
         </div>
       )}
 

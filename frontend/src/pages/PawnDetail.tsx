@@ -56,7 +56,6 @@ export const PawnDetail: React.FC<PawnDetailProps> = ({ idProp, onClose, isModal
     payOthers,
     payChecked,
     setPayAmounts,
-    setPayOthers,
     setPayChecked,
     refresh: fetchContractDetails,
     payInterest,
