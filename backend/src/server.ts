@@ -34,7 +34,14 @@ const app = express();
 const PORT = process.env.PORT || 5001;
 
 // Middlewares
-app.use(cors());
+app.use(
+  cors({
+    origin: true, // Chấp nhận động origin gửi từ client (localhost:3000, 8080, 5173, production domain)
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization", "X-Branch-ID"],
+  })
+);
 app.use(express.json());
 
 // API Routes
