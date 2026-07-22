@@ -168,7 +168,12 @@ router.put("/:id", async (req: AuthenticatedRequest, res: Response) => {
     if (avatar_url !== undefined) dataToUpdate.avatar_url = avatar_url;
 
     if (hasManage) {
-      if (status) dataToUpdate.status = status;
+      if (status) {
+        if (isSelf && status !== "active") {
+          return res.status(400).json({ error: "Tài khoản admin không thể tự khóa chính mình!" });
+        }
+        dataToUpdate.status = status;
+      }
     }
 
     if (password) {

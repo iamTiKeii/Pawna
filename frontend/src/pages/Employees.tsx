@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { toast } from "../lib/toast";
 import { useConfirm } from "../context/ConfirmContext";
+import { useAuth } from "../context/AuthContext";
 
 interface Employee {
   id: string;
@@ -48,6 +49,7 @@ const AVAILABLE_PERMISSIONS = [
 ];
 
 export const Employees: React.FC = () => {
+  const { user } = useAuth();
   const confirm = useConfirm();
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [stores, setStores] = useState<Store[]>([]);
@@ -184,6 +186,10 @@ export const Employees: React.FC = () => {
   };
 
   const handleToggleStatus = async (emp: Employee) => {
+    if (user?.id === emp.id || user?.username === emp.username) {
+      toast.error("Bạn không thể tự khóa tài khoản của chính mình!");
+      return;
+    }
     const newStatus = emp.status === "active" ? "inactive" : "active";
     try {
       await axios.put(`/api/employees/${emp.id}`, { status: newStatus });
@@ -463,12 +469,14 @@ export const Employees: React.FC = () => {
                             </button>
                             <button
                               onClick={() => handleToggleStatus(emp)}
+                              disabled={user?.id === emp.id}
                               className={`btn btn-xs gap-1 font-medium rounded-lg px-2.5 ${
                                 emp.status === "active" 
-                                  ? "btn-neutral text-red-500 bg-red-50 border-red-100 hover:bg-red-100" 
-                                  : "btn-primary bg-amber-500 border-none text-slate-950 hover:bg-amber-600"
+                                  ? "btn-neutral text-red-500 bg-red-50 border-red-100 hover:bg-red-100 disabled:opacity-40" 
+                                  : "btn-primary bg-amber-500 border-none text-slate-950 hover:bg-amber-600 disabled:opacity-40"
                               }`}
                               type="button"
+                              title={user?.id === emp.id ? "Bạn không thể tự khóa tài khoản của chính mình" : undefined}
                             >
                               {emp.status === "active" ? "Khóa" : "Mở khóa"}
                             </button>

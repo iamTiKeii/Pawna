@@ -299,23 +299,24 @@ export const Navbar: React.FC<NavbarProps> = ({
         <div className="flex items-center gap-3">
           
           {/* Indicators Row */}
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-2">
             {indicators.map((ind) => {
               const Icon = ind.icon;
+              const displayCount = ind.count > 99 ? "99+" : ind.count;
               return (
                 <button
                   key={ind.key}
                   onClick={() => navigate(ind.path)}
-                  className="btn btn-ghost btn-circle hover:bg-slate-100 relative w-9 h-9 min-h-[36px]"
+                  className="flex items-center justify-between gap-2.5 bg-[#e5e7eb] hover:bg-[#d8dbdf] active:scale-95 transition-all pl-3 pr-1 py-1 rounded-full border border-slate-300/40 shadow-sm cursor-pointer"
                   title={ind.title}
                   type="button"
                 >
-                  <Icon className={`w-4.5 h-4.5 ${ind.color}`} />
-                  {ind.count > 0 && (
-                    <span className="absolute top-0.5 right-0.5 bg-red-500 text-white text-[9px] font-extrabold w-4 h-4 rounded-full flex items-center justify-center border border-white shadow-sm scale-90">
-                      {ind.count}
+                  <Icon className="w-5 h-5 text-[#3b82f6] shrink-0" />
+                  <div className="bg-white rounded-full min-w-[28px] h-7 px-1.5 flex items-center justify-center shadow-sm shrink-0">
+                    <span className="text-[#ef4444] font-extrabold text-xs tracking-tight leading-none">
+                      {displayCount}
                     </span>
-                  )}
+                  </div>
                 </button>
               );
             })}
@@ -334,8 +335,8 @@ export const Navbar: React.FC<NavbarProps> = ({
       </div>
 
       {/* TẦNG 2: Horizontal Sub-navigation Menu */}
-      <div className="bg-slate-50/50 border-t border-slate-100 px-6 py-1 flex items-center min-h-[48px]">
-        <div className="flex items-center justify-center gap-1.5 flex-wrap w-full py-1">
+      <div className="bg-slate-50/50 border-t border-slate-100 px-6 py-1 flex items-center min-h-[48px] overflow-visible">
+        <div className="flex items-center justify-center gap-1.5 flex-wrap w-full py-1 overflow-visible">
           
           {/* 1. Bảng Điều Khiển */}
           <Link
@@ -630,7 +631,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             </div>
           )}
 
-          {/* 11. Dropdown: Báo cáo thống kê (dropdown-end to prevent right clipping) */}
+          {/* 11. Dropdown: Báo cáo thống kê */}
           {showReports && (
             <div className="dropdown dropdown-hover dropdown-end">
               <label

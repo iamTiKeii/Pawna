@@ -5,6 +5,7 @@ import {
   generateFlatCollectionSchedule, // renamed from generateInstallmentPayments
   generateInstallmentPayments,    // @deprecated alias — still valid during migration
 } from "../services/interest";
+import { convertDurationToDays, convertDaysToDisplayUnit, getUnitMultiplier } from "./durationUtils";
 
 // --- Test Harness ---
 // Non-stop: collects ALL failures before reporting, no early exit on first fail
@@ -630,6 +631,46 @@ function runTests() {
     assert(res.schedule[0].interest === ei, `Ky 1 lai tuan (7 ngay) phai la ${ei}, thuc te: ${res.schedule[0].interest}`);
     const toDate = res.schedule[0].to_date.toISOString().split("T")[0];
     assert(toDate === "2026-07-25", `Ky 1 to_date phai 2026-07-25 (19/07+7-1=25/07), thuc te: ${toDate}`);
+  });
+
+  // ── TEST: Shared durationUtils helper ────────────────────────────────────
+  section("TESTING durationUtils helper functions...", () => {
+    assert(convertDurationToDays(3, "thang") === 90, "3 thang -> 90 ngay");
+    assert(convertDurationToDays(1, "thang") === 30, "1 thang -> 30 ngay");
+    assert(convertDurationToDays(2, "tuan") === 14, "2 tuan -> 14 ngay");
+    assert(convertDurationToDays(10, "ngay") === 10, "10 ngay -> 10 ngay");
+    assert(convertDurationToDays(3, "flat_rate_monthly") === 90, "3 thang (flat_rate_monthly) -> 90 ngay");
+    assert(convertDurationToDays(1, "monthly_percent_periodic") === 30, "1 thang (monthly_percent_periodic) -> 30 ngay");
+    assert(convertDurationToDays(2, "weekly_percent") === 14, "2 tuan (weekly_percent) -> 14 ngay");
+
+    assert(convertDaysToDisplayUnit(90, "monthly_percent_periodic") === 3, "90 ngay (monthly) -> 3 thang");
+    assert(convertDaysToDisplayUnit(30, "monthly_percent_periodic") === 1, "30 ngay (monthly) -> 1 thang");
+    assert(convertDaysToDisplayUnit(14, "weekly_percent") === 2, "14 ngay (weekly) -> 2 tuan");
+    assert(convertDaysToDisplayUnit(10, "daily_k_million") === 10, "10 ngay (daily) -> 10 ngay");
+  });
+
+  // ── TEST: Trạng thái quá hạn (Overdue Check) sau 5 ngày ────────────────
+  section("TESTING Overdue Status — 1 month contract after 5 days is NOT overdue...", () => {
+    const calc = InterestCalculatorFactory.getCalculator("flat_rate_monthly");
+    const loanDate = new Date("2026-07-19");
+    const loanDays = convertDurationToDays(3, "thang"); // 90 days
+    const periodValue = convertDurationToDays(1, "thang"); // 30 days
+    const res = calc.calculate({
+      loanAmount: 10_000_000,
+      interestRate: 2.1,
+      loanDays,
+      periodValue,
+      loanDateInput: loanDate,
+      isUpfront: false,
+    });
+
+    const cycle1ToDate = new Date(res.schedule[0].to_date);
+    const currentDateAfter5Days = new Date(loanDate.getTime() + 5 * 24 * 60 * 60 * 1000); // 2026-07-24
+
+    // Ky 1 to_date = 2026-08-17 (30 days from 19/07 minus 1 day).
+    // currentDateAfter5Days = 2026-07-24
+    const isOverdue = cycle1ToDate < currentDateAfter5Days;
+    assert(!isOverdue, "Sau 5 ngay, hop dong ky han 1 thang KHONG duoc phi danh dau qua han!");
   });
 
   // ── Summary ─────────────────────────────────────────────────────────────────

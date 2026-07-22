@@ -7,6 +7,7 @@ export interface CustomerSectionProps {
   onChange: (updates: any) => void;
   isEditMode: boolean;
   onViewHistory?: (customerId: string, name: string) => void;
+  config?: any;
 }
 
 export const ContractCustomerSection: React.FC<CustomerSectionProps> = ({
@@ -14,10 +15,26 @@ export const ContractCustomerSection: React.FC<CustomerSectionProps> = ({
   onChange,
   isEditMode,
   onViewHistory,
+  config,
 }) => {
   const [showCardDetails, setShowCardDetails] = useState(
     !!state.customerIdCardDate || !!state.customerIdCardPlace
   );
+
+  let prefix = "HĐ";
+  if (config?.type === "pawn") prefix = "CĐ";
+  else if (config?.type === "unsecured") prefix = "TC";
+  else if (config?.type === "installment") prefix = "TG";
+  else if (config?.type === "capital") prefix = "NV";
+
+  let suffix = "";
+  if (isEditMode && state.contractCode) {
+    prefix = state.contractCode.slice(0, 2);
+    suffix = state.contractCode.slice(2);
+  } else {
+    const num = state.contractCodeNumber || 1;
+    suffix = `-${num}`;
+  }
 
   const labelClass =
     "w-[150px] text-right pr-4 font-bold text-slate-700 shrink-0 text-sm select-none";
@@ -149,38 +166,19 @@ export const ContractCustomerSection: React.FC<CustomerSectionProps> = ({
           <label className={labelClass}>
             Mã hợp đồng <span className="text-red-500">*</span>
           </label>
-          <div className="grow flex items-center border border-slate-200 rounded-lg overflow-hidden h-10 w-fit bg-white">
-            <button
-              type="button"
-              onClick={() =>
-                onChange({
-                  contractCodeNumber: Math.max(1, state.contractCodeNumber - 1),
-                })
-              }
-              className="bg-blue-600 hover:bg-blue-700 text-white font-bold h-full px-4 flex items-center justify-center transition-colors select-none text-base"
-            >
-              -
-            </button>
-            <input
-              type="number"
-              value={state.contractCodeNumber}
-              onChange={(e) =>
-                onChange({
-                  contractCodeNumber: Math.max(1, Number(e.target.value)),
-                })
-              }
-              className="text-center bg-white w-20 text-slate-800 h-full font-bold focus:outline-none border-x border-slate-200 text-sm"
-              required
-            />
-            <button
-              type="button"
-              onClick={() =>
-                onChange({ contractCodeNumber: state.contractCodeNumber + 1 })
-              }
-              className="bg-blue-600 hover:bg-blue-700 text-white font-bold h-full px-4 flex items-center justify-center transition-colors select-none text-base"
-            >
-              +
-            </button>
+          <div className="grow">
+            <label className="input input-bordered flex items-center gap-2 bg-slate-100/90 border-slate-200 rounded-lg h-10 w-full cursor-not-allowed">
+              <span className="label font-extrabold text-slate-700 text-sm select-none border-r border-slate-300 pr-3 py-1">
+                {prefix}
+              </span>
+              <input
+                type="text"
+                value={suffix}
+                readOnly
+                disabled
+                className="grow font-bold text-slate-800 text-sm bg-transparent outline-none cursor-not-allowed"
+              />
+            </label>
           </div>
         </div>
 

@@ -64,9 +64,10 @@ export const Collaborators: React.FC = () => {
   useEffect(() => {
     const fetchBanks = async () => {
       try {
-        const res = await axios.get("https://api.vietqr.io/v2/banks");
-        if (res.data && res.data.code === "00") {
-          const names = res.data.data.map((b: any) => b.name);
+        const response = await fetch("https://api.vietqr.io/v2/banks");
+        const data = await response.json();
+        if (data && data.code === "00") {
+          const names = data.data.map((b: any) => b.name);
           setBanksList(names);
         }
       } catch (err) {

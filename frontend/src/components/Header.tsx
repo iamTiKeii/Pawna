@@ -199,18 +199,21 @@ export const Header: React.FC<HeaderProps> = ({
         <div className="flex items-center gap-2">
           {indicators.map((ind) => {
             const Icon = ind.icon;
+            const displayCount = ind.count > 99 ? "99+" : ind.count;
             return (
               <button
                 key={ind.key}
                 onClick={() => navigate(ind.path)}
-                className="btn btn-ghost btn-circle hover:bg-slate-100 relative w-9 h-9"
+                className="flex items-center justify-between gap-2.5 bg-[#e5e7eb] hover:bg-[#d8dbdf] active:scale-95 transition-all pl-3 pr-1 py-1 rounded-full border border-slate-300/40 shadow-sm cursor-pointer"
                 title={ind.title}
                 type="button"
               >
-                <Icon className={`w-5 h-5 ${ind.color}`} />
-                <span className="absolute -top-1 -right-1 bg-[#ef4444] text-white text-[9px] font-extrabold w-4 h-4 rounded-full flex items-center justify-center border border-white shadow-sm scale-90">
-                  {ind.count}
-                </span>
+                <Icon className="w-5 h-5 text-[#3b82f6] shrink-0" />
+                <div className="bg-white rounded-full min-w-[28px] h-7 px-1.5 flex items-center justify-center shadow-sm shrink-0">
+                  <span className="text-[#ef4444] font-extrabold text-xs tracking-tight leading-none">
+                    {displayCount}
+                  </span>
+                </div>
               </button>
             );
           })}

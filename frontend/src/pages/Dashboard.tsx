@@ -12,7 +12,7 @@ import {
 } from "lucide-react";
 
 export const Dashboard: React.FC = () => {
-  const { activeStore } = useAuth();
+  const { user, activeStore } = useAuth();
   const [cashSummary, setCashSummary] = useState<any>(null);
   const [cashHistory, setCashHistory] = useState<any[]>([]);
   const [pawnCount, setPawnCount] = useState(0);
@@ -74,7 +74,7 @@ export const Dashboard: React.FC = () => {
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white border border-slate-200/80 p-6 rounded-2xl">
         <div>
           <h1 className="text-2xl font-extrabold text-slate-800">
-            Xin chào! Chi nhánh: {activeStore?.name}
+            Xin chào! {user?.full_name || user?.username || ""}
           </h1>
           <p className="text-slate-500 text-sm mt-1">
             Theo dõi trạng thái dòng tiền, lịch thanh toán nợ và hoạt động giao dịch hôm nay.

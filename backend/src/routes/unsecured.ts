@@ -5,6 +5,7 @@ import { requirePermission } from "../middleware/permission";
 import { generateContractCode, getNextContractCodeNumber } from "../utils/codeGen";
 import { generateInterestSchedule, InvalidLoanParamsError } from "../utils/interest";
 import { adjustDailyCash, normalizeToMidnight, checkDailyCashLock } from "../utils/cash";
+import { getUnitMultiplier } from "../utils/durationUtils";
 import { calculateDailyInterestRate } from "./pawn";
 
 import { v4 as uuidv4 } from "uuid";
@@ -421,12 +422,20 @@ router.post("/", requirePermission(["CONTRACTS_MANAGE"]) as any, async (req: Aut
         throw new Error("Interest type not found");
       }
 
+      const unitMult = getUnitMultiplier(interestType.code);
+      let finalDays = days;
+      let finalPeriodValue = pValue;
+      if (unitMult > 1) {
+        if (finalDays < 15) finalDays = Math.round(finalDays * unitMult);
+        if (finalPeriodValue < 15) finalPeriodValue = Math.round(finalPeriodValue * unitMult);
+      }
+
       // Generate expected interest payments schedule
       const cycles = generateInterestSchedule(
         principal,
         rate,
-        days,
-        pValue,
+        finalDays,
+        finalPeriodValue,
         interestType.code,
         normalizedLoanDate,
         resolvedIsUpfront
@@ -449,8 +458,8 @@ router.post("/", requirePermission(["CONTRACTS_MANAGE"]) as any, async (req: Aut
           initial_loan_amount: principal,
           interest_type_id: resolvedInterestTypeId,
           is_upfront_interest: resolvedIsUpfront,
-          loan_days: days,
-          period_value: pValue,
+          loan_days: finalDays,
+          period_value: finalPeriodValue,
           interest_rate: rate,
           loan_date: normalizedLoanDate,
           collector_id,

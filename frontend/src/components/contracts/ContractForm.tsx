@@ -9,6 +9,7 @@ import { ContractInterestSection } from "./ContractInterestSection";
 import { ContractFinanceSection } from "./ContractFinanceSection";
 import { ContractNoteSection } from "./ContractNoteSection";
 import { StandardLoanInfoSection } from "./StandardLoanInfoSection";
+import { convertDaysToDisplayUnit } from "../../utils/durationUtils";
 
 
 export interface ContractFormProps {
@@ -90,8 +91,15 @@ export const ContractForm: React.FC<ContractFormProps> = ({
           Number(initialData.contract_code?.match(/\d+/)?.[0]) ||
           defaultCodeNumber;
 
+        const itCode = initialData.interest_type?.code ||
+          interestTypes.find((t) => t.id === initialData.interest_type_id)?.code || "";
+
+        const rawDays = initialData.loan_duration || initialData.loan_days || initialData.loan_term_days || 30;
+        const rawPeriod = initialData.period_value || initialData.interest_period || 10;
+
         setState({
           customerType: "existing",
+          contractCode: initialData.contract_code || "",
           customerId: initialData.customer_id || "",
           customerName: initialData.customer?.full_name || initialData.investor_name || "",
           customerIdCard: initialData.customer?.identity_card_number || initialData.investor_id_card || "",
@@ -99,14 +107,13 @@ export const ContractForm: React.FC<ContractFormProps> = ({
           customerIdCardPlace: initialData.customer?.identity_card_place || "",
           customerPhone: initialData.customer?.phone || initialData.investor_phone || "",
           customerAddress: initialData.customer?.address || initialData.investor_address || "",
-          customerSearchQuery: initialData.customer?.full_name || "",
+          customerSearchQuery: initialData.customer?.full_name || initialData.investor_name || "",
 
           contractCodeNumber: codeNum,
-
-          loanAmount: String(initialData.loan_amount || initialData.disbursed_amount || initialData.amount || ""),
-          repaymentAmount: String(initialData.repayment_amount || ""),
-          loanDate: (initialData.loan_date || initialData.investment_date || new Date().toISOString()).split("T")[0],
-          loanDays: initialData.loan_duration || initialData.loan_days || 50,
+          loanAmount: initialData.loan_amount || initialData.disbursed_amount || initialData.amount || "",
+          repaymentAmount: initialData.repayment_amount || "",
+          loanDate: initialData.loan_date || initialData.start_date || initialData.investment_date || new Date().toISOString().split("T")[0],
+          loanDays: convertDaysToDisplayUnit(rawDays, itCode),
           installmentCycles: initialData.installment_cycles || 50,
           installmentPeriod: initialData.cycle_days || 1,
           installmentPeriodType: initialData.period_type || "daily",
@@ -118,7 +125,7 @@ export const ContractForm: React.FC<ContractFormProps> = ({
           engineNumber: initialData.engine_number || "",
 
           interestRate: initialData.interest_rate !== undefined && initialData.interest_rate !== null ? String(initialData.interest_rate) : "1",
-          interestPeriod: initialData.period_value || initialData.interest_period || 10,
+          interestPeriod: convertDaysToDisplayUnit(rawPeriod, itCode),
           interestType: initialData.interest_type_id || "",
           isUpfrontInterest: !!(initialData.is_upfront_interest || initialData.is_upfront_collected || initialData.is_upfront_interest),
 
@@ -130,6 +137,7 @@ export const ContractForm: React.FC<ContractFormProps> = ({
         // Reset to default new form
         setState({
           customerType: "new",
+          contractCode: "",
           customerId: "",
           customerName: "",
           customerIdCard: "",
@@ -179,10 +187,9 @@ export const ContractForm: React.FC<ContractFormProps> = ({
     <div className="modal modal-open z-[9999]">
       <div className="modal-box bg-white border border-slate-200 text-slate-800 rounded-2xl max-w-4xl p-6 relative">
         {/* Modal Header */}
-        <div className="flex justify-between items-center border-b border-slate-200 pb-3 mb-4">
-          <h3 className="font-extrabold text-sm text-slate-800 flex items-center gap-2">
-            <BookOpen className="w-4 h-4 text-slate-800" />
-            <span>{initialData ? "Cập nhật" : "Tạo mới"} {config.title}</span>
+        <div className="flex justify-between items-center border-b border-slate-100 pb-3 mb-4">
+          <h3 className="font-extrabold text-base text-slate-800 uppercase">
+            {initialData ? `Chỉnh sửa ${config.title}` : `Thêm mới ${config.title}`}
           </h3>
           <button
             onClick={onClose}
@@ -201,6 +208,7 @@ export const ContractForm: React.FC<ContractFormProps> = ({
               onChange={updateState}
               isEditMode={!!initialData}
               onViewHistory={onViewHistory}
+              config={config}
             />
           )}
 
