@@ -173,6 +173,9 @@ router.put("/:id", async (req: AuthenticatedRequest, res: Response) => {
           return res.status(400).json({ error: "Tài khoản admin không thể tự khóa chính mình!" });
         }
         dataToUpdate.status = status;
+        if (status === "active") {
+          dataToUpdate.failed_login_attempts = 0;
+        }
       }
     }
 
@@ -281,7 +284,7 @@ router.delete("/:id", requirePermission(["EMPLOYEES_MANAGE"]) as any, async (req
   }
 });
 
-// 8. Reset Employee Password to Username
+// 8. Reset Employee Password to Username & Unlock Account
 router.post("/:id/reset-password", requirePermission(["EMPLOYEES_MANAGE"]) as any, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const employeeId = req.params.id;
@@ -297,10 +300,14 @@ router.post("/:id/reset-password", requirePermission(["EMPLOYEES_MANAGE"]) as an
 
     await prisma.employee.update({
       where: { id: employeeId },
-      data: { password_hash: hash },
+      data: {
+        password_hash: hash,
+        failed_login_attempts: 0,
+        status: "active",
+      },
     });
 
-    return res.json({ message: `Đặt lại mật khẩu cho nhân viên ${employee.username} thành công!` });
+    return res.json({ message: `Đã reset mật khẩu = '${employee.username}' và mở khóa tài khoản thành công!` });
   } catch (error: any) {
     return res.status(500).json({ error: error.message });
   }

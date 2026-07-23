@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <title>Giấy Thỏa Thuận Cho Vay Tín Chấp - {{ContractCode}}</title>
+  <style>
+    @page { size: A4; margin: 12mm 15mm; }
+    body { font-family: "Times New Roman", Times, serif; font-size: 13px; line-height: 1.45; color: #000; margin: 0; padding: 0; }
+    .text-center { text-align: center; }
+    .font-bold { font-weight: bold; }
+    .text-uppercase { text-transform: uppercase; }
+
+    .header-table { width: 100%; border-collapse: collapse; margin-bottom: 15px; }
+    .header-table td { vertical-align: top; border: none; }
+
+    .ticket-title { text-align: center; margin: 15px 0 10px 0; }
+    .ticket-title h2 { margin: 0; font-size: 17px; font-weight: bold; }
+
+    .info-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+    .info-table td { padding: 4px 0; border: none; vertical-align: top; }
+    .label { font-weight: bold; width: 130px; display: inline-block; }
+
+    .box-amount { border: 1.5px dashed #000; padding: 8px 12px; margin: 12px 0; background-color: #fafafa; }
+
+    .signatures { margin-top: 25px; page-break-inside: avoid; }
+    .signature-table { width: 100%; border-collapse: collapse; }
+    .signature-table td { width: 50%; text-align: center; vertical-align: top; border: none; }
+    .signature-space { height: 65px; }
+  </style>
+</head>
+<body>
+  <table class="header-table">
+    <tr>
+      <td style="width: 55%;">
+        <div class="font-bold text-uppercase" style="font-size: 15px;">{{StoreName}}</div>
+        <div>Đ/C: {{StoreAddress}}</div>
+        <div>Hotline: {{StorePhone}}</div>
+      </td>
+      <td style="width: 45%; text-align: right;">
+        <div class="font-bold">MÃ SỐ: {{ContractCode}}</div>
+        <div>Ngày lập: {{ContractDate}}</div>
+      </td>
+    </tr>
+  </table>
+
+  <div class="ticket-title">
+    <h2 class="text-uppercase">THỎA THUẬN CHO VAY TÍN CHẤP</h2>
+    <p style="font-style: italic; margin-top: 2px;">(Biên nhận vay nợ tín chấp tiêu dùng)</p>
+  </div>
+
+  <table class="info-table">
+    <tr>
+      <td><span class="label">Bên vay nợ:</span> <span class="font-bold">{{CustomerName}}</span></td>
+      <td><span class="label">Điện thoại:</span> <span class="font-bold">{{CustomerPhone}}</span></td>
+    </tr>
+    <tr>
+      <td colspan="2"><span class="label">CCCD/CMND:</span> <span class="font-bold">{{IdentityNumber}}</span> (Ngày cấp: {{IdentityIssueDate}} tại {{IdentityIssuePlace}})</td>
+    </tr>
+    <tr>
+      <td colspan="2"><span class="label">Địa chỉ:</span> {{CustomerAddress}}</td>
+    </tr>
+  </table>
+
+  <div class="box-amount">
+    <div>- Số tiền cho vay: <span class="font-bold" style="font-size: 15px;">{{LoanAmount}} VNĐ</span> (Bằng chữ: <i>{{LoanAmountText}}</i>)</div>
+    <div>- Lãi suất: <span class="font-bold">{{InterestRate}}</span></div>
+    <div>- Hạn vay: Từ ngày <b>{{LoanStartDate}}</b> đến hết ngày <b>{{LoanEndDate}}</b></div>
+    <div>- Tổng nợ dự kiến phải trả: <span class="font-bold">{{TotalRepayment}} VNĐ</span></div>
+  </div>
+
+  <div class="signatures">
+    <table class="signature-table">
+      <tr>
+        <td>
+          <div class="font-bold text-uppercase">Bên Vay Nợ</div>
+          <div style="font-size: 11px;">(Ký và ghi rõ họ tên)</div>
+          <div class="signature-space"></div>
+          <div class="font-bold">{{CustomerName}}</div>
+        </td>
+        <td>
+          <div class="font-bold text-uppercase">Đại Diện Cửa Hàng</div>
+          <div style="font-size: 11px;">(Ký & xác nhận)</div>
+          <div class="signature-space"></div>
+          <div class="font-bold">{{Representative}}</div>
+        </td>
+      </tr>
+    </table>
+  </div>
+</body>
+</html>

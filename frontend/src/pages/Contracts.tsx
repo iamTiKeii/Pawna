@@ -50,10 +50,17 @@ export const Contracts: React.FC = () => {
   const [activePrintContract, setActivePrintContract] = useState<any | null>(null);
   const [allStores, setAllStores] = useState<any[]>([]);
 
+  const contractCodeForPrint = activePrintContract?.contract_code ?? "";
+  const customerNameForPrint = activePrintContract?.customer?.full_name || activePrintContract?.investor_name || "";
+  const printDocTitle = contractCodeForPrint && customerNameForPrint
+    ? `${contractCodeForPrint} - ${customerNameForPrint}`
+    : contractCodeForPrint || "Hop_Dong";
+
   const printContractRef = useRef<HTMLDivElement>(null);
   const handlePrintContractTrigger = useReactToPrint({
     content: () => printContractRef.current,
-    onAfterPrint: () => setActivePrintContract(null),
+    documentTitle: printDocTitle,
+    onAfterPrint: () => {},
   });
 
   const activeTab = location.pathname.includes("/loan")
@@ -545,17 +552,21 @@ export const Contracts: React.FC = () => {
         contract_code: `CĐ-${formData.contractCodeNumber}`
       };
 
+      let savedContractData: any = null;
       if (editingId) {
-        await apiClient.put(`/api/contracts/pawn/${editingId}`, payload);
+        const res = await apiClient.put(`/api/contracts/pawn/${editingId}`, payload);
+        savedContractData = res.data;
         toast.success("Cập nhật hợp đồng cầm đồ thành công!");
       } else {
-        await apiClient.post("/api/contracts/pawn", payload);
+        const res = await apiClient.post("/api/contracts/pawn", payload);
+        savedContractData = res.data;
         toast.success("Tạo mới hợp đồng cầm đồ thành công!");
       }
 
-      setIsPawnOpen(false);
-      setEditingContract(null);
-      setEditingId(null);
+      if (savedContractData) {
+        setEditingId(savedContractData.id || editingId);
+        setEditingContract(savedContractData);
+      }
       fetchContracts();
       fetchCashSummary();
     } catch (err: any) {
@@ -611,17 +622,21 @@ export const Contracts: React.FC = () => {
         contract_code: `TC-${formData.contractCodeNumber}`
       };
 
+      let savedContractData: any = null;
       if (editingId) {
-        await apiClient.put(`/api/contracts/unsecured/${editingId}`, payload);
+        const res = await apiClient.put(`/api/contracts/unsecured/${editingId}`, payload);
+        savedContractData = res.data;
         toast.success("Cập nhật hợp đồng tín chấp thành công!");
       } else {
-        await apiClient.post("/api/contracts/unsecured", payload);
+        const res = await apiClient.post("/api/contracts/unsecured", payload);
+        savedContractData = res.data;
         toast.success("Tạo mới hợp đồng tín chấp thành công!");
       }
 
-      setIsUnsecuredOpen(false);
-      setEditingContract(null);
-      setEditingId(null);
+      if (savedContractData) {
+        setEditingId(savedContractData.id || editingId);
+        setEditingContract(savedContractData);
+      }
       fetchContracts();
       fetchCashSummary();
     } catch (err: any) {
@@ -672,17 +687,21 @@ export const Contracts: React.FC = () => {
         notes: formData.notes || undefined,
       };
 
+      let savedContractData: any = null;
       if (editingId) {
-        await apiClient.put(`/api/contracts/installment/${editingId}`, payload);
+        const res = await apiClient.put(`/api/contracts/installment/${editingId}`, payload);
+        savedContractData = res.data;
         toast.success("Cập nhật hợp đồng trả góp thành công!");
       } else {
-        await apiClient.post("/api/contracts/installment", payload);
+        const res = await apiClient.post("/api/contracts/installment", payload);
+        savedContractData = res.data;
         toast.success("Tạo mới hợp đồng trả góp thành công!");
       }
 
-      setIsInstallmentOpen(false);
-      setEditingContract(null);
-      setEditingId(null);
+      if (savedContractData) {
+        setEditingId(savedContractData.id || editingId);
+        setEditingContract(savedContractData);
+      }
       fetchContracts();
       fetchCashSummary();
     } catch (err: any) {
@@ -1093,8 +1112,7 @@ export const Contracts: React.FC = () => {
                     <th className="py-3 bg-slate-50/30">#</th>
                     <th className="py-3">Mã HĐ</th>
                     <th className="py-3">Khách hàng</th>
-                    <th className="py-3">Mã TS</th>
-                    <th className="py-3">Tài sản</th>
+                    <th className="py-3">Tên tài sản</th>
                     <th className="py-3">Tiền cầm</th>
                     <th className="py-3">Ngày cầm</th>
                     <th className="py-3">Lãi đã đóng</th>
@@ -1125,8 +1143,7 @@ export const Contracts: React.FC = () => {
                             {item.customer?.full_name}
                           </button>
                         </td>
-                        <td className="text-slate-500 font-mono text-[11px]">{item.license_plate || <span className="text-slate-300">—</span>}</td>
-                        <td className="text-slate-500">{item.asset_name}</td>
+                        <td className="text-slate-500 font-semibold">{item.asset_name}</td>
                         <td>
                           <span className="font-bold text-slate-800">{formatCurrency(item.loan_amount).replace("₫", "")}</span>
                           <span className="block text-[10px] text-red-500 font-semibold">
@@ -1230,7 +1247,7 @@ export const Contracts: React.FC = () => {
                   {/* Summary Totals Row matching Image 1 */}
                   {filteredPawnList.length > 0 && (
                     <tr className="bg-slate-50/50 border-t border-b border-slate-200 text-xs font-extrabold">
-                      <td colSpan={5} className="text-right py-3.5 text-red-600">Tổng tiền:</td>
+                      <td colSpan={4} className="text-right py-3.5 text-red-600">Tổng tiền:</td>
                       <td className="text-red-600">{formatCurrency(totalLent).replace("₫", "")}</td>
                       <td></td>
                       <td className="text-red-600">{formatCurrency(totalPaidInterest).replace("₫", "")}</td>
@@ -1702,6 +1719,7 @@ export const Contracts: React.FC = () => {
           setEditingId(null);
         }}
         onSubmit={handleSavePawnContract}
+        onPrint={(c) => setActivePrintContract(c)}
         initialData={editingContract}
         staffs={employees}
         collaborators={collaborators}
@@ -1725,6 +1743,7 @@ export const Contracts: React.FC = () => {
           setEditingId(null);
         }}
         onSubmit={handleSaveUnsecuredContract}
+        onPrint={(c) => setActivePrintContract(c)}
         initialData={editingContract}
         staffs={employees}
         collaborators={collaborators}
@@ -1739,6 +1758,7 @@ export const Contracts: React.FC = () => {
       />
 
       <ContractForm
+        key={`installment-form-${editingId ?? "new"}`}
         config={contractConfigs.installment}
         isOpen={isInstallmentOpen}
         onClose={() => {
@@ -1747,6 +1767,7 @@ export const Contracts: React.FC = () => {
           setEditingId(null);
         }}
         onSubmit={handleSaveInstallmentContract}
+        onPrint={(c) => setActivePrintContract(c)}
         initialData={editingContract}
         staffs={employees}
         collaborators={collaborators}

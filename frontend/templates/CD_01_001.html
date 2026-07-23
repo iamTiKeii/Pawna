@@ -1,146 +1,59 @@
 <!DOCTYPE html>
 <html lang="vi">
-
 <head>
     <meta charset="UTF-8">
     <title>Hợp Đồng Cầm Cố Tài Sản - {{ContractCode}}</title>
     <style>
         @page {
             size: A4;
-            margin: 20mm 15mm 20mm 15mm;
+            margin: 15mm 15mm 15mm 15mm;
         }
-
         body {
             font-family: "Times New Roman", Times, serif;
-            font-size: 14px;
-            line-height: 1.6;
+            font-size: 13.5px;
+            line-height: 1.5;
             color: #000;
             margin: 0;
             padding: 0;
         }
+        .text-center { text-align: center; }
+        .text-right { text-align: right; }
+        .text-justify { text-align: justify; }
+        .font-bold { font-weight: bold; }
+        .text-uppercase { text-transform: uppercase; }
 
-        .text-center {
-            text-align: center;
-        }
+        .national-brand { margin-bottom: 20px; }
+        .national-brand h3 { margin: 0; font-size: 14px; letter-spacing: 0.5px; }
+        .national-brand h4 { margin: 4px 0 0 0; font-size: 13px; }
+        .line-separator { width: 140px; border-bottom: 1px solid #000; margin: 6px auto 0 auto; }
 
-        .text-right {
-            text-align: right;
-        }
+        .contract-title { margin: 20px 0 15px 0; }
+        .contract-title h2 { margin: 0; font-size: 17px; }
+        .contract-title p { margin: 4px 0 0 0; font-style: italic; }
 
-        .text-justify {
-            text-align: justify;
-        }
+        .section-title { font-weight: bold; text-transform: uppercase; margin-top: 12px; margin-bottom: 4px; font-size: 13.5px; }
+        .field-group { margin-bottom: 5px; }
+        .field-label { display: inline; }
+        .field-value { font-weight: bold; display: inline; }
 
-        .font-bold {
-            font-weight: bold;
-        }
+        .signatures { margin-top: 30px; page-break-inside: avoid; }
+        .signature-table { width: 100%; border-collapse: collapse; border: none; }
+        .signature-table td { border: none; width: 50%; text-align: center; vertical-align: top; padding: 5px; }
+        .signature-space { height: 75px; }
 
-        .text-uppercase {
-            text-transform: uppercase;
-        }
-
-        .national-brand {
-            margin-bottom: 25px;
-        }
-
-        .national-brand h3 {
-            margin: 0;
-            font-size: 14px;
-            letter-spacing: 1px;
-        }
-
-        .national-brand h4 {
-            margin: 5px 0 0 0;
-            font-size: 13px;
-        }
-
-        .line-separator {
-            width: 150px;
-            border-bottom: 1px solid #000;
-            margin: 8px auto 0 auto;
-        }
-
-        .contract-title {
-            margin: 30px 0 20px 0;
-        }
-
-        .contract-title h2 {
-            margin: 0;
-            font-size: 17px;
-        }
-
-        .contract-title p {
-            margin: 5px 0 0 0;
-            font-style: italic;
-        }
-
-        .section-title {
-            font-weight: bold;
-            text-transform: uppercase;
-            margin-top: 15px;
-            margin-bottom: 5px;
-            font-size: 14px;
-        }
-
-        .field-group {
-            margin-bottom: 6px;
-        }
-
-        .field-label {
-            display: inline;
-        }
-
-        .field-value {
-            font-weight: bold;
-            display: inline;
-        }
-
-        .signatures {
-            margin-top: 40px;
-            page-break-inside: avoid;
-        }
-
-        .signature-table {
-            width: 100%;
-            border-collapse: collapse;
-            border: none;
-        }
-
-        .signature-table td {
-            border: none;
-            width: 50%;
-            text-align: center;
-            vertical-align: top;
-            padding: 10px;
-        }
-
-        .signature-space {
-            height: 80px;
-        }
-
-        /* CSS tối ưu cho bản in */
         @media print {
-            body {
-                width: 100%;
-            }
-
-            .no-print {
-                display: none;
-            }
+            body { width: 100%; }
+            .no-print { display: none; }
         }
     </style>
 </head>
-
 <body>
-
-    <!-- Quốc hiệu & Tiêu ngữ -->
     <div class="text-center national-brand">
         <h3 class="font-bold">CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM</h3>
         <h4 class="font-bold">Độc lập - Tự do - Hạnh phúc</h4>
         <div class="line-separator"></div>
     </div>
 
-    <!-- Tiêu đề Hợp đồng -->
     <div class="text-center contract-title">
         <h2 class="font-bold">HỢP ĐỒNG CẦM CỐ TÀI SẢN</h2>
         <p>Số: {{ContractCode}}</p>
@@ -148,184 +61,63 @@
 
     <div class="content-body">
         <div class="field-group text-justify">
-            Hôm nay, ngày <span class="field-value">{{ContractDate}}</span>, tại địa bàn hoạt động của <span
-                class="field-value">{{StoreName}}</span>, chúng tôi gồm có:
+            Hôm nay, ngày <span class="field-value">{{ContractDate}}</span>, tại <span class="field-value">{{StoreName}}</span>, chúng tôi gồm có:
         </div>
 
-        <!-- BÊN A -->
-        <div class="section-title">Bên cầm cố tài sản (Sau đây gọi là Bên A):</div>
+        <div class="section-title">Bên A (Bên cầm cố tài sản):</div>
+        <div class="field-group"><span class="field-label">Ông/Bà: </span><span class="field-value">{{CustomerName}}</span></div>
         <div class="field-group">
-            <span class="field-label">Ông/Bà: </span>
-            <span class="field-value">{{CustomerName}}</span>
+            <span class="field-label">CMND/CCCD: </span><span class="field-value">{{IdentityNumber}}</span> &nbsp;|&nbsp;
+            <span class="field-label">Ngày cấp: </span><span class="field-value">{{IdentityIssueDate}}</span> &nbsp;|&nbsp;
+            <span class="field-label">Nơi cấp: </span><span class="field-value">{{IdentityIssuePlace}}</span>
         </div>
-        <div class="field-group">
-            <span class="field-label">Chứng minh nhân dân/CCCD số: </span>
-            <span class="field-value">{{IdentityNumber}}</span>
-            &nbsp;&nbsp;&nbsp;&nbsp;
-            <span class="field-label">Cấp ngày: </span>
-            <span class="field-value">{{IdentityIssueDate}}</span>
-            &nbsp;&nbsp;&nbsp;&nbsp;
-            <span class="field-label">Tại: </span>
-            <span class="field-value">{{IdentityIssuePlace}}</span>
-        </div>
-        <div class="field-group">
-            <span class="field-label">Địa chỉ liên hệ/Chỗ ở hiện tại: </span>
-            <span class="field-value">{{CustomerAddress}}</span>
-        </div>
-        <div class="field-group">
-            <span class="field-label">Số điện thoại liên hệ: </span>
-            <span class="field-value">{{CustomerPhone}}</span>
-        </div>
+        <div class="field-group"><span class="field-label">Địa chỉ: </span><span class="field-value">{{CustomerAddress}}</span></div>
+        <div class="field-group"><span class="field-label">Số điện thoại: </span><span class="field-value">{{CustomerPhone}}</span></div>
 
-        <!-- BÊN B -->
-        <div class="section-title">Bên nhận cầm cố tài sản (Sau đây gọi là Bên B):</div>
-        <div class="field-group">
-            <span class="field-label">Đơn vị nhận cầm cố: </span>
-            <span class="field-value">{{StoreName}}</span>
-        </div>
-        <div class="field-group">
-            <span class="field-label">Người đại diện: </span>
-            <span class="field-value">{{Representative}}</span>
-        </div>
-        <div class="field-group">
-            <span class="field-label">Địa chỉ: </span>
-            <span class="field-value">{{StoreAddress}}</span>
-        </div>
-        <div class="field-group">
-            <span class="field-label">Số điện thoại/Hotline: </span>
-            <span class="field-value">{{StorePhone}}</span>
-        </div>
+        <div class="section-title">Bên B (Bên nhận cầm cố tài sản):</div>
+        <div class="field-group"><span class="field-label">Đơn vị: </span><span class="field-value">{{StoreName}}</span></div>
+        <div class="field-group"><span class="field-label">Người đại diện: </span><span class="field-value">{{Representative}}</span></div>
+        <div class="field-group"><span class="field-label">Địa chỉ: </span><span class="field-value">{{StoreAddress}}</span></div>
+        <div class="field-group"><span class="field-label">Hotline: </span><span class="field-value">{{StorePhone}}</span></div>
 
-        <p class="text-justify">Hai bên đồng ý thực hiện việc cầm cố tài sản với những thoả thuận sau đây:</p>
-
-        <!-- ĐIỀU 1 -->
-        <div class="section-title">Điều 1: Nghĩa vụ được bảo đảm</div>
+        <div class="section-title">Điều 1: Số tiền vay & Lãi suất</div>
         <div class="text-justify">
-            1. Bên A đồng ý cầm cố tài sản thuộc quyền sở hữu của mình để bảo đảm thực hiện nghĩa vụ trả nợ cho Bên B
-            (bao gồm: nợ gốc, lãi vay, lãi quá hạn và phí).<br>
-            2. Số tiền mà Bên B cho Bên A vay thực tế là: <span class="font-bold">{{LoanAmount}} đ</span>
-            (Bằng chữ: <span class="font-bold">{{LoanAmountText}}</span>).<br>
-            Lãi suất thỏa thuận áp dụng là: <span class="font-bold">{{InterestRate}}</span> (đáp ứng theo quy định pháp
-            luật hiện hành và chính sách hệ thống).
+            1. Số tiền cho vay: <span class="font-bold">{{LoanAmount}} VNĐ</span> (Bằng chữ: <span class="font-bold">{{LoanAmountText}}</span>).<br>
+            2. Lãi suất thỏa thuận: <span class="font-bold">{{InterestRate}}</span>.<br>
+            3. Ngày vay: <span class="font-bold">{{LoanStartDate}}</span> | Hạn trả gốc: <span class="font-bold">{{LoanEndDate}}</span>.
         </div>
 
-        <!-- ĐIỀU 2 -->
         <div class="section-title">Điều 2: Tài sản cầm cố</div>
         <div class="text-justify">
-            1. Tài sản cầm cố thuộc phân loại: <span class="font-bold">{{AssetType}}</span>, có các đặc điểm chi tiết
-            như sau:<br>
-            <span class="font-bold">{{AssetDetail}}</span><br>
-            2. Bên A cam đoan và chịu hoàn toàn trách nhiệm pháp lý là chủ sở hữu hợp pháp duy nhất của tài sản cầm cố
-            nêu trên.<br>
-            3. Hai bên thống nhất tài sản cầm cố nêu trên sẽ do <span class="font-bold">Bên B</span> trực tiếp niêm
-            phong và lưu giữ tại kho bãi bảo quản của hệ thống.
+            1. Loại tài sản: <span class="font-bold">{{AssetType}}</span>.<br>
+            2. Chi tiết tài sản: <span class="font-bold">{{AssetDetail}}</span>.<br>
+            3. Bên A cam đoan tài sản thuộc quyền sở hữu hợp pháp duy nhất của Bên A.
         </div>
 
-        <!-- ĐIỀU 3 -->
-        <div class="section-title">Điều 3: Giá trị tài sản cầm cố</div>
+        <div class="section-title">Điều 3: Cam kết chung & Xử lý tài sản</div>
         <div class="text-justify">
-            1. Giá trị của tài sản cầm cố nêu trên được hai bên tạm tính tương đương với nghĩa vụ bảo đảm thực tế hoặc
-            dựa trên giá trị thẩm định tại thời điểm ký kết.<br>
-            2. Việc xác định giá trị của tài sản cầm cố nêu trên chỉ để làm cơ sở xác định hạn mức cho vay của Bên B,
-            không áp dụng làm giá bán cố định khi xử lý tài sản để thu hồi nợ nếu xảy ra quá hạn thanh lý.
-        </div>
-
-        <!-- ĐIỀU 4 -->
-        <div class="section-title">Điều 4: Nghĩa vụ và quyền của Bên A</div>
-        <div class="text-justify">
-            <span class="font-bold">1. Nghĩa vụ của Bên A:</span><br>
-            - Giao tài sản cầm cố nêu trên và toàn bộ bản gốc các giấy tờ liên quan (đăng ký xe, hóa đơn sắm sửa nếu có)
-            cho Bên B bảo quản theo đúng thỏa thuận;<br>
-            - Cam đoan và thông báo trung thực cho Bên B về mọi quyền lợi của bên thứ ba đối với tài sản (nếu có);<br>
-            - Thanh toán cho Bên B các khoản chi phí phát sinh hợp lý liên quan đến việc lưu kho, bảo quản tài sản;<br>
-            - Trong suốt thời gian cầm cố, Bên A không được bán, trao đổi, tặng cho hoặc đem tài sản này đi cầm cố ở bất
-            kỳ nơi nào khác.<br>
-            <span class="font-bold">2. Quyền của Bên A:</span><br>
-            - Yêu cầu Bên B ngừng sử dụng tài sản cầm cố trái phép hoặc bảo quản không đúng quy cách làm suy giảm giá
-            trị;<br>
-            - Nhận lại đầy đủ tài sản và các giấy tờ gốc đi kèm ngay sau khi hoàn thành toàn bộ nghĩa vụ trả nợ gốc và
-            lãi phí cho Bên B;<br>
-            - Yêu cầu bồi thường thiệt hại thực tế theo giá thị trường nếu Bên B làm mất hoặc hư hỏng tài sản cầm cố.
-        </div>
-
-        <!-- ĐIỀU 5 -->
-        <div class="section-title">Điều 5: Nghĩa vụ và quyền của Bên B</div>
-        <div class="text-justify">
-            <span class="font-bold">1. Nghĩa vụ của Bên B:</span><br>
-            - Giữ gìn, bảo quản tài sản cầm cố và các giấy tờ liên quan an toàn trong suốt thời hạn hợp đồng. Chịu trách
-            nhiệm bồi thường nếu để xảy ra hư hỏng, mất mát do lỗi chủ quan;<br>
-            - Không được tự ý bán, trao đổi, tặng cho hoặc mang tài sản cầm cố của Bên A đi bảo đảm cho các nghĩa vụ tài
-            chính khác;<br>
-            - Trả lại nguyên trạng tài sản và các giấy tờ cho Bên A ngay khi chấm dứt hợp đồng.<br>
-            <span class="font-bold">2. Quyền của Bên B:</span><br>
-            - Yêu cầu xử lý tài sản cầm cố theo phương thức đã thỏa thuận hoặc quy định pháp luật khi Bên A vi phạm
-            nghĩa vụ trả nợ quá thời hạn cam kết;<br>
-            - Được Bên A thanh toán đầy đủ các khoản chi phí bảo quản thực tế khi thực hiện nhận lại tài sản.
-        </div>
-
-        <!-- ĐIỀU 6 -->
-        <div class="section-title">Điều 6: Việc nộp lệ phí công chứng / Chi phí hành chính</div>
-        <div class="text-justify">
-            Mọi chi phí liên quan đến việc lập hợp đồng, in ấn chứng từ hoặc công chứng (nếu có phát sinh theo yêu cầu)
-            sẽ do hai bên cùng thỏa thuận chi trả hoặc khấu trừ trực tiếp theo thực tế.
-        </div>
-
-        <!-- ĐIỀU 7 -->
-        <div class="section-title">Điều 7: Xử lý tài sản cầm cố</div>
-        <div class="text-justify">
-            1. Khi hết thời hạn thực hiện nghĩa vụ thanh toán mà Bên A không thanh toán hoặc thanh toán không đầy đủ nợ
-            gốc và lãi phí, Bên B có toàn quyền thực hiện việc xử lý/thanh lý tài sản cầm cố theo các phương thức: Tự
-            bán, thanh lý thu hồi vốn trực tiếp hoặc chuyển nhượng cho bên thứ ba.<br>
-            2. Số tiền thu được từ việc thanh lý tài sản sẽ ưu tiên khấu trừ theo thứ tự: Chi phí xử lý/bảo quản tài
-            sản, nợ gốc vay, tiền lãi phí định kỳ, lãi quá hạn. Phần còn dư (nếu có) sẽ được hoàn trả lại cho Bên A; nếu
-            thiếu, Bên A vẫn có nghĩa vụ phải tiếp tục thanh toán phần nợ còn thiếu.
-        </div>
-
-        <!-- ĐIỀU 8 -->
-        <div class="section-title">Điều 8: Phương thức giải quyết tranh chấp</div>
-        <div class="text-justify">
-            Trong quá trình thực hiện hợp đồng, nếu phát sinh tranh chấp, hai bên ưu tiên cùng thương lượng giải quyết
-            trên tinh thần hợp tác. Trường hợp không thể thương lượng thống nhất, vụ việc sẽ được đưa ra Tòa án có thẩm
-            quyền tại địa phương để phân xử theo pháp luật.
-        </div>
-
-        <!-- ĐIỀU 9 -->
-        <div class="section-title">Điều 9: Cam đoan của các bên</div>
-        <div class="text-justify">
-            Hai bên cam đoan thông tin nhân thân, pháp lý và mô tả tài sản trong hợp đồng này hoàn toàn trung thực, tự
-            nguyện giao kết không bị ép buộc, và cam kết thực hiện nghiêm túc toàn bộ điều khoản.
-        </div>
-
-        <!-- ĐIỀU 10 -->
-        <div class="section-title">Điều 10: Điều khoản cuối cùng</div>
-        <div class="text-justify">
-            1. Hợp đồng này được lập thành 02 bản có giá trị pháp lý như nhau, mỗi bên giữ 01 bản để theo dõi thực
-            hiện.<br>
-            2. Hợp đồng có hiệu lực pháp lý kể từ thời điểm hai bên hoàn thành việc ký kết và nhận bàn giao tiền, tài
-            sản thực tế.
+            1. Bên B có trách nhiệm bảo quản nguyên vẹn tài sản cầm cố trong thời gian cầm cố.<br>
+            2. Nếu quá thời hạn cam kết mà Bên A không chuộc tài sản hoặc gia hạn, Bên B có toàn quyền thanh lý tài sản để thu hồi nợ theo thỏa thuận.
         </div>
     </div>
 
-    <!-- KHU VỰC CHỮ KÝ -->
     <div class="signatures">
         <table class="signature-table">
             <tr>
                 <td>
                     <span class="font-bold text-uppercase">Bên A (Bên Cầm Cố)</span><br>
-                    <span>(Ký, điểm chỉ và ghi rõ họ tên)</span>
+                    <span>(Ký và ghi rõ họ tên)</span>
                     <div class="signature-space"></div>
                     <span class="font-bold">{{CustomerName}}</span>
                 </td>
                 <td>
                     <span class="font-bold text-uppercase">Bên B (Bên Nhận Cầm Cố)</span><br>
-                    <span>(Ký, đóng dấu và ghi rõ họ tên)</span>
+                    <span>(Ký và đóng dấu)</span>
                     <div class="signature-space"></div>
                     <span class="font-bold">{{Representative}}</span>
                 </td>
             </tr>
         </table>
     </div>
-
 </body>
-
 </html>

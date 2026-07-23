@@ -262,13 +262,70 @@ router.post("/bootstrap", async (req, res) => {
   }
 });
 
-// 2. Login Endpoint
+// 2a. Pre-check Endpoint (Anti-DDoS & Account Status Check)
+router.post("/login-check", async (req, res) => {
+  try {
+    const { username } = req.body;
+
+    if (!username) {
+      return res.status(400).json({ error: "Vui lòng nhập tên đăng nhập!" });
+    }
+
+    const employee = await prisma.employee.findUnique({
+      where: { username: String(username).trim() },
+    });
+
+    if (!employee) {
+      return res.status(401).json({ error: "Tên đăng nhập không tồn tại trên hệ thống!" });
+    }
+
+    if (employee.status !== "active" || (employee.failed_login_attempts && employee.failed_login_attempts >= 5)) {
+      return res.status(403).json({
+        error: "Tài khoản của bạn đã bị tạm khóa do nhập sai mật khẩu quá 5 lần. Vui lòng liên hệ Admin để mở khóa!"
+      });
+    }
+
+    // Generate a 60-second precheck token for login authorization
+    const precheckToken = jwt.sign(
+      { id: employee.id, username: employee.username, type: "precheck" },
+      JWT_SECRET,
+      { expiresIn: "60s" }
+    );
+
+    return res.json({
+      allowed: true,
+      username: employee.username,
+      precheck_token: precheckToken,
+      failed_login_attempts: employee.failed_login_attempts || 0,
+    });
+  } catch (error: any) {
+    return res.status(500).json({ error: error.message });
+  }
+});
+
+// 2b. Login Endpoint (Protected by precheck_token)
 router.post("/login", async (req, res) => {
   try {
-    const { username, password } = req.body;
+    const { username, password, precheck_token } = req.body;
 
     if (!username || !password) {
-      return res.status(400).json({ error: "Username and password are required" });
+      return res.status(400).json({ error: "Vui lòng nhập tên đăng nhập và mật khẩu!" });
+    }
+
+    if (!precheck_token) {
+      return res.status(403).json({
+        error: "Yêu cầu đăng nhập không hợp lệ. Vui lòng thông qua bước kiểm tra trước (login-check)!"
+      });
+    }
+
+    // Verify precheck token
+    try {
+      const decoded: any = jwt.verify(precheck_token, JWT_SECRET);
+      if (decoded.type !== "precheck" || decoded.username !== username) {
+        return res.status(403).json({ error: "Pre-check token không hợp lệ hoặc đã hết hạn!" });
+      }
+    } catch (err) {
+      return res.status(403).json({ error: "Pre-check token hết hạn hoặc không hợp lệ. Vui lòng thử lại!" });
     }
 
     const employee = await prisma.employee.findUnique({
@@ -287,13 +344,49 @@ router.post("/login", async (req, res) => {
       },
     });
 
-    if (!employee || employee.status !== "active") {
-      return res.status(401).json({ error: "Invalid username or account is suspended" });
+    if (!employee) {
+      return res.status(401).json({ error: "Tên đăng nhập hoặc mật khẩu không chính xác" });
+    }
+
+    if (employee.status !== "active") {
+      return res.status(403).json({
+        error: "Tài khoản đã bị tạm khóa do nhập sai mật khẩu quá 5 lần. Vui lòng liên hệ Admin để mở khóa!"
+      });
     }
 
     const passwordMatch = await bcrypt.compare(password, employee.password_hash);
     if (!passwordMatch) {
-      return res.status(401).json({ error: "Invalid password" });
+      const newAttempts = (employee.failed_login_attempts || 0) + 1;
+      if (newAttempts >= 5) {
+        await prisma.employee.update({
+          where: { id: employee.id },
+          data: {
+            failed_login_attempts: newAttempts,
+            status: "locked",
+          },
+        });
+        return res.status(403).json({
+          error: "Tài khoản của bạn đã bị tạm khóa do nhập sai mật khẩu 5 lần liên tiếp. Vui lòng liên hệ Admin để mở khóa!"
+        });
+      } else {
+        await prisma.employee.update({
+          where: { id: employee.id },
+          data: {
+            failed_login_attempts: newAttempts,
+          },
+        });
+        return res.status(401).json({
+          error: `Mật khẩu không chính xác! (Lần sai: ${newAttempts}/5). Sai 5 lần liên tiếp tài khoản sẽ bị tạm khóa.`
+        });
+      }
+    }
+
+    // Success login -> Reset failed attempts
+    if (employee.failed_login_attempts > 0) {
+      await prisma.employee.update({
+        where: { id: employee.id },
+        data: { failed_login_attempts: 0 },
+      });
     }
 
     const token = jwt.sign(

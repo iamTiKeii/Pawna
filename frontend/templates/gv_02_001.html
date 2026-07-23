@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <title>Giấy Chứng Nhận Góp Vốn - {{ContractCode}}</title>
+  <style>
+    @page { size: A4; margin: 12mm 15mm; }
+    body { font-family: "Times New Roman", Times, serif; font-size: 13px; line-height: 1.45; color: #000; margin: 0; padding: 0; }
+    .text-center { text-align: center; }
+    .font-bold { font-weight: bold; }
+    .text-uppercase { text-transform: uppercase; }
+
+    .header-table { width: 100%; border-collapse: collapse; margin-bottom: 15px; }
+    .header-table td { vertical-align: top; border: none; }
+
+    .ticket-title { text-align: center; margin: 15px 0 10px 0; }
+    .ticket-title h2 { margin: 0; font-size: 17px; font-weight: bold; }
+
+    .info-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+    .info-table td { padding: 4px 0; border: none; vertical-align: top; }
+    .label { font-weight: bold; width: 130px; display: inline-block; }
+
+    .box-amount { border: 1.5px dashed #000; padding: 8px 12px; margin: 12px 0; background-color: #fafafa; }
+
+    .signatures { margin-top: 25px; page-break-inside: avoid; }
+    .signature-table { width: 100%; border-collapse: collapse; }
+    .signature-table td { width: 50%; text-align: center; vertical-align: top; border: none; }
+    .signature-space { height: 65px; }
+  </style>
+</head>
+<body>
+  <table class="header-table">
+    <tr>
+      <td style="width: 55%;">
+        <div class="font-bold text-uppercase" style="font-size: 15px;">{{StoreName}}</div>
+        <div>Đ/C: {{StoreAddress}}</div>
+        <div>Hotline: {{StorePhone}}</div>
+      </td>
+      <td style="width: 45%; text-align: right;">
+        <div class="font-bold">MÃ HĐ: {{ContractCode}}</div>
+        <div>Ngày chứng nhận: {{ContractDate}}</div>
+      </td>
+    </tr>
+  </table>
+
+  <div class="ticket-title">
+    <h2 class="text-uppercase">GIẤY CHỨNG NHẬN GÓP VỐN ĐẦU TƯ</h2>
+    <p style="font-style: italic; margin-top: 2px;">(Xác nhận phần vốn góp đầu tư tại hệ thống)</p>
+  </div>
+
+  <table class="info-table">
+    <tr>
+      <td><span class="label">Nhà đầu tư:</span> <span class="font-bold">{{InvestorName}}</span></td>
+      <td><span class="label">Điện thoại:</span> <span class="font-bold">{{InvestorPhone}}</span></td>
+    </tr>
+    <tr>
+      <td colspan="2"><span class="label">CCCD/CMND:</span> <span class="font-bold">{{IdentityNumber}}</span> (Ngày cấp: {{IdentityIssueDate}})</td>
+    </tr>
+    <tr>
+      <td colspan="2"><span class="label">Địa chỉ:</span> {{InvestorAddress}}</td>
+    </tr>
+  </table>
+
+  <div class="box-amount">
+    <div>- Số tiền vốn góp: <span class="font-bold" style="font-size: 15px;">{{LoanAmount}} VNĐ</span> (Bằng chữ: <i>{{LoanAmountText}}</i>)</div>
+    <div>- Lợi tức / Lãi suất thỏa thuận: <span class="font-bold">{{InterestRate}}</span></div>
+    <div>- Ngày góp vốn: <b>{{LoanStartDate}}</b> &nbsp;|&nbsp; Ngày hoàn gốc dự kiến: <b>{{LoanEndDate}}</b></div>
+  </div>
+
+  <div class="signatures">
+    <table class="signature-table">
+      <tr>
+        <td>
+          <div class="font-bold text-uppercase">Nhà Đầu Tư</div>
+          <div style="font-size: 11px;">(Ký và ghi rõ họ tên)</div>
+          <div class="signature-space"></div>
+          <div class="font-bold">{{InvestorName}}</div>
+        </td>
+        <td>
+          <div class="font-bold text-uppercase">Đại Diện Hệ Thống</div>
+          <div style="font-size: 11px;">(Ký & đóng dấu)</div>
+          <div class="signature-space"></div>
+          <div class="font-bold">{{Representative}}</div>
+        </td>
+      </tr>
+    </table>
+  </div>
+</body>
+</html>

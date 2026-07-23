@@ -6,10 +6,19 @@ export const authApi = {
   getStatus: () =>
     apiClient.get<AuthStatusResponse>("/api/auth/status").then((r) => r.data),
 
-  /** Đăng nhập */
-  login: (username: string, password: string) =>
+  /** Pre-check trước khi đăng nhập (Kiểm tra tài khoản & cấp token precheck chống DDoS) */
+  loginCheck: (username: string) =>
     apiClient
-      .post<LoginResponse>("/api/auth/login", { username, password })
+      .post<{ allowed: boolean; username: string; precheck_token: string; failed_login_attempts: number }>(
+        "/api/auth/login-check",
+        { username }
+      )
+      .then((r) => r.data),
+
+  /** Đăng nhập (Yêu cầu precheck_token) */
+  login: (username: string, password: string, precheckToken?: string) =>
+    apiClient
+      .post<LoginResponse>("/api/auth/login", { username, password, precheck_token: precheckToken })
       .then((r) => r.data),
 
   /** Khởi tạo hệ thống lần đầu */

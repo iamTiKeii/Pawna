@@ -42,7 +42,15 @@ export const Login: React.FC = () => {
 
     try {
       setLoading(true);
-      const data = await authApi.login(username, password);
+      // Bước 1: Login Check (Kiểm tra tài khoản tồn tại/khóa & cấp precheck token chống DDoS)
+      const checkRes = await authApi.loginCheck(username);
+      if (!checkRes.allowed || !checkRes.precheck_token) {
+        toast.error("Kiểm tra thông tin đăng nhập không hợp lệ.");
+        return;
+      }
+
+      // Bước 2: Đăng nhập chính thức kèm precheck_token
+      const data = await authApi.login(username, password, checkRes.precheck_token);
       login(data.token, data.user, data.refreshToken || data.token_id);
     } catch (err: any) {
       toast.error(

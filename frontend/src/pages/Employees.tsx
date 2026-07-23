@@ -202,16 +202,17 @@ export const Employees: React.FC = () => {
 
   const handleResetPassword = (emp: Employee, e: React.MouseEvent) => {
     confirm({
-      title: "Khởi tạo lại tài khoản",
-      message: `Bạn có chắc chắn muốn đặt lại mật khẩu cho nhân viên ${emp.username}? Mật khẩu mới sẽ được đặt trùng khớp với tên đăng nhập (username: ${emp.username}).`,
+      title: "Reset mật khẩu & Mở khóa",
+      message: `Bạn có chắc chắn muốn đặt lại mật khẩu và mở khóa cho nhân viên ${emp.username}? Mật khẩu mới sẽ là tên đăng nhập ("${emp.username}") và tài khoản sẽ được mở khóa hoạt động trở lại.`,
       type: "warning",
       event: e,
       onConfirm: async () => {
         try {
           await axios.post(`/api/employees/${emp.id}/reset-password`);
-          toast.success(`Đặt lại mật khẩu cho nhân viên ${emp.username} thành công!`);
+          toast.success(`Đã reset mật khẩu = '${emp.username}' và mở khóa tài khoản thành công!`);
+          fetchData();
         } catch (err: any) {
-          toast.error(err.response?.data?.error || "Không thể đặt lại mật khẩu.");
+          toast.error(err.response?.data?.error || "Không thể mở khóa/đặt lại mật khẩu.");
         }
       },
     });
@@ -433,12 +434,14 @@ export const Employees: React.FC = () => {
                           {emp.created_at ? new Date(emp.created_at).toLocaleDateString("vi-VN") : "---"}
                         </td>
                         <td>
-                          <span className={`badge font-medium badge-xs py-2 px-2 border-none uppercase ${
+                          <span className={`badge font-semibold badge-xs py-2 px-2.5 border-none uppercase ${
                             emp.status === "active" 
                               ? "bg-green-100 text-green-800" 
+                              : emp.status === "locked"
+                              ? "bg-red-100 text-red-700"
                               : "bg-slate-100 text-slate-500"
                           }`}>
-                            {emp.status === "active" ? "Hoạt động" : "Tạm khoá"}
+                            {emp.status === "active" ? "Hoạt động" : emp.status === "locked" ? "Tạm khóa (sai pass)" : "Vô hiệu hóa"}
                           </span>
                         </td>
                         <td className="py-2.5">

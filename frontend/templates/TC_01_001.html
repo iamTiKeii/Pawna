@@ -1,326 +1,92 @@
 <!DOCTYPE html>
 <html lang="vi">
-
 <head>
     <meta charset="UTF-8">
-    <title>Hợp Đồng Vay Tín Dụng - {{ContractCode}}</title>
+    <title>Hợp Đồng Cho Vay Tín Chấp - {{ContractCode}}</title>
     <style>
-        @page {
-            size: A4;
-            margin: 20mm 15mm 20mm 15mm;
-        }
+        @page { size: A4; margin: 15mm; }
+        body { font-family: "Times New Roman", Times, serif; font-size: 13.5px; line-height: 1.5; color: #000; margin: 0; padding: 0; }
+        .text-center { text-align: center; }
+        .font-bold { font-weight: bold; }
+        .text-uppercase { text-transform: uppercase; }
 
-        body {
-            font-family: "Times New Roman", Times, serif;
-            font-size: 14px;
-            line-height: 1.6;
-            color: #000;
-            margin: 0;
-            padding: 0;
-        }
+        .national-brand { margin-bottom: 20px; text-align: center; }
+        .national-brand h3 { margin: 0; font-size: 14px; }
+        .national-brand h4 { margin: 4px 0 0 0; font-size: 13px; }
+        .line-separator { width: 140px; border-bottom: 1px solid #000; margin: 6px auto 0 auto; }
 
-        .text-center {
-            text-align: center;
-        }
+        .contract-title { text-align: center; margin: 20px 0 15px 0; }
+        .contract-title h2 { margin: 0; font-size: 17px; font-weight: bold; }
 
-        .text-right {
-            text-align: right;
-        }
+        .section-title { font-weight: bold; text-transform: uppercase; margin-top: 12px; margin-bottom: 4px; font-size: 13.5px; }
+        .field-group { margin-bottom: 5px; }
+        .field-label { display: inline; }
+        .field-value { font-weight: bold; display: inline; }
 
-        .text-justify {
-            text-align: justify;
-        }
-
-        .font-bold {
-            font-weight: bold;
-        }
-
-        .text-uppercase {
-            text-transform: uppercase;
-        }
-
-        .national-brand {
-            margin-bottom: 25px;
-        }
-
-        .national-brand h3 {
-            margin: 0;
-            font-size: 14px;
-            letter-spacing: 1px;
-        }
-
-        .national-brand h4 {
-            margin: 5px 0 0 0;
-            font-size: 13px;
-        }
-
-        .line-separator {
-            width: 150px;
-            border-bottom: 1px solid #000;
-            margin: 8px auto 0 auto;
-        }
-
-        .contract-title {
-            margin: 30px 0 20px 0;
-        }
-
-        .contract-title h2 {
-            margin: 0;
-            font-size: 17px;
-        }
-
-        .contract-title p {
-            margin: 5px 0 0 0;
-            font-style: italic;
-        }
-
-        .section-title {
-            font-weight: bold;
-            text-transform: uppercase;
-            margin-top: 15px;
-            margin-bottom: 5px;
-            font-size: 14px;
-        }
-
-        .field-group {
-            margin-bottom: 6px;
-        }
-
-        .field-label {
-            display: inline;
-        }
-
-        .field-value {
-            font-weight: bold;
-            display: inline;
-        }
-
-        .signatures {
-            margin-top: 40px;
-            page-break-inside: avoid;
-        }
-
-        .signature-table {
-            width: 100%;
-            border-collapse: collapse;
-            border: none;
-        }
-
-        .signature-table td {
-            border: none;
-            width: 50%;
-            text-align: center;
-            vertical-align: top;
-            padding: 10px;
-        }
-
-        .signature-space {
-            height: 80px;
-        }
-
-        @media print {
-            body {
-                width: 100%;
-            }
-
-            .no-print {
-                display: none;
-            }
-        }
+        .signatures { margin-top: 30px; page-break-inside: avoid; }
+        .signature-table { width: 100%; border-collapse: collapse; }
+        .signature-table td { width: 50%; text-align: center; vertical-align: top; border: none; }
+        .signature-space { height: 75px; }
     </style>
 </head>
-
 <body>
-
-    <!-- Quốc hiệu & Tiêu ngữ -->
-    <div class="text-center national-brand">
+    <div class="national-brand">
         <h3 class="font-bold">CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM</h3>
         <h4 class="font-bold">Độc lập - Tự do - Hạnh phúc</h4>
         <div class="line-separator"></div>
     </div>
 
-    <!-- Tiêu đề Hợp đồng -->
-    <div class="text-center contract-title">
-        <h2 class="font-bold">HỢP ĐỒNG VAY TÍN DỤNG</h2>
-        <p>Số: {{ContractCode}}</p>
+    <div class="contract-title">
+        <h2 class="text-uppercase">HỢP ĐỒNG CHO VAY TÍN CHẤP TEÔ DÙNG</h2>
+        <p style="font-style: italic; margin-top: 3px;">Số: {{ContractCode}}</p>
     </div>
 
-    <div class="content-body">
-        <div class="text-justify field-group">
-            - Căn cứ Bộ Luật Dân sự năm 2015 và các văn bản pháp luật liên quan.<br>
-            - Căn cứ vào nhu cầu huy động và cho vay tài sản của các bên.<br><br>
-            Hôm nay, ngày <span class="field-value">{{ContractDate}}</span>, chúng tôi gồm có:
-        </div>
+    <div class="field-group">Hôm nay, ngày <span class="field-value">{{ContractDate}}</span>, các bên gồm có:</div>
 
-        <!-- BÊN VAY (BÊN A) -->
-        <div class="section-title">BÊN VAY (BÊN A)</div>
-        <div class="field-group">
-            <span class="field-label">Họ và tên: </span>
-            <span class="field-value">{{CustomerName}}</span>
-        </div>
-        <div class="field-group">
-            <span class="field-label">Địa chỉ: </span>
-            <span class="field-value">{{CustomerAddress}}</span>
-        </div>
-        <div class="field-group">
-            <span class="field-label">Điện thoại số: </span>
-            <span class="field-value">{{CustomerPhone}}</span>
-        </div>
-        <div class="field-group">
-            <span class="field-label">Chứng minh thư/CCCD số: </span>
-            <span class="field-value">{{IdentityNumber}}</span>
-            &nbsp;&nbsp;&nbsp;&nbsp;
-            <span class="field-label">Do: </span>
-            <span class="field-value">{{IdentityIssuePlace}}</span>
-            &nbsp;&nbsp;&nbsp;&nbsp;
-            <span class="field-label">Cấp ngày: </span>
-            <span class="field-value">{{IdentityIssueDate}}</span>
-        </div>
-        <div class="field-group">
-            <span class="field-label">Tài khoản số: </span>
-            <span class="field-value">{{CustomerBankAccount}}</span>
-            <!-- Nếu hệ thống chưa truyền khóa này, có thể để trống hoặc thay đổi tùy ý -->
-            &nbsp;&nbsp;&nbsp;&nbsp;
-            <span class="field-label">Mở tại: </span>
-            <span class="field-value">{{CustomerBankName}}</span>
-        </div>
-
-        <!-- BÊN CHO VAY (BÊN B) -->
-        <div class="section-title">BÊN CHO VAY (BÊN B)</div>
-        <div class="field-group">
-            <span class="field-label">Đơn vị cho vay: </span>
-            <span class="field-value">{{StoreName}}</span>
-        </div>
-        <div class="field-group">
-            <span class="field-label">Người đại diện: </span>
-            <span class="field-value">{{Representative}}</span>
-        </div>
-        <div class="field-group">
-            <span class="field-label">Địa chỉ: </span>
-            <span class="field-value">{{StoreAddress}}</span>
-        </div>
-        <div class="field-group">
-            <span class="field-label">Điện thoại số: </span>
-            <span class="field-value">{{StorePhone}}</span>
-        </div>
-
-        <p class="text-justify">Cùng nhau bàn bạc, thoả thuận và ký kết Hợp đồng vay tín dụng với những điều khoản cụ
-            thể như sau:</p>
-
-        <!-- ĐIỀU 1 -->
-        <div class="section-title">Điều 1: Tiền vay và mục đích vay</div>
-        <div class="text-justify">
-            1.1. Bên B đồng ý cho Bên A vay một khoản tiền theo nhu cầu vay vốn của Bên A.<br>
-            1.2. Tổng số tiền Bên B cho Bên A vay: <span class="field-value">{{LoanAmount}} VNĐ</span>
-            (Bằng chữ: <span class="field-value">{{LoanAmountText}}</span>).<br>
-            1.3. Mục đích vay: Bên A sử dụng số tiền vay phục vụ nhu cầu tiêu dùng cá nhân / hoạt động sản xuất kinh
-            doanh hợp pháp.<br>
-            1.4. Thời gian vay: Từ ngày <span class="field-value">{{LoanStartDate}}</span> đến ngày <span
-                class="field-value">{{LoanEndDate}}</span>.<br>
-            1.5. Thời gian ân hạn: Không áp dụng (hoặc theo thỏa thuận riêng giữa hai bên).<br>
-            1.6. Thời gian trả nợ gốc: Trả khi đến hạn hoặc theo các kỳ hạn đã được hệ thống ghi nhận.
-        </div>
-
-        <!-- ĐIỀU 2 -->
-        <div class="section-title">Điều 2: Phương thức và thời hạn giải ngân</div>
-        <div class="text-justify">
-            2.1. Việc giải ngân có thể thực hiện một lần hoặc làm nhiều lần tùy thuộc vào tiến độ giao dịch thực tế.<br>
-            2.2. Bên B tiến hành giải ngân trực tiếp bằng tiền mặt hoặc chuyển khoản theo yêu cầu hợp lý của Bên A sau
-            khi ký kết hợp đồng.
-        </div>
-
-        <!-- ĐIỀU 3 -->
-        <div class="section-title">Điều 3: Đồng tiền vay, lãi vay và trả nợ</div>
-        <div class="text-justify">
-            3.1. Bên A nhận nợ và thực hiện trả nợ bằng đồng Việt Nam (VND).<br>
-            3.2. Trường hợp thực hiện giao dịch bằng ngoại tệ khác (nếu có sự đồng ý của hai bên và được luật pháp cho
-            phép), tỷ giá quy đổi sẽ áp dụng theo tỷ giá công bố của ngân hàng thương mại tại thời điểm thanh toán.<br>
-            3.3. Lãi suất cho vay: <span class="field-value">{{InterestRate}}</span>.<br>
-            3.4. Việc hoàn trả nợ gốc được thực hiện đúng thời hạn quy định tại Điều 1.<br>
-            3.5. Trả lãi vay: Thực hiện theo định kỳ hằng tháng hoặc hằng kỳ đóng phí theo thỏa thuận ghi nhận trên hệ
-            thống phần mềm quản lý của Bên B.<br>
-            3.6. Bên A có thể gửi yêu cầu điều chỉnh kỳ hạn hoặc gia hạn nợ bằng văn bản trước ngày đến hạn ít nhất 15
-            ngày để Bên B xem xét giải quyết.
-        </div>
-
-        <!-- ĐIỀU 4 -->
-        <div class="section-title">Điều 4: Các biện pháp bảo đảm</div>
-        <div class="text-justify">
-            4.1. Hợp đồng cho vay này được thực hiện chủ yếu dưới hình thức tín chấp dựa trên uy tín cá nhân của Bên A.
-            Trong trường hợp có bổ sung tài sản bảo đảm hoặc thế chấp, thông tin chi tiết sẽ được ghi nhận tại phụ lục
-            hợp đồng đính kèm.<br>
-            4.2. Trường hợp đến hạn thực hiện nghĩa vụ thanh toán mà Bên A không thực hiện hoặc thực hiện không đúng,
-            không đầy đủ nghĩa vụ đối với Bên B thì Bên B có quyền áp dụng các biện pháp thu hồi nợ dân sự hoặc xử lý
-            tài sản bảo đảm (nếu có) theo đúng quy định pháp luật.
-        </div>
-
-        <!-- ĐIỀU 5 -->
-        <div class="section-title">Điều 5: Quyền và nghĩa vụ của các Bên</div>
-        <div class="text-justify">
-            <span class="font-bold">5.1. Quyền và nghĩa vụ của Bên B (Bên Cho Vay):</span><br>
-            a. Kiểm tra và giám sát việc sử dụng vốn vay của Bên A theo đúng mục đích cam kết;<br>
-            b. Yêu cầu Bên A cung cấp các thông tin, chứng từ chứng minh khả năng tài chính và nguồn thu nhập khi cần
-            thiết;<br>
-            c. Có quyền điều chỉnh kỳ hạn nợ hoặc gia hạn nợ dựa trên văn bản thỏa thuận bổ sung giữa hai bên;<br>
-            d. Cung cấp đầy đủ và đúng hạn số tiền vay đã cam kết cho Bên A;<br>
-            e. Bảo mật các thông tin cá nhân và giao dịch của Bên A theo đúng quy định của pháp luật.<br><br>
-            <span class="font-bold">5.2. Quyền và nghĩa vụ của Bên A (Bên Vay):</span><br>
-            a. Được nhận số tiền giải ngân đầy đủ và đúng hạn theo thỏa thuận;<br>
-            b. Có quyền hoàn trả nợ gốc và lãi trước thời hạn (áp dụng theo quy định phí tất toán trước hạn nếu có);<br>
-            c. Đề nghị Bên B xem xét điều chỉnh kỳ hạn trả nợ hoặc gia hạn nợ khi gặp khó khăn khách quan;<br>
-            d. Cung cấp đầy đủ, chính xác, trung thực các thông tin cá nhân, tình trạng tài chính và các giấy tờ liên
-            quan;<br>
-            e. Sử dụng vốn vay đúng mục đích và thanh toán đầy đủ, đúng hạn cả gốc lẫn lãi cho Bên B theo đúng cam kết
-            trong Hợp đồng.
-        </div>
-
-        <!-- ĐIỀU 6 -->
-        <div class="section-title">Điều 6: Tuyên bố và đảm bảo của Bên vay</div>
-        <div class="text-justify">
-            Bên A tuyên bố và tự nguyện cam kết rằng các thông tin nhân thân, công việc và thu nhập cung cấp cho Bên B
-            là hoàn toàn trung thực. Bên A hoàn toàn chịu trách nhiệm trước pháp luật về việc hoàn thành nghĩa vụ thanh
-            toán khoản vay đúng hạn và chấp nhận chịu các chế tài xử lý nợ quá hạn nếu vi phạm cam kết thanh toán.
-        </div>
-
-        <!-- ĐIỀU 7 -->
-        <div class="section-title">Điều 7: Tuyên bố và đảm bảo của Bên cho vay</div>
-        <div class="text-justify">
-            Bên B cam kết nguồn tiền giải ngân cho vay là hoàn toàn hợp pháp và thuộc quyền sở hữu của đơn vị. Bên B có
-            nghĩa vụ thực hiện việc giải ngân nhanh chóng và tuân thủ các điều khoản bảo mật thông tin khách hàng đúng
-            cam kết.
-        </div>
-
-        <!-- ĐIỀU 8 -->
-        <div class="section-title">Điều 8: Điều khoản cuối cùng</div>
-        <div class="text-justify">
-            8.1. Hai bên cam kết thực hiện nghiêm chỉnh và đầy đủ các nội dung đã thỏa thuận trong hợp đồng.<br>
-            8.2. Mọi tranh chấp phát sinh từ hợp đồng này sẽ được ưu tiên giải quyết thông qua thương lượng và hòa giải
-            trên tinh thần tôn trọng lẫn nhau. Trường hợp không thể tự giải quyết, vụ việc sẽ được đưa ra cơ quan Tòa án
-            có thẩm quyền để giải quyết theo quy định pháp luật Việt Nam.<br>
-            8.3. Hợp đồng có giá trị pháp lý kể từ ngày hai bên hoàn thành việc ký kết.
-        </div>
+    <div class="section-title">Bên Vay Nợ (Bên A):</div>
+    <div class="field-group"><span class="field-label">Ông/Bà: </span><span class="field-value">{{CustomerName}}</span></div>
+    <div class="field-group">
+        <span class="field-label">Số CCCD/CMND: </span><span class="field-value">{{IdentityNumber}}</span> &nbsp;|&nbsp;
+        <span class="field-label">Cấp ngày: </span><span class="field-value">{{IdentityIssueDate}}</span> &nbsp;|&nbsp;
+        <span class="field-label">Tại: </span><span class="field-value">{{IdentityIssuePlace}}</span>
     </div>
+    <div class="field-group"><span class="field-label">Địa chỉ: </span><span class="field-value">{{CustomerAddress}}</span></div>
+    <div class="field-group"><span class="field-label">Điện thoại: </span><span class="field-value">{{CustomerPhone}}</span></div>
 
-    <!-- KHU VỰC CHỮ KÝ -->
+    <div class="section-title">Bên Cho Vay (Bên B):</div>
+    <div class="field-group"><span class="field-label">Đơn vị: </span><span class="field-value">{{StoreName}}</span></div>
+    <div class="field-group"><span class="field-label">Đại diện: </span><span class="field-value">{{Representative}}</span></div>
+    <div class="field-group"><span class="field-label">Địa chỉ: </span><span class="field-value">{{StoreAddress}}</span></div>
+    <div class="field-group"><span class="field-label">Hotline: </span><span class="field-value">{{StorePhone}}</span></div>
+
+    <div class="section-title">Điều 1: Nội dung vay tín chấp</div>
+    <div>1. Số tiền cho vay: <span class="font-bold">{{LoanAmount}} VNĐ</span> (Bằng chữ: <span class="font-bold">{{LoanAmountText}}</span>).</div>
+    <div>2. Lãi suất vay: <span class="font-bold">{{InterestRate}}</span>.</div>
+    <div>3. Thời hạn vay: Từ ngày <span class="font-bold">{{LoanStartDate}}</span> đến hết ngày <span class="font-bold">{{LoanEndDate}}</span>.</div>
+    <div>4. Tổng tiền lãi dự kiến: <span class="font-bold">{{TotalInterest}} VNĐ</span>.</div>
+    <div>5. Tổng tiền phải thanh toán: <span class="font-bold">{{TotalRepayment}} VNĐ</span> (Bằng chữ: <i>{{TotalRepaymentText}}</i>).</div>
+
+    <div class="section-title">Điều 2: Nghĩa vụ và cam kết của Bên A</div>
+    <div>1. Bên A cam kết sử dụng tiền vay đúng mục đích tiêu dùng hợp pháp và thanh toán đầy đủ các kỳ nợ theo đúng thỏa thuận.</div>
+    <div>2. Trường hợp quá hạn thanh toán mà không có lý do chính đáng, Bên A đồng ý chịu các chế tài xử lý nợ trễ hạn theo quy định.</div>
+
     <div class="signatures">
         <table class="signature-table">
             <tr>
                 <td>
-                    <span class="font-bold text-uppercase">BÊN VAY (BÊN A)</span><br>
-                    <span>(Ký và ghi rõ họ tên)</span>
+                    <div class="font-bold text-uppercase">Bên Vay Nợ (Bên A)</div>
+                    <div style="font-size: 11px;">(Ký và ghi rõ họ tên)</div>
                     <div class="signature-space"></div>
-                    <span class="font-bold">{{CustomerName}}</span>
+                    <div class="font-bold">{{CustomerName}}</div>
                 </td>
                 <td>
-                    <span class="font-bold text-uppercase">BÊN CHO VAY (BÊN B)</span><br>
-                    <span>(Ký, đóng dấu và ghi rõ họ tên)</span>
+                    <div class="font-bold text-uppercase">Bên Cho Vay (Bên B)</div>
+                    <div style="font-size: 11px;">(Ký và đóng dấu)</div>
                     <div class="signature-space"></div>
-                    <span class="font-bold">{{Representative}}</span>
+                    <div class="font-bold">{{Representative}}</div>
                 </td>
             </tr>
         </table>
     </div>
-
 </body>
-
 </html>

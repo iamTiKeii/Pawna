@@ -123,12 +123,12 @@ export const buildPawnContractPrintData = (
 ): Record<string, string> => {
   let rep = "Thực";
   try {
-    if (store.notes) {
+    if (store?.notes) {
       const notesObj = JSON.parse(store.notes);
       rep = notesObj.representative || "Thực";
     }
   } catch {
-    rep = store.notes || "Thực";
+    rep = store?.notes || "Thực";
   }
 
   const identityDate = contract.customer?.identity_card_date
@@ -173,9 +173,9 @@ export const buildPawnContractPrintData = (
   return {
     ContractCode: contract.contract_code || "",
     ContractDate: loanStartDate || "",
-    StoreName: store.name || "Hưng Tín",
-    StoreAddress: store.address || "",
-    StorePhone: store.phone || "",
+    StoreName: store?.name || "Hưng Tín",
+    StoreAddress: store?.address || "",
+    StorePhone: store?.phone || "",
     Representative: rep,
     CustomerName: contract.customer?.full_name || "",
     CustomerPhone: contract.customer?.phone || "",
@@ -191,6 +191,10 @@ export const buildPawnContractPrintData = (
     LoanEndDate: loanEndDate,
     InterestRate: interestRateVal,
     AssetType: assetType,
+    AssetName: contract.asset_name || "",
+    LicensePlate: contract.license_plate || "",
+    ChassisNumber: contract.chassis_number || "",
+    EngineNumber: contract.engine_number || "",
     AssetDetail: assetDetail,
   };
 };
@@ -202,12 +206,12 @@ export const buildLoanContractPrintData = (
 ): Record<string, string> => {
   let rep = "Thực";
   try {
-    if (store.notes) {
+    if (store?.notes) {
       const notesObj = JSON.parse(store.notes);
       rep = notesObj.representative || "Thực";
     }
   } catch {
-    rep = store.notes || "Thực";
+    rep = store?.notes || "Thực";
   }
 
   const identityDate = contract.customer?.identity_card_date
@@ -241,9 +245,9 @@ export const buildLoanContractPrintData = (
   return {
     ContractCode: contract.contract_code || "",
     ContractDate: loanStartDate || "",
-    StoreName: store.name || "Hưng Tín",
-    StoreAddress: store.address || "",
-    StorePhone: store.phone || "",
+    StoreName: store?.name || "Hưng Tín",
+    StoreAddress: store?.address || "",
+    StorePhone: store?.phone || "",
     Representative: rep,
     CustomerName: contract.customer?.full_name || "",
     CustomerPhone: contract.customer?.phone || "",
@@ -273,12 +277,12 @@ export const buildInstallmentPrintData = (
 ): Record<string, string> => {
   let rep = "Thực";
   try {
-    if (store.notes) {
+    if (store?.notes) {
       const notesObj = JSON.parse(store.notes);
       rep = notesObj.representative || "Thực";
     }
   } catch {
-    rep = store.notes || "Thực";
+    rep = store?.notes || "Thực";
   }
 
   const identityDate = contract.customer?.identity_card_date
@@ -320,9 +324,9 @@ export const buildInstallmentPrintData = (
   return {
     ContractCode: contract.contract_code || "",
     ContractDate: loanStartDate || "",
-    StoreName: store.name || "Hưng Tín",
-    StoreAddress: store.address || "",
-    StorePhone: store.phone || "",
+    StoreName: store?.name || "Hưng Tín",
+    StoreAddress: store?.address || "",
+    StorePhone: store?.phone || "",
     Representative: rep,
     CustomerName: contract.customer?.full_name || "",
     CustomerPhone: contract.customer?.phone || "",
@@ -344,5 +348,119 @@ export const buildInstallmentPrintData = (
     LoanDuration: String(loanDuration),
     CycleDays: String(cycleDays),
     PaymentScheduleTable: paymentScheduleTable,
+  };
+};
+
+// Map Capital Contract (Góp vốn) to standardized dictionary
+export const buildCapitalContractPrintData = (
+  contract: any,
+  store: any
+): Record<string, string> => {
+  let rep = "Thực";
+  try {
+    if (store?.notes) {
+      const notesObj = JSON.parse(store.notes);
+      rep = notesObj.representative || "Thực";
+    }
+  } catch {
+    rep = store?.notes || "Thực";
+  }
+
+  const investAmt = Number(contract.amount || contract.investment_amount || contract.loan_amount || 0);
+  const loanStartDate = contract.investment_date || contract.loan_date
+    ? new Date(contract.investment_date || contract.loan_date).toLocaleDateString("vi-VN")
+    : "";
+
+  const loanEndDate = contract.maturity_date || contract.loan_end_date
+    ? new Date(contract.maturity_date || contract.loan_end_date).toLocaleDateString("vi-VN")
+    : "—";
+
+  const investorName = contract.investor_name || contract.customer?.full_name || "Nhà đầu tư";
+  const investorPhone = contract.investor_phone || contract.customer?.phone || "";
+  const investorAddress = contract.investor_address || contract.customer?.address || "";
+  const identityNum = contract.investor_id_card || contract.customer?.identity_card_number || "";
+
+  const interestRateVal =
+    contract.interest_rate !== undefined && contract.interest_rate !== null
+      ? formatInterestRateText(Number(contract.interest_rate), contract.interest_type?.code, contract.period_value)
+      : "Thỏa thuận";
+
+  return {
+    ContractCode: contract.contract_code || "",
+    ContractDate: loanStartDate || "",
+    StoreName: store?.name || "Hưng Tín",
+    StoreAddress: store?.address || "",
+    StorePhone: store?.phone || "",
+    Representative: rep,
+    InvestorName: investorName,
+    InvestorPhone: investorPhone,
+    InvestorAddress: investorAddress,
+    IdentityNumber: identityNum,
+    IdentityIssueDate: contract.customer?.identity_card_date
+      ? new Date(contract.customer.identity_card_date).toLocaleDateString("vi-VN")
+      : "",
+    LoanAmount: formatCurrency(investAmt),
+    LoanAmountText: convertNumberToVietnameseWords(investAmt),
+    LoanStartDate: loanStartDate,
+    LoanEndDate: loanEndDate,
+    InterestRate: interestRateVal,
+  };
+};
+
+// Map Receipt Voucher (Phiếu Thu) to standardized dictionary
+export const buildReceiptVoucherPrintData = (
+  voucher: any,
+  store: any
+): Record<string, string> => {
+  const amt = Number(voucher.amount || voucher.total_amount || 0);
+  const dateStr = voucher.voucher_date || voucher.created_at
+    ? new Date(voucher.voucher_date || voucher.created_at).toLocaleDateString("vi-VN")
+    : "";
+
+  return {
+    VoucherCode: voucher.voucher_code || voucher.code || "",
+    VoucherDate: dateStr,
+    StoreName: store?.name || "Hưng Tín",
+    StoreAddress: store?.address || "",
+    StorePhone: store?.phone || "",
+    PayerName: voucher.payer_name || voucher.customer_name || voucher.customer?.full_name || "Khách hàng",
+    PayerPhone: voucher.payer_phone || voucher.customer?.phone || "",
+    PayerAddress: voucher.payer_address || voucher.customer?.address || "",
+    IdentityNumber: voucher.identity_card_number || voucher.customer?.identity_card_number || "",
+    Reason: voucher.reason || voucher.notes || "Thu tiền hoạt động / hợp đồng",
+    ContractCode: voucher.contract_code || voucher.contract?.contract_code || "—",
+    Amount: formatCurrency(amt),
+    AmountText: convertNumberToVietnameseWords(amt),
+    PaymentMethod: voucher.payment_method || "Tiền mặt",
+    CreatedBy: voucher.created_by_name || voucher.employee?.full_name || "Nhân viên thu ngân",
+  };
+};
+
+// Map Payment Voucher (Phiếu Chi) to standardized dictionary
+export const buildPaymentVoucherPrintData = (
+  voucher: any,
+  store: any
+): Record<string, string> => {
+  const amt = Number(voucher.amount || voucher.total_amount || 0);
+  const dateStr = voucher.voucher_date || voucher.created_at
+    ? new Date(voucher.voucher_date || voucher.created_at).toLocaleDateString("vi-VN")
+    : "";
+
+  return {
+    VoucherCode: voucher.voucher_code || voucher.code || "",
+    VoucherDate: dateStr,
+    StoreName: store?.name || "Hưng Tín",
+    StoreAddress: store?.address || "",
+    StorePhone: store?.phone || "",
+    ReceiverName: voucher.receiver_name || voucher.payee_name || voucher.customer_name || "Người nhận",
+    ReceiverPhone: voucher.receiver_phone || voucher.customer?.phone || "",
+    ReceiverAddress: voucher.receiver_address || voucher.customer?.address || "",
+    IdentityNumber: voucher.identity_card_number || voucher.customer?.identity_card_number || "",
+    Reason: voucher.reason || voucher.notes || "Chi tiền hoạt động / giải ngân",
+    ContractCode: voucher.contract_code || voucher.contract?.contract_code || "—",
+    Amount: formatCurrency(amt),
+    AmountText: convertNumberToVietnameseWords(amt),
+    PaymentMethod: voucher.payment_method || "Tiền mặt",
+    CreatedBy: voucher.created_by_name || voucher.employee?.full_name || "Nhân viên chi quỹ",
   };
 };

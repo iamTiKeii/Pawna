@@ -137,7 +137,7 @@ router.get("/", async (req: AuthenticatedRequest, res: Response) => {
         where: whereClause,
         include: {
           customer: {
-            select: { id: true, full_name: true, phone: true, identity_card_number: true }
+            select: { id: true, full_name: true, phone: true, identity_card_number: true, identity_card_date: true, identity_card_place: true, address: true }
           },
           collector: { select: { full_name: true } },
           payments: true
@@ -280,12 +280,18 @@ router.post("/", requirePermission(["CONTRACTS_MANAGE"]) as any, async (req: Aut
 
     const result = await prisma.$transaction(async (tx) => {
       // Update customer info if passed
-      const { customer_phone, customer_address, customer_id_card } = req.body;
+      const { customer_phone, customer_address, customer_id_card, customer_id_card_date, customer_id_card_place, identity_card_number, identity_card_date, identity_card_place } = req.body;
       if (customer_id) {
         const updateData: any = {};
         if (customer_phone !== undefined) updateData.phone = customer_phone;
         if (customer_address !== undefined) updateData.address = customer_address;
-        if (customer_id_card !== undefined) updateData.identity_card_number = customer_id_card;
+        const cardNum = customer_id_card !== undefined ? customer_id_card : identity_card_number;
+        const cardDate = customer_id_card_date !== undefined ? customer_id_card_date : identity_card_date;
+        const cardPlace = customer_id_card_place !== undefined ? customer_id_card_place : identity_card_place;
+
+        if (cardNum !== undefined) updateData.identity_card_number = cardNum;
+        if (cardDate !== undefined) updateData.identity_card_date = cardDate ? new Date(cardDate) : null;
+        if (cardPlace !== undefined) updateData.identity_card_place = cardPlace;
 
         if (Object.keys(updateData).length > 0) {
           await tx.customer.update({
@@ -387,7 +393,16 @@ router.post("/", requirePermission(["CONTRACTS_MANAGE"]) as any, async (req: Aut
         },
       });
 
-      return contract;
+      const fullContract = await tx.installmentContract.findUnique({
+        where: { id: contract.id },
+        include: {
+          customer: true,
+          collector: { select: { full_name: true } },
+          payments: true,
+        },
+      });
+
+      return fullContract || contract;
     });
 
     return res.status(201).json(result);

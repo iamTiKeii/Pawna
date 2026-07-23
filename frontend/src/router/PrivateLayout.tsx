@@ -16,24 +16,24 @@ export const PrivateLayout: React.FC<PrivateLayoutProps> = ({
   children,
   requiredPermission,
 }) => {
-  const { token, loading, hasPermission } = useAuth();
+  const { token, user, loading, hasPermission } = useAuth();
   const [profileOpen, setProfileOpen] = useState(false);
   const [passwordOpen, setPasswordOpen] = useState(false);
   const [twoFactorOpen, setTwoFactorOpen] = useState(false);
   const [shouldRedirect, setShouldRedirect] = useState(false);
 
   useEffect(() => {
-    if (token && requiredPermission) {
-      const hasAny = Array.isArray(requiredPermission)
-        ? requiredPermission.some((p) => hasPermission(p))
-        : hasPermission(requiredPermission);
+    if (loading || !token || !user || !requiredPermission) return;
 
-      if (!hasAny) {
-        toast.error("Bạn không có quyền truy cập vào chức năng này!");
-        setShouldRedirect(true);
-      }
+    const hasAny = Array.isArray(requiredPermission)
+      ? requiredPermission.some((p) => hasPermission(p))
+      : hasPermission(requiredPermission);
+
+    if (!hasAny) {
+      toast.error("Bạn không có quyền truy cập vào chức năng này!");
+      setShouldRedirect(true);
     }
-  }, [token, requiredPermission, hasPermission]);
+  }, [loading, token, user, requiredPermission, hasPermission]);
 
   if (loading) {
     return (

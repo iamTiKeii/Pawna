@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
-import { X, BookOpen, Info } from "lucide-react";
+import { X, BookOpen, Info, Printer } from "lucide-react";
 import type { ContractFormConfig } from "./contract.config";
-import { ContractCustomerSection } from "./ContractCustomerSection";
+import { ContractCustomerSection, formatDateForInput } from "./ContractCustomerSection";
 import { ContractGoodsSection, ContractAssetAttributesSection } from "./ContractGoodsSection";
 import { ContractLoanSection } from "./ContractLoanSection";
 import { ContractInterestSection } from "./ContractInterestSection";
@@ -11,13 +11,13 @@ import { ContractNoteSection } from "./ContractNoteSection";
 import { StandardLoanInfoSection } from "./StandardLoanInfoSection";
 import { convertDaysToDisplayUnit } from "../../utils/durationUtils";
 
-
 export interface ContractFormProps {
   config: ContractFormConfig;
   isOpen: boolean;
   onClose: () => void;
   onSubmit: (formData: any) => void | Promise<void>;
-  initialData?: any; // populated when editing
+  onPrint?: (contractData: any) => void;
+  initialData?: any; // populated when editing or newly created
   // lookup collections
   staffs: any[];
   collaborators: any[];
@@ -34,6 +34,7 @@ export const ContractForm: React.FC<ContractFormProps> = ({
   isOpen,
   onClose,
   onSubmit,
+  onPrint,
   initialData,
   staffs,
   collaborators,
@@ -83,7 +84,7 @@ export const ContractForm: React.FC<ContractFormProps> = ({
     setState((prev: any) => ({ ...prev, ...updates }));
   };
 
-  // Sync state with initialData when editing or changing modes
+  // Sync state with initialData when editing or after creation
   useEffect(() => {
     if (isOpen) {
       if (initialData) {
@@ -103,7 +104,7 @@ export const ContractForm: React.FC<ContractFormProps> = ({
           customerId: initialData.customer_id || "",
           customerName: initialData.customer?.full_name || initialData.investor_name || "",
           customerIdCard: initialData.customer?.identity_card_number || initialData.investor_id_card || "",
-          customerIdCardDate: initialData.customer?.identity_card_date || "",
+          customerIdCardDate: formatDateForInput(initialData.customer?.identity_card_date),
           customerIdCardPlace: initialData.customer?.identity_card_place || "",
           customerPhone: initialData.customer?.phone || initialData.investor_phone || "",
           customerAddress: initialData.customer?.address || initialData.investor_address || "",
@@ -112,7 +113,7 @@ export const ContractForm: React.FC<ContractFormProps> = ({
           contractCodeNumber: codeNum,
           loanAmount: initialData.loan_amount || initialData.disbursed_amount || initialData.amount || "",
           repaymentAmount: initialData.repayment_amount || "",
-          loanDate: initialData.loan_date || initialData.start_date || initialData.investment_date || new Date().toISOString().split("T")[0],
+          loanDate: formatDateForInput(initialData.loan_date || initialData.start_date || initialData.investment_date) || new Date().toISOString().split("T")[0],
           loanDays: convertDaysToDisplayUnit(rawDays, itCode),
           installmentCycles: initialData.installment_cycles || 50,
           installmentPeriod: initialData.cycle_days || 1,
@@ -127,7 +128,7 @@ export const ContractForm: React.FC<ContractFormProps> = ({
           interestRate: initialData.interest_rate !== undefined && initialData.interest_rate !== null ? String(initialData.interest_rate) : "1",
           interestPeriod: convertDaysToDisplayUnit(rawPeriod, itCode),
           interestType: initialData.interest_type_id || "",
-          isUpfrontInterest: !!(initialData.is_upfront_interest || initialData.is_upfront_collected || initialData.is_upfront_interest),
+          isUpfrontInterest: !!(initialData.is_upfront_interest || initialData.is_upfront_collected),
 
           staffId: initialData.collector_id || "",
           collaboratorId: initialData.collaborator_id || "",
@@ -299,6 +300,16 @@ export const ContractForm: React.FC<ContractFormProps> = ({
 
           {/* Modal Actions Footer */}
           <div className="flex justify-end gap-2 border-t border-slate-200 pt-4 mt-6">
+            {initialData && (
+              <button
+                type="button"
+                onClick={() => onPrint?.(initialData)}
+                className="btn bg-amber-500 hover:bg-amber-600 border-none text-slate-950 h-10 min-h-[40px] px-5 text-sm font-bold rounded-lg transition-colors flex items-center gap-1.5 mr-auto"
+              >
+                <Printer className="w-4 h-4" />
+                <span>🖨️ In hợp đồng</span>
+              </button>
+            )}
             <button
               type="submit"
               className="btn bg-[#1abc9c] hover:bg-[#16a085] border-none text-white h-10 min-h-[40px] px-6 text-sm font-bold rounded-lg transition-colors"

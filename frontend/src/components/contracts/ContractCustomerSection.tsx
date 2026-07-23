@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React from "react";
 import { Eye } from "lucide-react";
 import { CustomerLookup } from "../shared/CustomerLookup";
 
@@ -10,6 +10,17 @@ export interface CustomerSectionProps {
   config?: any;
 }
 
+export const formatDateForInput = (val: any): string => {
+  if (!val) return "";
+  try {
+    const d = new Date(val);
+    if (isNaN(d.getTime())) return "";
+    return d.toISOString().split("T")[0];
+  } catch {
+    return "";
+  }
+};
+
 export const ContractCustomerSection: React.FC<CustomerSectionProps> = ({
   state,
   onChange,
@@ -17,9 +28,7 @@ export const ContractCustomerSection: React.FC<CustomerSectionProps> = ({
   onViewHistory,
   config,
 }) => {
-  const [showCardDetails, setShowCardDetails] = useState(
-    !!state.customerIdCardDate || !!state.customerIdCardPlace
-  );
+
 
   let prefix = "HĐ";
   if (config?.type === "pawn") prefix = "CĐ";
@@ -41,7 +50,6 @@ export const ContractCustomerSection: React.FC<CustomerSectionProps> = ({
 
   return (
     <div className="space-y-4">
-
       {/* Centered Radio Selection */}
       {!isEditMode && (
         <div className="flex justify-center gap-6 mt-2 mb-4">
@@ -138,7 +146,7 @@ export const ContractCustomerSection: React.FC<CustomerSectionProps> = ({
                     customerSearchQuery: c.full_name,
                     customerName: c.full_name,
                     customerIdCard: c.identity_card_number || "",
-                    customerIdCardDate: c.identity_card_date || "",
+                    customerIdCardDate: formatDateForInput(c.identity_card_date),
                     customerIdCardPlace: c.identity_card_place || "",
                     customerPhone: c.phone || "",
                     customerAddress: c.address || "",
@@ -191,45 +199,40 @@ export const ContractCustomerSection: React.FC<CustomerSectionProps> = ({
               placeholder="CCCD/CMND khách hàng..."
               value={state.customerIdCard}
               onChange={(e) => onChange({ customerIdCard: e.target.value })}
-              onFocus={() => setShowCardDetails(true)}
               className="input input-bordered w-full bg-white border-slate-200 rounded-lg text-slate-800 text-sm focus:outline-none h-10"
             />
           </div>
         </div>
 
-        {/* Conditional Card Details (Ngày cấp / Nơi cấp) */}
-        {showCardDetails && state.customerType === "new" && (
-          <>
-            <div className="flex items-center">
-              <label className={labelClass}>Ngày cấp</label>
-              <div className="grow">
-                <input
-                  type="date"
-                  value={state.customerIdCardDate}
-                  onChange={(e) =>
-                    onChange({ customerIdCardDate: e.target.value })
-                  }
-                  className="input input-bordered w-full bg-white border-slate-200 rounded-lg text-slate-800 text-sm focus:outline-none h-10"
-                />
-              </div>
-            </div>
+        {/* Card Details: Ngày cấp & Nơi cấp (Shown for both new and existing customers) */}
+        <div className="flex items-center">
+          <label className={labelClass}>Ngày cấp</label>
+          <div className="grow">
+            <input
+              type="date"
+              value={formatDateForInput(state.customerIdCardDate)}
+              onChange={(e) =>
+                onChange({ customerIdCardDate: e.target.value })
+              }
+              className="input input-bordered w-full bg-white border-slate-200 rounded-lg text-slate-800 text-sm focus:outline-none h-10"
+            />
+          </div>
+        </div>
 
-            <div className="flex items-center">
-              <label className={labelClass}>Nơi cấp</label>
-              <div className="grow">
-                <input
-                  type="text"
-                  placeholder="Nơi cấp..."
-                  value={state.customerIdCardPlace}
-                  onChange={(e) =>
-                    onChange({ customerIdCardPlace: e.target.value })
-                  }
-                  className="input input-bordered w-full bg-white border-slate-200 rounded-lg text-slate-800 text-sm focus:outline-none h-10"
-                />
-              </div>
-            </div>
-          </>
-        )}
+        <div className="flex items-center">
+          <label className={labelClass}>Nơi cấp</label>
+          <div className="grow">
+            <input
+              type="text"
+              placeholder="Nơi cấp CCCD..."
+              value={state.customerIdCardPlace}
+              onChange={(e) =>
+                onChange({ customerIdCardPlace: e.target.value })
+              }
+              className="input input-bordered w-full bg-white border-slate-200 rounded-lg text-slate-800 text-sm focus:outline-none h-10"
+            />
+          </div>
+        </div>
 
         {/* Phone number */}
         <div className="flex items-center">

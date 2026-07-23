@@ -6,7 +6,8 @@ import {
   Save, 
   Upload, 
   Image as ImageIcon,
-  HelpCircle
+  HelpCircle,
+  Printer
 } from "lucide-react";
 import { toast } from "../lib/toast";
 
@@ -73,6 +74,14 @@ export const SettingsPage: React.FC = () => {
   const [systemBankAccountNumber, setSystemBankAccountNumber] = useState("");
   const [systemBankAccountHolder, setSystemBankAccountHolder] = useState("");
 
+  // Print Templates configuration state
+  const [templatePawn, setTemplatePawn] = useState("cd_01_001.html");
+  const [templateUnsecured, setTemplateUnsecured] = useState("tc_01_001.html");
+  const [templateInstallment, setTemplateInstallment] = useState("tg_01_001.html");
+  const [templateCapital, setTemplateCapital] = useState("gv_01_001.html");
+  const [templateReceipt, setTemplateReceipt] = useState("inv_01_001.html");
+  const [templatePayment, setTemplatePayment] = useState("inv_02_001.html");
+
   // Fetch initial configs
   useEffect(() => {
     if (isAdmin) {
@@ -92,6 +101,27 @@ export const SettingsPage: React.FC = () => {
       setSystemBankName(res.data.system_bank_name || "");
       setSystemBankAccountNumber(res.data.system_bank_account_number || "");
       setSystemBankAccountHolder(res.data.system_bank_account_holder || "");
+
+      const tPawn = res.data.template_pawn || "cd_01_001.html";
+      const tUnsecured = res.data.template_unsecured || "tc_01_001.html";
+      const tInstallment = res.data.template_installment || "tg_01_001.html";
+      const tCapital = res.data.template_capital || "gv_01_001.html";
+      const tReceipt = res.data.template_receipt || "inv_01_001.html";
+      const tPayment = res.data.template_payment || "inv_02_001.html";
+
+      setTemplatePawn(tPawn);
+      setTemplateUnsecured(tUnsecured);
+      setTemplateInstallment(tInstallment);
+      setTemplateCapital(tCapital);
+      setTemplateReceipt(tReceipt);
+      setTemplatePayment(tPayment);
+
+      localStorage.setItem("template_pawn", tPawn);
+      localStorage.setItem("template_unsecured", tUnsecured);
+      localStorage.setItem("template_installment", tInstallment);
+      localStorage.setItem("template_capital", tCapital);
+      localStorage.setItem("template_receipt", tReceipt);
+      localStorage.setItem("template_payment", tPayment);
 
       // Dynamically update browser tab favicon link
       if (logo) {
@@ -135,8 +165,22 @@ export const SettingsPage: React.FC = () => {
         system_bank_name: systemBankName,
         system_bank_account_number: systemBankAccountNumber,
         system_bank_account_holder: systemBankAccountHolder,
+        template_pawn: templatePawn,
+        template_unsecured: templateUnsecured,
+        template_installment: templateInstallment,
+        template_capital: templateCapital,
+        template_receipt: templateReceipt,
+        template_payment: templatePayment,
       });
-      toast.success("Lưu cấu hình hệ thống thành công!");
+
+      localStorage.setItem("template_pawn", templatePawn);
+      localStorage.setItem("template_unsecured", templateUnsecured);
+      localStorage.setItem("template_installment", templateInstallment);
+      localStorage.setItem("template_capital", templateCapital);
+      localStorage.setItem("template_receipt", templateReceipt);
+      localStorage.setItem("template_payment", templatePayment);
+
+      toast.success("Lưu cấu hình hệ thống & mẫu in thành công!");
 
       // Dynamically update browser tab favicon link
       if (systemLogo) {
@@ -305,6 +349,114 @@ export const SettingsPage: React.FC = () => {
                   placeholder="VD: NGUYEN VAN A"
                   className="input input-bordered input-sm w-full bg-white border-slate-200 focus:outline-none focus:border-amber-500 text-slate-800 rounded-lg text-xs font-mono"
                 />
+              </div>
+
+            </div>
+          </div>
+
+          {/* Section: Print Templates Configuration */}
+          <div className="border-t pt-6">
+            <h3 className="font-bold text-base text-slate-800 border-b pb-2 mb-4 flex items-center gap-1.5">
+              <Printer className="w-4 h-4 text-amber-500" />
+              <span>Cấu hình Mẫu in Hợp đồng & Chứng từ (Theo mã file)</span>
+            </h3>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              
+              {/* Pawn Template */}
+              <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-200/80">
+                <label className="label text-slate-700 text-xs font-bold py-1 flex justify-between">
+                  <span>Hợp đồng Cầm đồ</span>
+                  <span className="text-[10px] text-slate-500 font-mono">pawn</span>
+                </label>
+                <select
+                  value={templatePawn}
+                  onChange={(e) => setTemplatePawn(e.target.value)}
+                  className="select select-bordered select-sm w-full bg-white border-slate-200 focus:outline-none focus:border-amber-500 text-slate-800 rounded-lg text-xs"
+                >
+                  <option value="cd_01_001.html">Mẫu 01: cd_01_001.html (Hợp đồng cầm đồ tiêu chuẩn A4)</option>
+                  <option value="cd_02_001.html">Mẫu 02: cd_02_001.html (Biên nhận cầm đồ rút gọn)</option>
+                </select>
+              </div>
+
+              {/* Unsecured Template */}
+              <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-200/80">
+                <label className="label text-slate-700 text-xs font-bold py-1 flex justify-between">
+                  <span>Hợp đồng Tín chấp</span>
+                  <span className="text-[10px] text-slate-500 font-mono">unsecured</span>
+                </label>
+                <select
+                  value={templateUnsecured}
+                  onChange={(e) => setTemplateUnsecured(e.target.value)}
+                  className="select select-bordered select-sm w-full bg-white border-slate-200 focus:outline-none focus:border-amber-500 text-slate-800 rounded-lg text-xs"
+                >
+                  <option value="tc_01_001.html">Mẫu 01: tc_01_001.html (Hợp đồng tín chấp tiêu chuẩn A4)</option>
+                  <option value="tc_02_001.html">Mẫu 02: tc_02_001.html (Thỏa thuận tín chấp rút gọn)</option>
+                </select>
+              </div>
+
+              {/* Installment Template */}
+              <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-200/80">
+                <label className="label text-slate-700 text-xs font-bold py-1 flex justify-between">
+                  <span>Hợp đồng Trả góp</span>
+                  <span className="text-[10px] text-slate-500 font-mono">installment</span>
+                </label>
+                <select
+                  value={templateInstallment}
+                  onChange={(e) => setTemplateInstallment(e.target.value)}
+                  className="select select-bordered select-sm w-full bg-white border-slate-200 focus:outline-none focus:border-amber-500 text-slate-800 rounded-lg text-xs"
+                >
+                  <option value="tg_01_001.html">Mẫu 01: tg_01_001.html (Hợp đồng trả góp kèm lịch đóng)</option>
+                  <option value="tg_02_001.html">Mẫu 02: tg_02_001.html (Biên nhận trả góp rút gọn)</option>
+                </select>
+              </div>
+
+              {/* Capital Template */}
+              <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-200/80">
+                <label className="label text-slate-700 text-xs font-bold py-1 flex justify-between">
+                  <span>Hợp đồng Góp vốn (Nguồn vốn)</span>
+                  <span className="text-[10px] text-slate-500 font-mono">capital</span>
+                </label>
+                <select
+                  value={templateCapital}
+                  onChange={(e) => setTemplateCapital(e.target.value)}
+                  className="select select-bordered select-sm w-full bg-white border-slate-200 focus:outline-none focus:border-amber-500 text-slate-800 rounded-lg text-xs"
+                >
+                  <option value="gv_01_001.html">Mẫu 01: gv_01_001.html (Hợp đồng góp vốn đầu tư A4)</option>
+                  <option value="gv_02_001.html">Mẫu 02: gv_02_001.html (Chứng nhận góp vốn rút gọn)</option>
+                </select>
+              </div>
+
+              {/* Receipt Voucher Template */}
+              <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-200/80">
+                <label className="label text-slate-700 text-xs font-bold py-1 flex justify-between">
+                  <span>Phiếu thu tiền (Receipt)</span>
+                  <span className="text-[10px] text-slate-500 font-mono">inv_01</span>
+                </label>
+                <select
+                  value={templateReceipt}
+                  onChange={(e) => setTemplateReceipt(e.target.value)}
+                  className="select select-bordered select-sm w-full bg-white border-slate-200 focus:outline-none focus:border-amber-500 text-slate-800 rounded-lg text-xs"
+                >
+                  <option value="inv_01_001.html">Mẫu 01: inv_01_001.html (Phiếu thu tiền tiêu chuẩn A4)</option>
+                  <option value="inv_01_002.html">Mẫu 02: inv_01_002.html (Biên nhận thu tiền rút gọn A5/A4)</option>
+                </select>
+              </div>
+
+              {/* Payment Voucher Template */}
+              <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-200/80">
+                <label className="label text-slate-700 text-xs font-bold py-1 flex justify-between">
+                  <span>Phiếu chi tiền (Payment)</span>
+                  <span className="text-[10px] text-slate-500 font-mono">inv_02</span>
+                </label>
+                <select
+                  value={templatePayment}
+                  onChange={(e) => setTemplatePayment(e.target.value)}
+                  className="select select-bordered select-sm w-full bg-white border-slate-200 focus:outline-none focus:border-amber-500 text-slate-800 rounded-lg text-xs"
+                >
+                  <option value="inv_02_001.html">Mẫu 01: inv_02_001.html (Phiếu chi tiền tiêu chuẩn A4)</option>
+                  <option value="inv_02_002.html">Mẫu 02: inv_02_002.html (Biên nhận chi tiền rút gọn A5/A4)</option>
+                </select>
               </div>
 
             </div>

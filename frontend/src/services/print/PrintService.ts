@@ -2,44 +2,55 @@ import {
   buildPawnContractPrintData,
   buildLoanContractPrintData,
   buildInstallmentPrintData,
+  buildCapitalContractPrintData,
+  buildReceiptVoucherPrintData,
+  buildPaymentVoucherPrintData,
 } from "./DataMapper";
-import { renderTemplate, getDefaultTemplateCode } from "./PrintTemplateManager";
+import { TemplateCompiler } from "./TemplateCompiler";
 
 export interface PrintOptions {
   isNegotiated?: boolean;
+  systemSettings?: Record<string, string>;
+  templateCodeOverride?: string;
 }
 
+export type PrintModule = "pawn" | "unsecured" | "installment" | "capital" | "receipt" | "payment";
+
 /**
- * High-level service to retrieve compiled print templates for any contract type.
+ * High-level service to retrieve compiled print templates for any contract/voucher type.
  */
 export const getCompiledHtml = (
-  module: "pawn" | "unsecured" | "installment",
-  contract: any,
+  module: PrintModule,
+  entityData: any,
   store: any,
   options?: PrintOptions
 ): string => {
-  // Fetch active template selection from storage or fallback to default configuration
-  let templateCode = "";
-  if (module === "pawn") {
-    templateCode = localStorage.getItem("pawn_print_template") || getDefaultTemplateCode("pawn");
-  } else if (module === "unsecured") {
-    templateCode = localStorage.getItem("unsecured_print_template") || getDefaultTemplateCode("unsecured");
-  } else if (module === "installment") {
-    templateCode = localStorage.getItem("installment_print_template") || getDefaultTemplateCode("installment");
-  } else {
-    templateCode = getDefaultTemplateCode(module);
+  let templateCode = options?.templateCodeOverride || "";
+
+  if (!templateCode) {
+    if (options?.isNegotiated && module === "pawn") {
+      templateCode = "cd_02_001.html";
+    } else {
+      templateCode = TemplateCompiler.getActiveTemplateCode(module, undefined, options?.systemSettings);
+    }
   }
 
   // Map database data objects to standard template keys
   let mappedData: Record<string, string> = {};
   if (module === "pawn") {
-    mappedData = buildPawnContractPrintData(contract, store, options?.isNegotiated);
+    mappedData = buildPawnContractPrintData(entityData, store, options?.isNegotiated);
   } else if (module === "unsecured") {
-    mappedData = buildLoanContractPrintData(contract, store);
+    mappedData = buildLoanContractPrintData(entityData, store);
   } else if (module === "installment") {
-    mappedData = buildInstallmentPrintData(contract, store);
+    mappedData = buildInstallmentPrintData(entityData, store);
+  } else if (module === "capital") {
+    mappedData = buildCapitalContractPrintData(entityData, store);
+  } else if (module === "receipt") {
+    mappedData = buildReceiptVoucherPrintData(entityData, store);
+  } else if (module === "payment") {
+    mappedData = buildPaymentVoucherPrintData(entityData, store);
   }
 
   // Compile and return final HTML content
-  return renderTemplate(templateCode, mappedData);
+  return TemplateCompiler.compile(templateCode, mappedData);
 };

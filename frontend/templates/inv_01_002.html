@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <title>Biên Nhận Thu Tiền - {{VoucherCode}}</title>
+  <style>
+    @page { size: A4; margin: 12mm 15mm; }
+    body { font-family: "Times New Roman", Times, serif; font-size: 13px; line-height: 1.45; color: #000; margin: 0; padding: 0; }
+    .text-center { text-align: center; }
+    .font-bold { font-weight: bold; }
+    .text-uppercase { text-transform: uppercase; }
+
+    .header-table { width: 100%; border-collapse: collapse; margin-bottom: 12px; }
+    .header-table td { vertical-align: top; border: none; }
+
+    .ticket-title { text-align: center; margin: 10px 0; }
+    .ticket-title h2 { margin: 0; font-size: 16px; font-weight: bold; }
+
+    .info-table { width: 100%; border-collapse: collapse; margin-top: 8px; }
+    .info-table td { padding: 3px 0; border: none; vertical-align: top; }
+    .label { font-weight: bold; width: 130px; display: inline-block; }
+
+    .box-amount { border: 1.5px dashed #000; padding: 8px 12px; margin: 10px 0; background-color: #fafafa; }
+
+    .signatures { margin-top: 20px; page-break-inside: avoid; }
+    .signature-table { width: 100%; border-collapse: collapse; }
+    .signature-table td { width: 50%; text-align: center; vertical-align: top; border: none; }
+    .signature-space { height: 60px; }
+  </style>
+</head>
+<body>
+  <table class="header-table">
+    <tr>
+      <td style="width: 60%;">
+        <div class="font-bold text-uppercase" style="font-size: 14px;">{{StoreName}}</div>
+        <div>Đ/C: {{StoreAddress}}</div>
+        <div>Hotline: {{StorePhone}}</div>
+      </td>
+      <td style="width: 40%; text-align: right;">
+        <div class="font-bold">MÃ PHIẾU: {{VoucherCode}}</div>
+        <div>Ngày thu: {{VoucherDate}}</div>
+      </td>
+    </tr>
+  </table>
+
+  <div class="ticket-title">
+    <h2 class="text-uppercase">BIÊN NHẬN THU TIỀN</h2>
+    <p style="font-style: italic; margin-top: 2px;">(Chứng từ xác nhận đã thu tiền khách hàng)</p>
+  </div>
+
+  <table class="info-table">
+    <tr>
+      <td><span class="label">Người nộp tiền:</span> <span class="font-bold">{{PayerName}}</span></td>
+      <td><span class="label">Điện thoại:</span> {{PayerPhone}}</td>
+    </tr>
+    <tr>
+      <td colspan="2"><span class="label">Lý do thu:</span> <span class="font-bold">{{Reason}}</span></td>
+    </tr>
+    <tr>
+      <td colspan="2"><span class="label">Mã Hợp đồng:</span> <span class="font-bold">{{ContractCode}}</span></td>
+    </tr>
+  </table>
+
+  <div class="box-amount">
+    <div>- Số tiền đã thu: <span class="font-bold" style="font-size: 15px;">{{Amount}} VNĐ</span></div>
+    <div>- Bằng chữ: <i>{{AmountText}}</i></div>
+    <div>- Phương thức: <b>{{PaymentMethod}}</b></div>
+  </div>
+
+  <div class="signatures">
+    <table class="signature-table">
+      <tr>
+        <td>
+          <div class="font-bold text-uppercase">Người Nộp Tiền</div>
+          <div style="font-size: 11px;">(Ký và ghi rõ họ tên)</div>
+          <div class="signature-space"></div>
+          <div class="font-bold">{{PayerName}}</div>
+        </td>
+        <td>
+          <div class="font-bold text-uppercase">Người Thu Tiền</div>
+          <div style="font-size: 11px;">(Ký & xác nhận)</div>
+          <div class="signature-space"></div>
+          <div class="font-bold">{{CreatedBy}}</div>
+        </td>
+      </tr>
+    </table>
+  </div>
+</body>
+</html>

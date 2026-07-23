@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <title>Phiếu Chi Tiền - {{VoucherCode}}</title>
+  <style>
+    @page { size: A4; margin: 15mm; }
+    body { font-family: "Times New Roman", Times, serif; font-size: 13.5px; line-height: 1.5; color: #000; margin: 0; padding: 0; }
+    .text-center { text-align: center; }
+    .font-bold { font-weight: bold; }
+    .text-uppercase { text-transform: uppercase; }
+
+    .header-table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+    .header-table td { vertical-align: top; border: none; }
+
+    .voucher-title { text-align: center; margin: 20px 0 15px 0; }
+    .voucher-title h2 { margin: 0; font-size: 18px; font-weight: bold; }
+
+    .info-table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+    .info-table td { padding: 5px 0; border: none; vertical-align: top; }
+    .label { font-weight: bold; width: 150px; display: inline-block; }
+
+    .amount-box { border: 1.5px solid #000; padding: 10px 15px; margin: 15px 0; background-color: #fafafa; font-size: 14px; }
+
+    .signatures { margin-top: 30px; page-break-inside: avoid; }
+    .signature-table { width: 100%; border-collapse: collapse; }
+    .signature-table td { width: 25%; text-align: center; vertical-align: top; border: none; padding: 5px; }
+    .signature-space { height: 65px; }
+  </style>
+</head>
+<body>
+  <table class="header-table">
+    <tr>
+      <td style="width: 60%;">
+        <div class="font-bold text-uppercase" style="font-size: 15px;">{{StoreName}}</div>
+        <div>Địa chỉ: {{StoreAddress}}</div>
+        <div>Hotline: {{StorePhone}}</div>
+      </td>
+      <td style="width: 40%; text-align: right;">
+        <div class="font-bold">Mẫu số: 02 - TT</div>
+        <div>Mã phiếu: <b>{{VoucherCode}}</b></div>
+        <div>Ngày chi: {{VoucherDate}}</div>
+      </td>
+    </tr>
+  </table>
+
+  <div class="voucher-title">
+    <h2 class="text-uppercase">PHIẾU CHI TIỀN</h2>
+    <p style="font-style: italic; margin-top: 3px;">(Ngày {{VoucherDate}})</p>
+  </div>
+
+  <table class="info-table">
+    <tr>
+      <td colspan="2"><span class="label">Người nhận tiền:</span> <span class="font-bold">{{ReceiverName}}</span></td>
+    </tr>
+    <tr>
+      <td><span class="label">Số điện thoại:</span> {{ReceiverPhone}}</td>
+      <td><span class="label">Số CMND/CCCD:</span> {{IdentityNumber}}</td>
+    </tr>
+    <tr>
+      <td colspan="2"><span class="label">Địa chỉ:</span> {{ReceiverAddress}}</td>
+    </tr>
+    <tr>
+      <td colspan="2"><span class="label">Lý do chi:</span> <span class="font-bold">{{Reason}}</span></td>
+    </tr>
+    <tr>
+      <td colspan="2"><span class="label">Hợp đồng liên quan:</span> {{ContractCode}}</td>
+    </tr>
+  </table>
+
+  <div class="amount-box">
+    <div>- Số tiền chi: <span class="font-bold" style="font-size: 16px;">{{Amount}} VNĐ</span></div>
+    <div>- Bằng chữ: <i>{{AmountText}}</i></div>
+    <div>- Hình thức thanh toán: <b>{{PaymentMethod}}</b></div>
+  </div>
+
+  <div class="signatures">
+    <table class="signature-table">
+      <tr>
+        <td>
+          <div class="font-bold text-uppercase">Giám Đốc</div>
+          <div style="font-size: 11px;">(Ký, đóng dấu)</div>
+          <div class="signature-space"></div>
+        </td>
+        <td>
+          <div class="font-bold text-uppercase">Kế Toán</div>
+          <div style="font-size: 11px;">(Ký, họ tên)</div>
+          <div class="signature-space"></div>
+        </td>
+        <td>
+          <div class="font-bold text-uppercase">Người Nhận Tiền</div>
+          <div style="font-size: 11px;">(Ký, họ tên)</div>
+          <div class="signature-space"></div>
+          <div class="font-bold">{{ReceiverName}}</div>
+        </td>
+        <td>
+          <div class="font-bold text-uppercase">Thủ Quỹ</div>
+          <div style="font-size: 11px;">(Ký, họ tên)</div>
+          <div class="signature-space"></div>
+          <div class="font-bold">{{CreatedBy}}</div>
+        </td>
+      </tr>
+    </table>
+  </div>
+</body>
+</html>
