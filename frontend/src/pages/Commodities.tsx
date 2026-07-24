@@ -12,7 +12,7 @@ import {
 import { toast } from "../lib/toast";
 import { MoneyInput } from "../components/shared/MoneyInput";
 import { normalizeNumericInput, formatInterestRateText } from "../utils/interestFormatter";
-import { convertDurationToDays, convertDaysToDisplayUnit } from "../utils/durationUtils";
+import { convertDurationToDays, convertDaysToDisplayUnit, formatDurationDisplay } from "../utils/durationUtils";
 import { LoadingOverlay } from "../components/shared/LoadingOverlay";
 import { useConfirm } from "../context/ConfirmContext";
 
@@ -309,25 +309,37 @@ export const Commodities: React.FC = () => {
     setAttributes(attributes.filter((_, i) => i !== index));
   };
 
-  const getInterestSuffix = () => {
-    const selected = interestTypes.find(it => it.id === interestTypeId);
-    if (!selected) return "%";
+  const getInterestConfig = () => {
+    const selected = interestTypes.find((it) => it.id === interestTypeId);
+    if (!selected) {
+      return { label: "Lãi suất", suffix: "%", placeholder: "0" };
+    }
     const code = selected.code;
-    if (code === "daily_k_million") return "k / 1 triệu / ngày";
-    if (code === "daily_k_day") return "k / ngày";
-    if (code.includes("daily") || code.includes("day") || code.includes("million")) {
-      if (code.includes("amount") || code.includes("vnđ")) return "đ / ngày";
-      return "% / ngày";
+    switch (code) {
+      case "daily_k_million":
+        return { label: "Lãi phí (k/triệu/ngày)", suffix: "k / 1 triệu / ngày", placeholder: "VD: 3" };
+      case "daily_k_day":
+        return { label: "Lãi phí (k/ngày)", suffix: "k / ngày", placeholder: "VD: 5" };
+      case "monthly_percent_30":
+        return { label: "Lãi suất (%/tháng)", suffix: "% / tháng", placeholder: "1" };
+      case "monthly_percent_periodic":
+        return { label: "Lãi suất (%/tháng)", suffix: "% / tháng", placeholder: "1" };
+      case "monthly_amount_periodic":
+        return { label: "Lãi phí (k/tháng)", suffix: "k / tháng", placeholder: "VD: 500" };
+      case "weekly_percent":
+        return { label: "Lãi suất (%/tuần)", suffix: "% / tuần", placeholder: "1" };
+      case "weekly_amount":
+        return { label: "Lãi phí (k/tuần)", suffix: "k / tuần", placeholder: "VD: 50" };
+      case "flat_rate_monthly":
+        return { label: "Lãi suất (%/tháng)", suffix: "% / tháng", placeholder: "1" };
+      case "flat_rate_daily":
+        return { label: "Lãi suất (%/ngày)", suffix: "% / ngày", placeholder: "1" };
+      case "reducing_balance_fixed_installment":
+      case "reducing_balance_fixed_principal":
+        return { label: "Lãi suất (%/tháng)", suffix: "% / tháng", placeholder: "1" };
+      default:
+        return { label: "Lãi suất", suffix: "%", placeholder: "1" };
     }
-    if (code.includes("weekly") || code.includes("week")) {
-      if (code.includes("amount") || code.includes("vnđ")) return "k / tuần";
-      return "% / tuần";
-    }
-    if (code.includes("monthly") || code.includes("month") || code.includes("flat_rate") || code.includes("reducing_balance")) {
-      if (code.includes("amount") || code.includes("vnđ")) return "k / tháng";
-      return "% / tháng";
-    }
-    return "%";
   };
 
   const getInterestTypeLabel = (comm: Commodity) => {
@@ -531,8 +543,7 @@ export const Commodities: React.FC = () => {
                           {getInterestTypeLabel(c)}
                         </td>
                         <td className="text-slate-500 font-medium">
-                          {convertDaysToDisplayUnit(c.default_period_value, c.interest_type?.code)}{" "}
-                          {getInterestPeriodType(c.interest_type?.code) === "monthly" ? "tháng" : getInterestPeriodType(c.interest_type?.code) === "weekly" ? "tuần" : "ngày"}
+                          {formatDurationDisplay(c.default_period_value, c.interest_type?.code)}
                         </td>
                         <td className="text-slate-500 font-medium">
                           {c.liquidation_after_days} ngày quá hạn
@@ -761,19 +772,20 @@ export const Commodities: React.FC = () => {
                     </div>
 
                     {/* Interest Rate */}
-                    <div className="col-span-3 text-right pr-4 text-xs font-semibold text-slate-650">
-                      Lãi <span className="text-red-500">*</span>
+                    <div className="col-span-3 text-right pr-4 text-xs font-semibold text-slate-600">
+                      {getInterestConfig().label} <span className="text-red-500">*</span>
                     </div>
                     <div className="col-span-9 relative">
                       <input
                         type="text"
+                        placeholder={getInterestConfig().placeholder}
                         value={defaultInterestRate}
                         onChange={(e) => setDefaultInterestRate(e.target.value)}
-                        className="input input-bordered input-sm w-full bg-white border-slate-200 focus:outline-none focus:border-amber-500 text-slate-800 text-xs rounded-lg pr-20"
+                        className="input input-bordered input-sm w-full bg-white border-slate-200 focus:outline-none focus:border-amber-500 text-slate-800 text-xs rounded-lg pr-36"
                         required
                       />
-                      <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[10px] text-slate-450 font-bold">
-                        {getInterestSuffix()}
+                      <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[10px] text-slate-500 font-bold">
+                        {getInterestConfig().suffix}
                       </span>
                     </div>
 

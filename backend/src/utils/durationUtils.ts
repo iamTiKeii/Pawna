@@ -37,6 +37,12 @@ export function convertDurationToDays(
   const num = typeof value === "number" ? value : parseFloat(String(value)) || 0;
   if (num <= 0 || isNaN(num)) return 0;
   const mult = getUnitMultiplier(interestTypeCodeOrUnit);
+  if (mult === 1) return Math.round(num);
+  // Nếu số đã được quy đổi ra ngày (VD: 30, 60, 90 cho tháng hoặc 7, 14, 21 cho tuần)
+  if (num >= mult && Math.round(num) % mult === 0) {
+    return Math.round(num);
+  }
+  // Quy đổi từ đơn vị thô (VD: 3 tháng -> 90 ngày, 1 tháng -> 30 ngày, 15 tháng -> 450 ngày)
   return Math.round(num * mult);
 }
 

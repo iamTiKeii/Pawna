@@ -5,7 +5,7 @@ import {
   generateFlatCollectionSchedule, // renamed from generateInstallmentPayments
   generateInstallmentPayments,    // @deprecated alias — still valid during migration
 } from "../services/interest";
-import { convertDurationToDays, convertDaysToDisplayUnit, getUnitMultiplier } from "./durationUtils";
+import { convertDurationToDays, convertDaysToDisplayUnit, formatDurationDisplay, getUnitMultiplier } from "./durationUtils";
 
 // --- Test Harness ---
 // Non-stop: collects ALL failures before reporting, no early exit on first fail
@@ -643,10 +643,17 @@ function runTests() {
     assert(convertDurationToDays(1, "monthly_percent_periodic") === 30, "1 thang (monthly_percent_periodic) -> 30 ngay");
     assert(convertDurationToDays(2, "weekly_percent") === 14, "2 tuan (weekly_percent) -> 14 ngay");
 
+    assert(convertDurationToDays(30, "thang") === 30, "30 ngay (already converted) -> 30 ngay (idempotent)");
+    assert(convertDurationToDays(60, "monthly_percent_periodic") === 60, "60 ngay (already converted) -> 60 ngay (idempotent)");
+
     assert(convertDaysToDisplayUnit(90, "monthly_percent_periodic") === 3, "90 ngay (monthly) -> 3 thang");
     assert(convertDaysToDisplayUnit(30, "monthly_percent_periodic") === 1, "30 ngay (monthly) -> 1 thang");
     assert(convertDaysToDisplayUnit(14, "weekly_percent") === 2, "14 ngay (weekly) -> 2 tuan");
     assert(convertDaysToDisplayUnit(10, "daily_k_million") === 10, "10 ngay (daily) -> 10 ngay");
+
+    assert(formatDurationDisplay(30, "monthly_percent_periodic") === "1 tháng", "30 ngay (monthly) -> 1 tháng");
+    assert(formatDurationDisplay(14, "weekly_percent") === "2 tuần", "14 ngay (weekly) -> 2 tuần");
+    assert(formatDurationDisplay(10, "daily_k_million") === "10 ngày", "10 ngay (daily) -> 10 ngày");
   });
 
   // ── TEST: Trạng thái quá hạn (Overdue Check) sau 5 ngày ────────────────
