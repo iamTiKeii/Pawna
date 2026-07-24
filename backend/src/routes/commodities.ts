@@ -3,6 +3,7 @@ import { prisma } from "../utils/db";
 import { authenticateToken, AuthenticatedRequest } from "../middleware/auth";
 import { requirePermission } from "../middleware/permission";
 import { InMemoryCache } from "../utils/cache";
+import { convertDurationToDays } from "../utils/durationUtils";
 
 const router = Router();
 
@@ -88,6 +89,11 @@ router.post("/", requirePermission(["COMMODITIES_MANAGE"]) as any, async (req: A
       return res.status(400).json({ error: "Commodity code already exists" });
     }
 
+    const interestTypeObj = await prisma.interestType.findUnique({ where: { id: interest_type_id } });
+    const itCode = interestTypeObj?.code || "";
+    const periodInDays = convertDurationToDays(default_period_value || 10, itCode);
+    const loanDaysInDays = convertDurationToDays(default_loan_days || 30, itCode);
+
     const newComm = await prisma.commodity.create({
       data: {
         category,
@@ -98,8 +104,8 @@ router.post("/", requirePermission(["COMMODITIES_MANAGE"]) as any, async (req: A
         is_upfront_interest: !!is_upfront_interest,
         default_amount: Number(default_amount) || 0,
         default_interest_rate: Number(default_interest_rate) || 0,
-        default_period_value: Number(default_period_value) || 15,
-        default_loan_days: Number(default_loan_days) || 30,
+        default_period_value: periodInDays,
+        default_loan_days: loanDaysInDays,
         liquidation_after_days: Number(liquidation_after_days) || 10,
       },
     });
@@ -145,6 +151,17 @@ router.put("/:id", requirePermission(["COMMODITIES_MANAGE"]) as any, async (req:
       }
     }
 
+    const targetInterestTypeId = interest_type_id || existing.interest_type_id;
+    const interestTypeObj = await prisma.interestType.findUnique({ where: { id: targetInterestTypeId } });
+    const itCode = interestTypeObj?.code || "";
+
+    const periodInDays = default_period_value !== undefined 
+      ? convertDurationToDays(default_period_value, itCode) 
+      : undefined;
+    const loanDaysInDays = default_loan_days !== undefined 
+      ? convertDurationToDays(default_loan_days, itCode) 
+      : undefined;
+
     const updated = await prisma.commodity.update({
       where: { id: req.params.id },
       data: {
@@ -156,8 +173,8 @@ router.put("/:id", requirePermission(["COMMODITIES_MANAGE"]) as any, async (req:
         is_upfront_interest: is_upfront_interest !== undefined ? !!is_upfront_interest : undefined,
         default_amount: default_amount !== undefined ? Number(default_amount) : undefined,
         default_interest_rate: default_interest_rate !== undefined ? Number(default_interest_rate) : undefined,
-        default_period_value: default_period_value !== undefined ? Number(default_period_value) : undefined,
-        default_loan_days: default_loan_days !== undefined ? Number(default_loan_days) : undefined,
+        default_period_value: periodInDays,
+        default_loan_days: loanDaysInDays,
         liquidation_after_days: liquidation_after_days !== undefined ? Number(liquidation_after_days) : undefined,
       },
     });

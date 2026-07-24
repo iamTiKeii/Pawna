@@ -49,3 +49,22 @@ export function convertDaysToDisplayUnit(
   const mult = getUnitMultiplier(interestTypeCodeOrUnit);
   return mult > 1 ? Math.round((num / mult) * 100) / 100 : num;
 }
+
+export function formatDurationDisplay(
+  days: number | string,
+  interestTypeCodeOrUnit?: string
+): string {
+  const num = typeof days === "number" ? days : parseFloat(String(days)) || 0;
+  if (num <= 0 || isNaN(num)) return "0 ngày";
+
+  const mult = getUnitMultiplier(interestTypeCodeOrUnit);
+  if (mult === 30) {
+    const months = Math.round((num / 30) * 100) / 100;
+    return `${months} tháng`;
+  }
+  if (mult === 7) {
+    const weeks = Math.round((num / 7) * 100) / 100;
+    return `${weeks} tuần`;
+  }
+  return `${num} ngày`;
+}

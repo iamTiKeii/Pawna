@@ -12,6 +12,7 @@ import {
 import { toast } from "../lib/toast";
 import { MoneyInput } from "../components/shared/MoneyInput";
 import { normalizeNumericInput, formatInterestRateText } from "../utils/interestFormatter";
+import { convertDurationToDays, convertDaysToDisplayUnit } from "../utils/durationUtils";
 import { LoadingOverlay } from "../components/shared/LoadingOverlay";
 import { useConfirm } from "../context/ConfirmContext";
 
@@ -206,8 +207,13 @@ export const Commodities: React.FC = () => {
     setIsUpfrontInterest(comm.is_upfront_interest);
     setDefaultAmount(comm.default_amount);
     setDefaultInterestRate(String(comm.default_interest_rate));
-    setDefaultPeriodValue(String(comm.default_period_value));
-    setDefaultLoanDays(String(comm.default_loan_days));
+
+    const itCode = comm.interest_type?.code || "";
+    const displayPeriod = convertDaysToDisplayUnit(comm.default_period_value, itCode);
+    const displayDuration = convertDaysToDisplayUnit(comm.default_loan_days, itCode);
+
+    setDefaultPeriodValue(String(displayPeriod));
+    setDefaultLoanDays(String(displayDuration));
     setLiquidationAfterDays(String(comm.liquidation_after_days));
 
     setShowSectionInfo(true);
@@ -233,6 +239,9 @@ export const Commodities: React.FC = () => {
         ? `${name.trim()}|${cleanAttrs.join(",")}`
         : name.trim();
 
+      const periodInDays = convertDurationToDays(defaultPeriodValue, selectedInterestTypeCode);
+      const loanDaysInDays = convertDurationToDays(defaultLoanDays, selectedInterestTypeCode);
+
       const payload = {
         category,
         code: code.toUpperCase().trim(),
@@ -242,8 +251,8 @@ export const Commodities: React.FC = () => {
         is_upfront_interest: isUpfrontInterest,
         default_amount: defaultAmount,
         default_interest_rate: normalizeNumericInput(defaultInterestRate),
-        default_period_value: Number(defaultPeriodValue) || 10,
-        default_loan_days: Number(defaultLoanDays) || 30,
+        default_period_value: periodInDays || 10,
+        default_loan_days: loanDaysInDays || 30,
         liquidation_after_days: Number(liquidationAfterDays) || 5,
       };
 
@@ -521,7 +530,10 @@ export const Commodities: React.FC = () => {
                         <td className="text-slate-650 font-medium">
                           {getInterestTypeLabel(c)}
                         </td>
-                        <td className="text-slate-500 font-medium">{c.default_period_value} ngày</td>
+                        <td className="text-slate-500 font-medium">
+                          {convertDaysToDisplayUnit(c.default_period_value, c.interest_type?.code)}{" "}
+                          {getInterestPeriodType(c.interest_type?.code) === "monthly" ? "tháng" : getInterestPeriodType(c.interest_type?.code) === "weekly" ? "tuần" : "ngày"}
+                        </td>
                         <td className="text-slate-500 font-medium">
                           {c.liquidation_after_days} ngày quá hạn
                         </td>

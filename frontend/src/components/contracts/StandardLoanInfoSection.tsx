@@ -1,5 +1,6 @@
 import React from "react";
 import { MoneyInput } from "../shared/MoneyInput";
+import { convertDaysToDisplayUnit } from "../../utils/durationUtils";
 
 export interface StandardLoanInfoSectionProps {
   state: any;
@@ -132,12 +133,18 @@ export const StandardLoanInfoSection: React.FC<StandardLoanInfoSectionProps> = (
                 onChange={(e) => {
                   const cid = e.target.value;
                   const c = commodities.find((item) => item.id === cid);
+                  const targetIt = interestTypes.find((it) => it.id === (c ? c.interest_type_id : state.interestType));
+                  const targetItCode = targetIt?.code || "";
+
+                  const displayPeriod = c ? convertDaysToDisplayUnit(c.default_period_value, targetItCode) : state.interestPeriod;
+                  const displayLoanDays = c ? convertDaysToDisplayUnit(c.default_loan_days, targetItCode) : state.loanDays;
+
                   onChange({
                     commodityId: cid,
                     loanAmount: c ? String(c.default_amount) : state.loanAmount,
                     interestRate: c ? String(c.default_interest_rate) : state.interestRate,
-                    interestPeriod: c ? c.default_period_value : state.interestPeriod,
-                    loanDays: c ? c.default_loan_days : state.loanDays,
+                    interestPeriod: displayPeriod,
+                    loanDays: displayLoanDays,
                     interestType: c ? c.interest_type_id : state.interestType,
                     isUpfrontInterest: c ? !!c.is_upfront_interest : state.isUpfrontInterest,
                   });
